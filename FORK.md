@@ -80,6 +80,10 @@ C:\Program Files\Autodesk\Revit\Addins\2027
 
 Both `deploy.ps1` and the distribution installer (`distribution/lib/RevitDeploy.ps1`) installed to `ProgramData` and then **deleted the per-user copy** to avoid duplicates. On Revit 2027 that leaves no valid copy at all: the RevitCortex ribbon disappears and the MCP server has nothing to talk to.
 
+### Duplicate add-in ID
+
+Upstream used the placeholder add-in ID `A1B2C3D4-E5F6-7890-ABCD-EF1234567890`. With a stale RevitCortex manifest left in the Revit 2027 all-users folder (`C:\Program Files\Autodesk\Revit\Addins\2027`), Revit registered that ID twice in different load contexts: it reported a duplicate add-in ID (attributed to Autodesk's FormaOpenIn), and the ribbon came from one copy while button clicks reached the other, which answered "plugin not initialized". RVT Vortex now has its own add-in ID (`50E95FD2-C886-49CC-A887-FDA65FA86CD1`), so it can also coexist with an original RevitCortex install, and the installers remove a stale manifest from that folder (or warn when they lack admin rights).
+
 ### The fix
 
 For Revit 2027 and later, both scripts install to the per-user folder (`%APPDATA%\Autodesk\Revit\Addins\2027`), which Revit still loads, and remove the ignored `ProgramData` copy. Revit 2023–2026 are unchanged.

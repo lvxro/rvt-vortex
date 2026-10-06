@@ -94,6 +94,17 @@ function Copy-RevitAddin {
     # Use user scope only; the stale machine copy is still wiped below.
     if ([int]$Version -ge 2027) {
         $scopes = @( @{ Name = 'user'; Root = $userRoot; Other = $machineRoot } )
+
+        # A RevitCortex manifest left in the 2027+ all-users folder (Program Files)
+        # is loaded alongside this one. Two copies register the plugin twice in
+        # different load contexts: the ribbon comes from one, button clicks reach
+        # the other ("plugin not initialized"), and Revit reports a duplicate
+        # add-in ID. Remove it (needs admin; warn if we can't).
+        $pfManifest = Join-Path ${env:ProgramFiles} "Autodesk\Revit\Addins\$Version\RevitCortex.addin"
+        if (Test-Path $pfManifest) {
+            try { Remove-Item $pfManifest -Force -ErrorAction Stop }
+            catch { Write-Host "  WARNING: remove $pfManifest by hand (needs administrator) — it loads a second copy of the plugin." -ForegroundColor Yellow }
+        }
     }
 
     $lastError = $null

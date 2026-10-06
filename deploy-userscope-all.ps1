@@ -14,7 +14,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = $PSScriptRoot
-$AddInId = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+$AddInId = "50E95FD2-C886-49CC-A887-FDA65FA86CD1"
 $FullClassName = "RevitCortex.Plugin.RevitCortexApp"
 
 # Pre-flight: Revit must be closed (DLLs locked otherwise).

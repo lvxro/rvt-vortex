@@ -31,7 +31,7 @@ $UserAddinsDir = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
 $TargetDir = Join-Path $UserAddinsDir "RevitCortexDev"
 
 # Fixed AddInId dedicated to the dev profile. Must differ from the prod GUID
-# (A1B2C3D4-E5F6-7890-ABCD-EF1234567890 in RevitCortex.addin) — two manifests
+# (50E95FD2-C886-49CC-A887-FDA65FA86CD1 in RevitCortex.addin; was the placeholder A1B2C3D4-E5F6-7890-ABCD-EF1234567890 upstream) — two manifests
 # sharing an AddInId collide in Revit even with different Assembly paths.
 $DevAddInId = "d3f8a2c4-9b1e-4e5f-8a7c-2f6d0b9e4a11"
 

@@ -17,7 +17,7 @@
 #define MyAppURL "https://github.com/LuDattilo/RevitCortex"
 
 [Setup]
-AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
+AppId={{50E95FD2-C886-49CC-A887-FDA65FA86CD1}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}

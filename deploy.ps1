@@ -60,6 +60,14 @@ dotnet publish -c "$Configuration" "$RepoRoot\src\RevitCortex.Tools\RevitCortex.
 if ($LASTEXITCODE -ne 0) { throw "Tools publish failed" }
 
 if ($UseUserScope) {
+    # --- R27+: a manifest in the all-users Program Files folder loads a second
+    # copy of the plugin (duplicate add-in ID, "not initialized" buttons). ---
+    $pfManifest = Join-Path ${env:ProgramFiles} "Autodesk\Revit\Addins\$RevitVersion\RevitCortex.addin"
+    if (Test-Path $pfManifest) {
+        try { Remove-Item $pfManifest -Force -ErrorAction Stop; Write-Host "Removed duplicate manifest: $pfManifest" -ForegroundColor Yellow }
+        catch { Write-Host "Remove $pfManifest by hand (needs admin): it loads a second copy of the plugin." -ForegroundColor Red }
+    }
+
     # --- R27+: remove the stale machine-scope copy (Revit ignores it anyway) ---
     try {
         if (Test-Path $MachineTargetDir) {

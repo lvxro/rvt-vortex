@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RevitAddIns>
   <AddIn Type="Application">
-    <Name>RevitCortex</Name>
+    <Name>RVT Vortex</Name>
     <Assembly>RevitCortex\RevitCortex.Plugin.dll</Assembly>
     <FullClassName>RevitCortex.Plugin.RevitCortexApp</FullClassName>
-    <AddInId>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</AddInId>
+    <AddInId>50E95FD2-C886-49CC-A887-FDA65FA86CD1</AddInId>
     <VendorId>RevitCortex</VendorId>
-    <VendorDescription>RevitCortex MCP Server for Autodesk Revit</VendorDescription>
+    <VendorDescription>RVT Vortex (RevitCortex fork) MCP server for Autodesk Revit - https://github.com/lvxro/rvt-vortex</VendorDescription>
   </AddIn>
 </RevitAddIns>
