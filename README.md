@@ -133,8 +133,10 @@ In Revit, click **Vortex Switch** (it turns orange), then ask your AI client:
 ## The ribbon
 
 <p align="center">
-  <img src="docs/assets/ribbon.png" alt="RVT Vortex ribbon panel in Revit 2027: Vortex Switch, Autopilot (Piloto automático), Settings, License, Power BI export, Report a bug" width="560"><br>
-  <sub>The RVT Vortex panel in Revit 2027, shown in Spanish because the UI follows the Windows language. Both toggles are grey while off.</sub>
+  <img src="docs/assets/ribbon.png" alt="RVT Vortex ribbon panel in Revit 2027: Vortex Switch, Autopilot, Settings, Power BI export, Report a bug" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/assets/autopilot-pill.png" alt="Autopilot status pill: Autopilot, idle, Stop" width="420"><br>
+  <sub>The RVT Vortex panel and the Autopilot status pill in Revit 2027, shown in Spanish because the UI follows the Windows language.</sub>
 </p>
 
 | Button | |
