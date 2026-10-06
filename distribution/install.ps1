@@ -151,7 +151,33 @@ if (-not (Test-Path $serverSource)) {
     exit 1
 }
 
-if (Test-Path $serverTarget) { Remove-Item $serverTarget -Recurse -Force }
+# The MCP client (Claude Desktop, Claude Code, Cursor...) keeps RevitCortex.Server.exe
+# running while it is open, which locks clrjit.dll and the other server files.
+# Stop it first; the client restarts it on its next launch.
+$running = Get-Process -Name 'RevitCortex.Server' -ErrorAction SilentlyContinue
+if ($running) {
+    Write-Host "  Stopping the running MCP server ($($running.Count) process(es)). Restart your AI client (e.g. Claude Desktop) afterwards." -ForegroundColor Yellow
+    $running | Stop-Process -Force -ErrorAction SilentlyContinue
+    try { $running | Wait-Process -Timeout 10 -ErrorAction SilentlyContinue } catch {}
+}
+
+if (Test-Path $serverTarget) {
+    $removed = $false
+    for ($attempt = 1; $attempt -le 5 -and -not $removed; $attempt++) {
+        try {
+            Remove-Item $serverTarget -Recurse -Force -ErrorAction Stop
+            $removed = $true
+        } catch {
+            if ($attempt -eq 5) {
+                Write-Host "  ERROR: Could not replace $serverTarget — a file is still in use." -ForegroundColor Red
+                Write-Host "  Quit your AI client completely (Claude Desktop: tray icon > Quit) and run the installer again." -ForegroundColor Red
+                if (-not $Silent) { Read-Host "Press Enter to exit" }
+                exit 1
+            }
+            Start-Sleep -Seconds 2
+        }
+    }
+}
 New-Item -ItemType Directory -Path $serverTarget -Force | Out-Null
 Copy-Item "$serverSource\*" $serverTarget -Recurse -Force
 
