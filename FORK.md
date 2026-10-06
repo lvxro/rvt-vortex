@@ -87,7 +87,7 @@ Upstream used the placeholder add-in ID `A1B2C3D4-E5F6-7890-ABCD-EF1234567890`. 
 - Revit refuses to start FormaOpenIn ("duplicate add-in ID" dialog on every launch).
 - Ribbon commands are resolved by add-in ID, land in Forma's load context, and load a second copy of the plugin whose startup never ran, so every button answers "plugin not initialized".
 
-RVT Vortex now has its own ID (`50E95FD2-C886-49CC-A887-FDA65FA86CD1`), which fixes both and also lets it coexist with an original RevitCortex install. Confirmed on Revit 2027: with the new ID both toggles work and the Forma dialog is gone. The installers also remove a stale RevitCortex manifest from the 2027 all-users folder (`C:\Program Files\Autodesk\Revit\Addins\2027`), or warn when they lack admin rights.
+RVT Vortex now has its own ID (`50E95FD2-C886-49CC-A887-FDA65FA86CD1`), which fixes both and also lets it coexist with an original RevitCortex install. Confirmed on Revit 2027: with the new ID both toggles work. The installers also remove a stale RevitCortex manifest from the 2027 all-users folder (`C:\Program Files\Autodesk\Revit\Addins\2027`), or warn when they lack admin rights.
 
 ### The fix
 
