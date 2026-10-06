@@ -13,7 +13,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "   RevitCortex Uninstaller" -ForegroundColor Cyan
+Write-Host "   RVT Vortex Uninstaller" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

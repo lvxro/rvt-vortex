@@ -1,19 +1,20 @@
 @echo off
-title RevitCortex Installer
+title RVT Vortex Installer
 echo.
 echo ========================================
-echo    RevitCortex Installer
+echo    RVT Vortex Installer
 echo ========================================
 echo.
-echo Avvio installazione...
+echo Starting installation...
 echo.
 
 powershell -ExecutionPolicy Bypass -File "%~dp0install.ps1"
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo [ERRORE] Installazione fallita.
-    echo Prova ad eseguire come Amministratore: tasto destro ^> Esegui come amministratore
+    echo [ERROR] Installation failed.
+    echo Read the red message above. If a file is in use, quit your AI client completely
+echo (Claude Desktop: tray icon ^> Quit) and run this again. Otherwise try right-click ^> Run as administrator.
     echo.
 )
 

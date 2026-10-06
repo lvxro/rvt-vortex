@@ -1,5 +1,6 @@
-RevitCortex - AI Assistant for Autodesk Revit
-==============================================
+RVT Vortex - AI Assistant for Autodesk Revit
+(a fork of RevitCortex: https://github.com/lvxro/rvt-vortex)
+=============================================
 
 1. Right-click install.ps1 → "Run with PowerShell"
 2. Follow the on-screen prompts

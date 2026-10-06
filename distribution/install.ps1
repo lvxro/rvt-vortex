@@ -25,7 +25,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "   RevitCortex Installer" -ForegroundColor Cyan
+Write-Host "   RVT Vortex Installer" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
