@@ -106,14 +106,6 @@ Not localized yet: the Settings window and the Power BI export window keep their
 
 ---
 
-## 5. No license gate
-
-Upstream ships a "RevitCortex Premium" license with a trial; without a valid license, every tool that edits the model is blocked, and activation keys come from the original author's service. RVT Vortex is plain open source: the license gate is never initialized (the router treats a missing gate as "allow everything"), the License & Account button is gone from the ribbon, and "Premium" no longer appears in the UI. The licensing code stays in the tree, unused, so upstream's tests keep compiling.
-
-The update notification (previously Italian-only) now follows the Windows language.
-
----
-
 ## 4. AI guidance refresh
 
 The project is about nine months old and its guidance for the AI had drifted from the code. Fixed:
@@ -126,6 +118,15 @@ The project is about nine months old and its guidance for the AI had drifted fro
 - **Tool descriptions:** the most used and most expensive tools now carry their usage hints (`compact`, `summaryOnly`, limits, cheapest-first health checks) in their own descriptions.
 
 Fixed in `CLAUDE.md`, `AGENTS.md`, `WORKFLOWS.md` and the `ai-skills` tool-selection reference. A note at the top of `CLAUDE.md`/`AGENTS.md` points to the files every client reads, to prevent the same drift.
+
+
+---
+
+## 5. No license gate
+
+Upstream ships a "RevitCortex Premium" license with a trial; without a valid license, every tool that edits the model is blocked, and activation keys come from the original author's service. RVT Vortex is plain open source: the license gate is never initialized (the router treats a missing gate as "allow everything"), the License & Account button is gone from the ribbon, and "Premium" no longer appears in the UI. The licensing code stays in the tree, unused, so upstream's tests keep compiling.
+
+The update notification (previously Italian-only) now follows the Windows language.
 
 ---
 
