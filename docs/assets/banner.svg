@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="400" viewBox="0 0 1280 400" role="img" aria-label="RVT Vortex — let AI keep working in Autodesk Revit">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2B3540"/>
+      <stop offset="1" stop-color="#1B2128"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="250" cy="200" r="230" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D97757" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#D97757" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="400" rx="28" fill="url(#bg)"/>
+  <circle cx="250" cy="200" r="230" fill="url(#glow)"/>
+  <path d="M268.0,200.0 A18,18 0 1 1 233.1,193.8" stroke="#D97757" stroke-width="7.0" stroke-linecap="round" fill="none" opacity="1.00"/><path d="M272.9,217.9 A29,29 0 1 1 232.1,177.1" stroke="#D97757" stroke-width="6.7" stroke-linecap="round" fill="none" opacity="0.94"/><path d="M259.7,238.8 A40,40 0 1 1 245.8,160.2" stroke="#D97757" stroke-width="6.4" stroke-linecap="round" fill="none" opacity="0.89"/><path d="M229.3,246.6 A51,51 0 1 1 272.4,154.2" stroke="#D97757" stroke-width="6.0" stroke-linecap="round" fill="none" opacity="0.83"/><path d="M195.3,229.1 A62,62 0 0 1 302.6,167.1" stroke="#D97757" stroke-width="5.7" stroke-linecap="round" fill="none" opacity="0.78"/><path d="M178.1,187.3 A73,73 0 0 1 323.0,200.0" stroke="#D97757" stroke-width="5.4" stroke-linecap="round" fill="none" opacity="0.72"/><path d="M193.8,137.6 A84,84 0 0 1 321.2,244.5" stroke="#D97757" stroke-width="5.1" stroke-linecap="round" fill="none" opacity="0.67"/><path d="M243.4,105.2 A95,95 0 0 1 291.6,285.4" stroke="#D97757" stroke-width="4.8" stroke-linecap="round" fill="none" opacity="0.61"/><path d="M309.3,112.1 A106,106 0 0 1 238.9,305.4" stroke="#D97757" stroke-width="4.4" stroke-linecap="round" fill="none" opacity="0.56"/><path d="M361.3,163.8 A117,117 0 0 1 178.0,292.2" stroke="#D97757" stroke-width="4.1" stroke-linecap="round" fill="none" opacity="0.51"/><path d="M370.3,243.8 A128,128 0 0 1 129.7,243.8" stroke="#D97757" stroke-width="3.8" stroke-linecap="round" fill="none" opacity="0.45"/><path d="M323.7,317.9 A139,139 0 0 1 114.0,171.1" stroke="#D97757" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.40"/><path d="M234.3,349.2 A150,150 0 0 1 142.1,95.8" stroke="#D97757" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="0.34"/><path d="M138.2,315.8 A161,161 0 0 1 211.1,43.8" stroke="#D97757" stroke-width="2.8" stroke-linecap="round" fill="none" opacity="0.29"/>
+  <circle cx="250" cy="200" r="9" fill="#F3E3DC"/>
+  <text x="470" y="185" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="92" font-weight="700" fill="#FFFFFF" letter-spacing="-1">RVT <tspan fill="#D97757">Vortex</tspan></text>
+  <text x="474" y="245" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="30" fill="#C9D1D9">Let AI keep working in Autodesk Revit —</text>
+  <text x="474" y="285" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="30" fill="#C9D1D9">even when you walk away.</text>
+  <text x="474" y="338" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="20" fill="#8B98A5">MCP server · 288 tools · Revit 2023–2027 · Autopilot</text>
+</svg>

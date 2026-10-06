@@ -137,7 +137,7 @@ With Revit closed, run **`INSTALL.bat`**. It will:
 3. Back up the current installation to the Desktop.
 4. Build and install with `deploy.ps1`.
 
-The installer's messages follow the Windows language (English or Spanish). To build by hand, see "Building from Source" in the [README](README.md).
+The installer's messages follow the Windows language (English or Spanish). To build by hand, see "Building from Source" in the [original README](docs/REVITCORTEX_README.md#building-from-source).
 
 ## Status
 
