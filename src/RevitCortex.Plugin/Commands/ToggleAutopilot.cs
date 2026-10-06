@@ -28,8 +28,8 @@ public class ToggleAutopilot : IExternalCommand
             var session = app?.Session;
             if (app == null || session == null)
             {
-                message = Localization.T("conn.not_initialized");
-                return Result.Failed;
+                StartupGuard.ShowNotInitialized();
+                return Result.Cancelled;
             }
 
             if (session.UnattendedMode)

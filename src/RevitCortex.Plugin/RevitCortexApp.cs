@@ -36,6 +36,16 @@ public class RevitCortexApp : IExternalApplication
     public static RevitCortexApp? Instance { get; private set; }
 
     /// <summary>
+    /// Exception text if OnStartup failed after the ribbon was created. The
+    /// ribbon buttons stay visible in that case, so commands show this instead
+    /// of a bare "not initialized". Also written to startup-error.log.
+    /// </summary>
+    public static string? StartupError { get; private set; }
+
+    public static string StartupErrorLogPath =>
+        System.IO.Path.Combine(CortexEnvironment.Current.RootFolder, "startup-error.log");
+
+    /// <summary>
     /// Fired on the calling thread whenever the server starts, stops, or crashes.
     /// Subscribers must marshal to the UI thread themselves if needed.
     /// </summary>
@@ -177,6 +187,8 @@ public class RevitCortexApp : IExternalApplication
 
             Telemetry.TelemetryBootstrap.PromptConsentIfNeeded();
 
+            try { if (System.IO.File.Exists(StartupErrorLogPath)) System.IO.File.Delete(StartupErrorLogPath); }
+            catch { /* stale log is harmless */ }
             return Result.Succeeded;
         }
         catch (Exception ex)
@@ -184,6 +196,14 @@ public class RevitCortexApp : IExternalApplication
             Telemetry.TelemetryBootstrap.Reporter?.Record("_startup", false, "Unknown",
                 ex.Message, failureStage: "startup", durationMs: 0, responseBytes: 0);
             System.Diagnostics.Trace.WriteLine($"[RevitCortex] Startup failed: {ex}");
+            StartupError = ex.ToString();
+            try
+            {
+                System.IO.Directory.CreateDirectory(CortexEnvironment.Current.RootFolder);
+                System.IO.File.WriteAllText(StartupErrorLogPath,
+                    $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}  RVT Vortex {Assembly.GetExecutingAssembly().GetName().Version}\n{ex}\n");
+            }
+            catch { /* diagnostics must never throw */ }
             return Result.Failed;
         }
     }

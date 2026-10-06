@@ -541,6 +541,18 @@ internal static class Localization
             ["es"] = "El complemento no está inicializado.",
             ["it"] = "Plugin non inizializzato.",
         },
+        ["conn.not_initialized_detail"] = new()
+        {
+            ["en"] = "RVT Vortex failed while starting, so this button can't run. Expand the details below for the error; it was also saved to:\n{0}\n\nPlease include it when you report the bug.",
+            ["es"] = "RVT Vortex falló al iniciar, por eso este botón no puede funcionar. Despliegue los detalles de abajo para ver el error; también se guardó en:\n{0}\n\nInclúyalo al reportar el problema.",
+            ["it"] = "RVT Vortex non si è avviato correttamente, quindi questo pulsante non può funzionare. Espandi i dettagli qui sotto per l'errore; è stato salvato anche in:\n{0}\n\nIncludilo quando segnali il problema.",
+        },
+        ["conn.not_initialized_unknown"] = new()
+        {
+            ["en"] = "RVT Vortex did not finish starting and no error was recorded. Restart Revit; if it happens again, report it with the latest Revit journal.",
+            ["es"] = "RVT Vortex no terminó de iniciar y no quedó registrado ningún error. Reinicie Revit; si vuelve a pasar, repórtelo junto con el último journal de Revit.",
+            ["it"] = "RVT Vortex non ha completato l'avvio e non è stato registrato alcun errore. Riavvia Revit; se succede di nuovo, segnalalo con l'ultimo journal di Revit.",
+        },
         ["conn.stopped"] = new()
         {
             ["en"] = "Server stopped.",

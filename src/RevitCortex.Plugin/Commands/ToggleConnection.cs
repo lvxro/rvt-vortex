@@ -14,10 +14,10 @@ public class ToggleConnection : IExternalCommand
         try
         {
             var app = RevitCortexApp.Instance;
-            if (app == null)
+            if (app == null || app.Session == null || app.Router == null)
             {
-                TaskDialog.Show("RVT Vortex", Localization.T("conn.not_initialized"));
-                return Result.Failed;
+                StartupGuard.ShowNotInitialized();
+                return Result.Cancelled;
             }
 
             if (app.IsServiceRunning)
