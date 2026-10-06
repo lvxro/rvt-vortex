@@ -1,5 +1,7 @@
 # RevitCortex -- AI Assistant Guide
 
+> **Where the AI reads this:** this file is read only by coding agents working inside the repo. Clients like Claude Desktop never see it — the operating rules every client receives live in `ServerInstructions` (`src/RevitCortex.Server/Program.cs`) and in each tool's `Description` (`src/RevitCortex.Server/Tools/`). When you change a usage rule here, update those too.
+
 ## AI Skill Router
 
 Per task operativi BIM o di sviluppo C#, la knowledge base è organizzata in `ai-skills/revitcortex/`.
@@ -84,7 +86,7 @@ RevitCortex/
   src/RevitCortex.Server/     C# MCP server (stdio transport)
     Program.cs                  Entry point (MCP hosting)
     Connection/RevitBridge.cs   TCP bridge to Plugin
-    Tools/                      288 tool definitions (9 files)
+    Tools/                      ~290 MCP tool definitions (13 files)
 ```
 
 ## Architecture: Layer Cake
@@ -223,11 +225,11 @@ Tools that accept `compact`: `get_element_parameters`, `get_available_family_typ
 
 RevitCortex defaults are calibrated for completeness, not efficiency. Override these when appropriate.
 
-**get_project_info**: The **first call** of the session must be complete (all includes = true) to establish model context. Subsequent calls should filter: `{"includeLevels": false, "includeLinks": false, "includePhases": false, "includeWorksets": false}`.
+**get_project_info**: Call it once per session to establish model context (levels and phases are on by default; turn on `includeWorksets`/`includeLinks` only if needed). Subsequent calls should filter: `{"includeLevels": false, "includePhases": false}`.
 
 **get_element_parameters**: Leave `includeTypeParameters` at `true` (default) for most workflows. Override to `false` only for counting/statistics tasks where only instance data is needed. Use `compact: true` to strip metadata (hasValue/isReadOnly/isShared/storageType/groupName) and skip empty params — typical 60-70% payload reduction.
 
-**get_warnings**: Never use default 500 in normal operations. Use `maxWarnings: 10` for quick checks, `maxWarnings: 50` for category analysis.
+**get_warnings**: The default is 50. Use `maxWarnings: 10` for quick checks; 50 is enough for category analysis.
 
 **export_room_data**: Use `maxResults: 20` unless the full building is needed.
 
@@ -261,7 +263,8 @@ When multiple tools can achieve the same goal, use the most targeted one.
 
 **Finding elements**:
 - Simple filter (1 parameter, exact value) -> `export_elements_data` with `filterParameterName`/`filterValue`
-- Complex filter (ranges, AND/OR, multi-parameter) -> `ai_element_filter`
+- Parameter conditions (ranges, AND/OR, several parameters) -> `filter_by_parameter_value` with the `conditions` array
+- Category / class / family / level / bounding box -> `ai_element_filter` (it does NOT filter on parameter values)
 - Current view elements -> `get_current_view_elements` with `fields` and `limit`
 - Elements in a room/volume -> `get_elements_in_spatial_volume` with `categoryFilter` and reduced `maxElementsPerVolume`
 - **Elements with empty custom parameter** -> NEVER guess parameter names. First: `get_element_parameters` on 1 sample element to discover exact names. Then: `export_elements_data` with `parameterNames` + `filter_by_parameter_value` with `condition: "is_empty"`. Do NOT use `send_code_to_revit` -- unnecessary and fragile with DLL conflicts (archintelligence, BIM360).
@@ -385,9 +388,9 @@ The ribbon toggle **Autopilot** (`Commands/ToggleAutopilot.cs`, grey when off, o
 
 ## UI Components
 
-The plugin includes a Revit ribbon panel with two buttons (Cortex Switch, Settings) and a settings window for port, log level, and tool visibility.
+The plugin includes a Revit ribbon panel with two large toggles (Cortex Switch, Autopilot — grey off / orange on) and stacked buttons (Settings, License & Account, Power BI Export, Send log to support), plus a settings window for port, log level, and tool visibility.
 
-- **Commands/** -- IExternalCommand classes: ToggleConnection, OpenSettings
+- **Commands/** -- IExternalCommand classes: ToggleConnection, ToggleAutopilot, OpenSettings, OpenLicense, OpenPowerBiExport, SendSupportReport, StopAutoMode
 - **UI/SettingsWindow** -- General settings, tools enable/disable
 - **UI/IconFactory** -- Generates ribbon icons programmatically (no PNG files)
 - **UI/ConfirmationHelper** -- TaskDialog for destructive operations
@@ -406,7 +409,7 @@ Deploys Plugin + Tools to `C:\ProgramData\Autodesk\Revit\Addins\2025\RevitCortex
 
 ## IMPORTANT: Detect Revit Language First
 
-Revit localizes category and parameter names based on installation language (EN, IT, FR, DE, etc.). **Do NOT assume the language.** At the start of every session, call `get_element_parameters` on any element (or `get_project_info`) and check the parameter names in the response:
+Revit localizes category and parameter names based on installation language (EN, IT, FR, DE, etc.). **Do NOT assume the language.** At the start of every session, call `say_hello`: it returns the detected `locale` (en/it/fr/de/es) at almost no cost. Prefer OST_* category codes, which are language-independent, and read exact parameter names from one sample element with `get_element_parameters` (compact: true). If you need to confirm the language from parameter names:
 
 - If you see "Level", "Comments", "Type Name" -- English
 - If you see "Livello", "Commenti", "Nome del tipo" -- Italiano
@@ -418,8 +421,8 @@ Then use the corresponding column from the locale mapping tables below for ALL s
 ## Tool-Specific Corrections
 
 ### `ai_element_filter`
-- **REQUIRED:** `data` wrapper object -- do NOT pass filter params at root level
-- Example: `{"data": {"filterCategory": "OST_StructuralFraming", "includeInstances": true, "maxElements": 5}}`
+- Pass parameters flat — the MCP server wraps them in the `data` object the plugin expects. Do NOT add a `data` wrapper yourself.
+- Example: `{"filterCategory": "OST_StructuralFraming", "includeInstances": true, "maxElements": 5}`
 
 ### `filter_by_parameter_value`
 - When filtering on type parameters (e.g., type name), set `parameterType: "type"`
@@ -440,8 +443,8 @@ Then use the corresponding column from the locale mapping tables below for ALL s
 - Best to run alone or with minimal concurrent writes
 
 ### `operate_element`
-- **REQUIRED:** `data` wrapper object
-- Example: `{"data": {"elementIds": [123], "action": "select"}}`
+- Pass parameters flat — the MCP server wraps them in `data` itself. Do NOT add a `data` wrapper.
+- Example: `{"elementIds": [123], "action": "select"}`
 
 ### `send_code_to_revit`
 
@@ -466,7 +469,7 @@ Specific guidance:
 When a tool requires user selection or interaction that cannot be automated:
 1. **Never block** -- if the user needs to select elements, instruct them and wait for the next message
 2. **Use `get_selected_elements`** -- if the user says "selected elements", call this first. If empty, ask them to select
-3. **Cancelled operations** -- if a tool returns `cancelled: true`, acknowledge it and ask if they want to retry
+3. **Cancelled operations** -- if a tool returns `Cancelled`, acknowledge it and ask if they want to retry. Exception: if the message mentions unattended mode / Autopilot, the user is away — do not ask; skip the step, continue, and list it as pending in the final summary
 4. **dryRun pattern** -- for destructive operations, run with `dryRun: true` first to preview the results, then with `dryRun: false` to execute. The confirmation dialog will ask the user
 5. **Script escalation** -- if the task would benefit from `send_code_to_revit` (bulk ops, complex logic, 100+ elements), DO NOT switch automatically. Ask the user: propose the script approach AND the native-tool approach, explain the trade-offs, and wait for their choice. The native approach may require more tool calls but is always safer and more traceable.
 

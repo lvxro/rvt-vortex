@@ -20,7 +20,8 @@
 | Caso | Tool | Note |
 |---|---|---|
 | 1 parametro, valore esatto | `export_elements_data` con `filterParameterName`/`filterValue` | Veloce |
-| Range / AND-OR / multi-param | `ai_element_filter` | Wrappare in `{"data": {...}}` |
+| Range / AND-OR / multi-param | `filter_by_parameter_value` | Array `conditions` + `logic` |
+| Categoria / livello / bounding box | `ai_element_filter` | Parametri in piano (il server aggiunge `data`); NON filtra sui valori |
 | Elementi vista attiva | `get_current_view_elements` con `fields` e `limit` | |
 | Volume/stanza | `get_elements_in_spatial_volume` con `categoryFilter` | |
 | Parametro custom vuoto | NON guess: prima `get_element_parameters` su 1 elemento campione per scoprire i nomi | Mai assumere il formato del nome |

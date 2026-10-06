@@ -152,11 +152,12 @@ Ogni flusso e stato ricavato dalla documentazione operativa del progetto e testa
 
 **Sequenza (scegliere in base alla complessita):**
 1. Filtro semplice (1 parametro, valore esatto): `export_elements_data` con `filterParameterName`/`filterValue`
-2. Filtro complesso (range, AND/OR, multi-parametro): `ai_element_filter`
+2. Condizioni sui parametri (range, AND/OR, multi-parametro): `filter_by_parameter_value` con l'array `conditions`
+2b. Categoria / classe / famiglia / livello / bounding box: `ai_element_filter` (NON filtra sui valori dei parametri)
 3. Elementi nella vista attiva: `get_current_view_elements` con `fields` e `limit`
 4. Elementi in un volume/stanza: `get_elements_in_spatial_volume` con `categoryFilter` e `maxElementsPerVolume` ridotto
 **Parametri chiave:**
-- `ai_element_filter`: OBBLIGATORIO wrappare i parametri in un oggetto `data`: `{"data": {"filterCategory": "OST_Walls", ...}}`
+- `ai_element_filter`: passare i parametri in piano — il server MCP li avvolge da solo nell'oggetto `data`. NON aggiungere il wrapper: `{"filterCategory": "OST_Walls", ...}`
 - `get_current_view_elements`: specificare `fields` per ridurre i dati restituiti
 - `get_elements_in_spatial_volume`: specificare `categoryFilter` e limitare `maxElementsPerVolume`
 **NON fare:** Non usare `ai_element_filter` con `maxElements: 1000` senza necessita. Non usare `audit_families` globale per trovare una singola categoria.
@@ -378,8 +379,8 @@ Ogni flusso e stato ricavato dalla documentazione operativa del progetto e testa
 
 **Sequenza:** Passare i parametri dentro un oggetto `data`
 **Parametri chiave:**
-- `operate_element`: `{"data": {"elementIds": [123], "action": "select"}}`
-- `ai_element_filter`: `{"data": {"filterCategory": "OST_StructuralFraming", "includeInstances": true, "maxElements": 5}}`
+- `operate_element`: `{"elementIds": [123], "action": "select"}` (parametri in piano, senza wrapper `data`)
+- `ai_element_filter`: `{"filterCategory": "OST_StructuralFraming", "includeInstances": true, "maxElements": 5}` (parametri in piano, senza wrapper `data`)
 **NON fare:** Non passare i parametri al livello root -- il tool fallira.
 
 **Fonte:** CLAUDE.md (Tool-Specific Corrections)

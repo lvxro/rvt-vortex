@@ -70,7 +70,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view.")]
+    [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view. Filter with modelCategoryList / annotationCategoryList (preferred over the legacy categoryFilter), pick only the fields you need and keep limit low.")]
     public static async Task<string> GetCurrentViewElements(
         RevitConnectionManager revit,
         [Description("Maximum number of elements to return")] int? limit = 50,
@@ -216,7 +216,7 @@ public static class ViewTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_schedule_data"), Description("Export schedule data as JSON from an existing schedule view.")]
+    [McpServerTool(Name = "get_schedule_data"), Description("Export schedule data as JSON from an existing schedule view. Always set maxRows when inspecting; pull all rows only when exporting.")]
     public static async Task<string> GetScheduleData(
         RevitConnectionManager revit,
         [Description("Schedule view element ID")] long scheduleId,

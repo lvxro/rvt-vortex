@@ -8,14 +8,14 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class MetaTools
 {
-    [McpServerTool(Name = "say_hello"), Description("Test MCP connection to RevitCortex. Displays a greeting in Revit.")]
+    [McpServerTool(Name = "say_hello"), Description("Cheap connection check — call once at the start. Returns the detected Revit UI locale (en/it/fr/de/es), which tells you the language of category and parameter display names. Shows nothing in Revit.")]
     public static async Task<string> SayHello(RevitConnectionManager revit, CancellationToken ct)
     {
         var result = await revit.ExecuteAsync("say_hello", new JObject(), ct);
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_project_info"), Description("Get project name, address, levels, phases, worksets, and links from the active Revit document.")]
+    [McpServerTool(Name = "get_project_info"), Description("Get project name, address, levels, phases, worksets and links from the active Revit document. Call once per session; later calls should set includeLevels/includePhases to false (worksets and links are off by default).")]
     public static async Task<string> GetProjectInfo(
         RevitConnectionManager revit,
         [Description("Include levels in the response")] bool includeLevels = true,

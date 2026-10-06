@@ -5,6 +5,7 @@ This repository is a fork of [LuDattilo/revitcortex](https://github.com/LuDattil
 1. **Autopilot** — give the AI a long task, walk away, and nothing stalls it.
 2. **Revit 2027 install fix** — with the original installers the plugin does not load in Revit 2027.
 3. **Interface refresh and localization** — a consistent ribbon with on/off states, and UI text that follows the Windows display language (English, Spanish, Italian).
+4. **AI guidance refresh** — fixes guidance that had drifted from the code and makes the usage rules reach every MCP client.
 
 License: MIT, same as the original.
 
@@ -88,6 +89,21 @@ For Revit 2027 and later, both scripts install to the per-user folder (`%APPDATA
 - **Localization:** UI language now follows the **Windows display language** first (Revit's language and the thread culture are fallbacks). Spanish was added to every existing localized string. The new ribbon labels, confirmation dialogs, Autopilot dialog, floating window and log come in English, Spanish and Italian.
 
 Not localized yet: the Settings window and the Power BI export window keep their original text.
+
+---
+
+## 4. AI guidance refresh
+
+The project is about nine months old and its guidance for the AI had drifted from the code. Fixed:
+
+- **Rules now reach every client.** The detailed usage guide lived in `CLAUDE.md`, which only coding agents working inside the repo read; Claude Desktop never sees it. The essentials (language detection, tool choice, token limits, dry runs, cancellations, Autopilot, scripts) are now in the MCP `ServerInstructions` that every client receives on connect.
+- **`ai_element_filter` / `operate_element`:** the guides said a `data` wrapper was *required*, but the MCP server already adds it. Following the guide produced failing calls. They now say to pass parameters flat.
+- **Parameter filters:** the guides sent range/AND-OR parameter filters to `ai_element_filter`, which does not filter on parameter values; they now point to `filter_by_parameter_value` with its `conditions` array.
+- **Stale defaults:** `get_warnings` defaults to 50 (not 500); `get_project_info` already leaves worksets and links off.
+- **Language detection:** `say_hello` returns the detected locale at almost no cost; its description wrongly said it showed a greeting in Revit.
+- **Tool descriptions:** the most used and most expensive tools now carry their usage hints (`compact`, `summaryOnly`, limits, cheapest-first health checks) in their own descriptions.
+
+Fixed in `CLAUDE.md`, `AGENTS.md`, `WORKFLOWS.md` and the `ai-skills` tool-selection reference. A note at the top of `CLAUDE.md`/`AGENTS.md` points to the files every client reads, to prevent the same drift.
 
 ---
 

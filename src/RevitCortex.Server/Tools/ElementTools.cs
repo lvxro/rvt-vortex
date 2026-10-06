@@ -8,7 +8,7 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class ElementTools
 {
-    [McpServerTool(Name = "get_element_parameters"), Description("Get all parameters of specific elements by their Revit element IDs.")]
+    [McpServerTool(Name = "get_element_parameters"), Description("Get all parameters of specific elements by element ID. Also the way to learn exact (localized) parameter names: call it on ONE sample element. Use compact:true to cut the payload by ~60-70% (name+value only, empty parameters skipped).")]
     public static async Task<string> GetElementParameters(
         RevitConnectionManager revit,
         [Description("Array of Revit element IDs to query")] long[] elementIds,
@@ -159,7 +159,7 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "find_untagged_elements"), Description("Find elements without tags in a view")]
+    [McpServerTool(Name = "find_untagged_elements"), Description("Find elements without tags in a view (the active view when viewId is omitted). Filter by category to keep the result small.")]
     public static async Task<string> FindUntaggedElements(
         RevitConnectionManager revit,
         [Description("Category to filter (e.g. Walls, Doors)")] string? category = null,

@@ -9,7 +9,7 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class ProjectTools
 {
-    [McpServerTool(Name = "get_warnings"), Description("Get model warnings from the active Revit document.")]
+    [McpServerTool(Name = "get_warnings"), Description("Get model warnings from the active Revit document. Use maxWarnings 10 for a quick check, 50 to group by type; avoid larger values unless exporting.")]
     public static async Task<string> GetWarnings(
         RevitConnectionManager revit,
         [Description("Maximum number of warnings to return")] int maxWarnings = 50,
@@ -70,7 +70,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_available_family_types"), Description("List available family types in the Revit project.")]
+    [McpServerTool(Name = "get_available_family_types"), Description("List available family types in the Revit project. Filter with categoryList (array, e.g. [\"OST_Doors\"]) and familyNameFilter, and use compact:true for browsing; full rows only when you need a type ID's details.")]
     public static async Task<string> GetAvailableFamilyTypes(
         RevitConnectionManager revit,
         [Description("Filter by category names (OST codes, English, or localized labels)")] string[]? categoryList = null,
@@ -98,7 +98,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "check_model_health"), Description("Run a model health check and return a health score.")]
+    [McpServerTool(Name = "check_model_health"), Description("Run a model health check and return a health score with the main issues. The cheapest overview of a model (~200 tokens); start here before analyze_model_statistics or workflow_model_audit.")]
     public static async Task<string> CheckModelHealth(
         RevitConnectionManager revit,
         CancellationToken ct = default)
@@ -192,7 +192,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "workflow_model_audit"), Description("Run a complete model audit workflow.")]
+    [McpServerTool(Name = "workflow_model_audit"), Description("Run a complete model audit (warnings, families, statistics). The most expensive health check: try check_model_health first, and use includeWarnings/includeFamilies/maxWarnings and compact:true to limit the output.")]
     public static async Task<string> WorkflowModelAudit(
         RevitConnectionManager revit,
         [Description("Include warnings in the response. Default: true")] bool? includeWarnings = null,
@@ -558,7 +558,7 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "list_schedulable_fields"), Description("Discover available schedulable fields for a category.")]
+    [McpServerTool(Name = "list_schedulable_fields"), Description("Discover available schedulable fields for a category. Use summaryOnly:true when you only need the field names.")]
     public static async Task<string> ListSchedulableFields(
         RevitConnectionManager revit,
         [Description("Category name (e.g. OST_Rooms). Default: OST_Rooms")] string? categoryName = null,
