@@ -1,6 +1,8 @@
-# RevitCortex
+# RVT Vortex
 
-> **Fork** of [LuDattilo/revitcortex](https://github.com/LuDattilo/revitcortex) adding **Autopilot** (let the AI keep working while you're away — no dialog can stall it, with auto-save and a log), a **Revit 2027 install fix**, and a refreshed ribbon with UI text that follows the Windows language (English / Spanish / Italian). See [FORK.md](FORK.md).
+> **RVT Vortex** is a fork of [LuDattilo/revitcortex](https://github.com/LuDattilo/revitcortex) adding **Autopilot** (let the AI keep working while you're away — no dialog can stall it, with auto-save and a log), a **Revit 2027 install fix**, a refreshed ribbon with UI text that follows the Windows language (English / Spanish / Italian), and refreshed AI guidance. See [FORK.md](FORK.md).
+>
+> The rest of this README is the original RevitCortex documentation. In this fork the ribbon panel is called **RVT Vortex** and the server toggle **Vortex Switch** (formerly *Cortex Switch*); internal names (`.revitcortex` folder, `revitcortex` MCP entry, tool names) are unchanged, so existing configurations keep working.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Revit](https://img.shields.io/badge/Revit-2023%E2%80%932027-blue)](#supported-revit-versions)

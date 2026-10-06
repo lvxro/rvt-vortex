@@ -461,7 +461,7 @@ public class RevitCortexApp : IExternalApplication
         // Dev builds get a distinct ribbon tab/panel name so a side-by-side
         // prod install never collides ("two addins, same tab name" is a hard
         // Revit conflict, not a cosmetic issue).
-        string panelTitle = CortexEnvironment.Current.IsDev ? "RevitCortex Premium Dev" : "RevitCortex Premium";
+        string panelTitle = CortexEnvironment.Current.IsDev ? "RVT Vortex Dev" : "RVT Vortex";
         RibbonPanel panel = application.CreateRibbonPanel(panelTitle);
         string assemblyLocation = Assembly.GetExecutingAssembly().Location;
 
@@ -470,7 +470,7 @@ public class RevitCortexApp : IExternalApplication
         // ── Main toggles (large): server and Autopilot ──────────────────
         // Both read grey when off and Claude orange when on.
         var connectBtnData = new PushButtonData(
-            "ID_CORTEX_TOGGLE", "Cortex\r\nSwitch",
+            "ID_CORTEX_TOGGLE", "Vortex\r\nSwitch",
             assemblyLocation, "RevitCortex.Plugin.Commands.ToggleConnection");
         connectBtnData.ToolTip = Localization.T("ribbon.connect.tooltip_off");
         connectBtnData.Image = IconFactory.CreateConnectionIcon(16, false);

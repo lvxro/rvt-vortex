@@ -314,7 +314,7 @@ When adding new destructive tools, always call `session.RequestConfirmation("act
 
 ## UI Components
 
-The plugin includes a Revit ribbon panel with two large toggles (Cortex Switch, Autopilot — grey off / orange on) and stacked buttons (Settings, License & Account, Power BI Export, Send log to support), plus a settings window for port, log level, and tool visibility.
+The plugin includes a Revit ribbon panel with two large toggles (Vortex Switch, Autopilot — grey off / orange on) and stacked buttons (Settings, License & Account, Power BI Export, Send log to support), plus a settings window for port, log level, and tool visibility.
 
 - **Commands/** -- IExternalCommand classes: ToggleConnection, ToggleAutopilot, OpenSettings, OpenLicense, OpenPowerBiExport, SendSupportReport, StopAutoMode
 - **UI/SettingsWindow** -- General settings, tools enable/disable

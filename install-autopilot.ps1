@@ -1,6 +1,6 @@
 ﻿#requires -Version 5.0
 <#
-  Builds and installs this RevitCortex fork (Autopilot + Revit 2027 fix).
+  Builds and installs RVT Vortex, a RevitCortex fork (Autopilot + Revit 2027 fix).
 
   What it does:
     1. Checks that Revit is closed.
@@ -28,7 +28,7 @@ $IsSpanish = [System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLa
 $Msg = @{
     en = @{
         Elevating      = "Requesting administrator rights..."
-        Title          = "=== RevitCortex: Autopilot fork installer ==="
+        Title          = "=== RVT Vortex installer (RevitCortex fork with Autopilot) ==="
         RevitOpen      = "Revit is open. Save your work, close Revit and run this file again."
         RevitClosed    = "Revit is closed"
         NotFound       = "RevitCortex was not found in any Revit version."
@@ -59,14 +59,14 @@ To go back to the previous version:
         RollbackHint   = "Your previous installation is in the backup on the Desktop (see RESTORE-README.txt)."
         Done           = "=== Done ==="
         RestartClaude  = "If Claude Desktop was open, quit it completely and reopen it: the install restarts the RevitCortex server."
-        OpenRevit      = "Open Revit: the RevitCortex panel now has the 'Autopilot' button (grey = off, orange = on)."
+        OpenRevit      = "Open Revit: the 'RVT Vortex' panel (Add-Ins tab) has the 'Autopilot' button (grey = off, orange = on)."
         Guide          = "User guide: {0}"
         CopyError      = "Copy this error and share it when asking for help."
         PressEnter     = "Press Enter to close"
     }
     es = @{
         Elevating      = "Pidiendo permisos de administrador..."
-        Title          = "=== RevitCortex: instalador del fork con piloto automático ==="
+        Title          = "=== Instalador de RVT Vortex (fork de RevitCortex con piloto automático) ==="
         RevitOpen      = "Revit está abierto. Guarde su trabajo, cierre Revit y vuelva a ejecutar este archivo."
         RevitClosed    = "Revit está cerrado"
         NotFound       = "No se encontró RevitCortex instalado en ninguna versión de Revit."
@@ -97,7 +97,7 @@ Para volver a la versión anterior:
         RollbackHint   = "Su instalación anterior está en el respaldo del Escritorio (ver LEEME-RESTAURAR.txt)."
         Done           = "=== Listo ==="
         RestartClaude  = "Si Claude Desktop estaba abierto, ciérrelo del todo y vuelva a abrirlo: la instalación reinicia el servidor de RevitCortex."
-        OpenRevit      = "Abra Revit: el panel de RevitCortex ahora tiene el botón 'Piloto automático' (gris = apagado, naranja = activo)."
+        OpenRevit      = "Abra Revit: el panel 'RVT Vortex' (pestaña Add-Ins) tiene el botón 'Piloto automático' (gris = apagado, naranja = activo)."
         Guide          = "Guía de uso: {0}"
         CopyError      = "Copie este error y compártalo al pedir ayuda."
         PressEnter     = "Presione Enter para cerrar"

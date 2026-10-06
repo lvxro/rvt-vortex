@@ -16,21 +16,21 @@ public class ToggleConnection : IExternalCommand
             var app = RevitCortexApp.Instance;
             if (app == null)
             {
-                TaskDialog.Show("RevitCortex", Localization.T("conn.not_initialized"));
+                TaskDialog.Show("RVT Vortex", Localization.T("conn.not_initialized"));
                 return Result.Failed;
             }
 
             if (app.IsServiceRunning)
             {
                 app.StopService();
-                TaskDialog.Show("RevitCortex", Localization.T("conn.stopped"));
+                TaskDialog.Show("RVT Vortex", Localization.T("conn.stopped"));
             }
             else
             {
                 // Pass active document so the session is initialized immediately
                 var doc = commandData.Application.ActiveUIDocument?.Document;
                 app.StartService(doc);
-                TaskDialog.Show("RevitCortex", Localization.T("conn.started", app.Port));
+                TaskDialog.Show("RVT Vortex", Localization.T("conn.started", app.Port));
             }
 
             return Result.Succeeded;

@@ -429,15 +429,15 @@ internal static class Localization
         // ── Fork: ribbon, dialogs and Autopilot (en / es / it) ─────────
         ["ribbon.connect.tooltip_off"] = new()
         {
-            ["en"] = "Start the RevitCortex server so the AI can work in this model",
-            ["es"] = "Iniciar el servidor de RevitCortex para que la IA pueda trabajar en este modelo",
-            ["it"] = "Avvia il server RevitCortex perché l'IA possa lavorare su questo modello",
+            ["en"] = "Start the RVT Vortex server so the AI can work in this model",
+            ["es"] = "Iniciar el servidor de RVT Vortex para que la IA pueda trabajar en este modelo",
+            ["it"] = "Avvia il server RVT Vortex perché l'IA possa lavorare su questo modello",
         },
         ["ribbon.connect.tooltip_on"] = new()
         {
-            ["en"] = "RevitCortex server running on port {0} — click to stop",
-            ["es"] = "Servidor de RevitCortex activo en el puerto {0} — clic para detenerlo",
-            ["it"] = "Server RevitCortex attivo sulla porta {0} — clic per fermarlo",
+            ["en"] = "RVT Vortex server running on port {0} — click to stop",
+            ["es"] = "Servidor de RVT Vortex activo en el puerto {0} — clic para detenerlo",
+            ["it"] = "Server RVT Vortex attivo sulla porta {0} — clic per fermarlo",
         },
         ["ribbon.autopilot.text_off"] = new()
         {
@@ -477,9 +477,9 @@ internal static class Localization
         },
         ["ribbon.settings.tooltip"] = new()
         {
-            ["en"] = "RevitCortex settings",
-            ["es"] = "Configuración de RevitCortex",
-            ["it"] = "Impostazioni di RevitCortex",
+            ["en"] = "RVT Vortex settings",
+            ["es"] = "Configuración de RVT Vortex",
+            ["it"] = "Impostazioni di RVT Vortex",
         },
         ["ribbon.powerbi.text"] = new()
         {
@@ -507,9 +507,9 @@ internal static class Localization
         },
         ["ribbon.support.tooltip"] = new()
         {
-            ["en"] = "Send a bug report to RevitCortex support",
-            ["es"] = "Enviar un informe de error al soporte de RevitCortex",
-            ["it"] = "Invia una segnalazione al supporto di RevitCortex",
+            ["en"] = "Send a bug report to the original RevitCortex support",
+            ["es"] = "Enviar un informe de error al soporte del RevitCortex original",
+            ["it"] = "Invia una segnalazione al supporto del RevitCortex originale",
         },
         ["ribbon.support.long"] = new()
         {
@@ -549,15 +549,15 @@ internal static class Localization
         },
         ["confirm.title"] = new()
         {
-            ["en"] = "RevitCortex — Confirmation",
-            ["es"] = "RevitCortex — Confirmación",
-            ["it"] = "RevitCortex — Conferma",
+            ["en"] = "RVT Vortex — Confirmation",
+            ["es"] = "RVT Vortex — Confirmación",
+            ["it"] = "RVT Vortex — Conferma",
         },
         ["confirm.critical_title"] = new()
         {
-            ["en"] = "RevitCortex — Critical confirmation",
-            ["es"] = "RevitCortex — Confirmación crítica",
-            ["it"] = "RevitCortex — Conferma critica",
+            ["en"] = "RVT Vortex — Critical confirmation",
+            ["es"] = "RVT Vortex — Confirmación crítica",
+            ["it"] = "RVT Vortex — Conferma critica",
         },
         ["confirm.instruction"] = new()
         {
@@ -621,9 +621,9 @@ internal static class Localization
         },
         ["ap.title"] = new()
         {
-            ["en"] = "RevitCortex — Autopilot",
-            ["es"] = "RevitCortex — Piloto automático",
-            ["it"] = "RevitCortex — Pilota automatico",
+            ["en"] = "RVT Vortex — Autopilot",
+            ["es"] = "RVT Vortex — Piloto automático",
+            ["it"] = "RVT Vortex — Pilota automatico",
         },
         ["ap.instruction"] = new()
         {
@@ -645,9 +645,9 @@ internal static class Localization
         },
         ["ap.footer_server_off"] = new()
         {
-            ["en"] = "The server (Cortex Switch) is off. Turn it on so the AI can work.",
-            ["es"] = "El servidor (Cortex Switch) está apagado. Enciéndalo para que la IA pueda trabajar.",
-            ["it"] = "Il server (Cortex Switch) è spento. Accendilo perché l'IA possa lavorare.",
+            ["en"] = "The server (Vortex Switch) is off. Turn it on so the AI can work.",
+            ["es"] = "El servidor (Vortex Switch) está apagado. Enciéndalo para que la IA pueda trabajar.",
+            ["it"] = "Il server (Vortex Switch) è spento. Accendilo perché l'IA possa lavorare.",
         },
         ["ap.footer_unsaved"] = new()
         {
@@ -657,9 +657,9 @@ internal static class Localization
         },
         ["win.title"] = new()
         {
-            ["en"] = "RevitCortex",
-            ["es"] = "RevitCortex",
-            ["it"] = "RevitCortex",
+            ["en"] = "RVT Vortex",
+            ["es"] = "RVT Vortex",
+            ["it"] = "RVT Vortex",
         },
         ["win.auto_heading"] = new()
         {

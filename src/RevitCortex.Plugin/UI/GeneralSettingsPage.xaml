@@ -36,7 +36,7 @@
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock x:Name="StatusTitle" Text="Server stopped"
                                FontSize="13" FontWeight="SemiBold" Foreground="#333"/>
-                    <TextBlock x:Name="StatusDetail" Text="Click 'Cortex Switch' in the ribbon to start"
+                    <TextBlock x:Name="StatusDetail" Text="Click 'Vortex Switch' in the ribbon to start"
                                FontSize="11" Foreground="#666" Margin="0,2,0,0"/>
                 </StackPanel>
                 <!-- Port badge -->

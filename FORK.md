@@ -1,6 +1,6 @@
-# What this fork changes
+# RVT Vortex — what this fork changes
 
-This repository is a fork of [LuDattilo/revitcortex](https://github.com/LuDattilo/revitcortex), the MCP server that connects Claude (and other models) to Autodesk Revit. All the original work belongs to its author. This fork adds:
+**RVT Vortex** is a fork of [LuDattilo/revitcortex](https://github.com/LuDattilo/revitcortex), the MCP server that connects Claude (and other models) to Autodesk Revit. All the original work belongs to its author. This fork adds:
 
 1. **Autopilot** — give the AI a long task, walk away, and nothing stalls it.
 2. **Revit 2027 install fix** — with the original installers the plugin does not load in Revit 2027.
@@ -8,6 +8,8 @@ This repository is a fork of [LuDattilo/revitcortex](https://github.com/LuDattil
 4. **AI guidance refresh** — fixes guidance that had drifted from the code and makes the usage rules reach every MCP client.
 
 License: MIT, same as the original.
+
+**Naming.** Everything the user sees says **RVT Vortex** (ribbon panel, dialogs, floating window, installer), and the server toggle is now **Vortex Switch**. Internal identifiers are unchanged on purpose — namespaces, the `%USERPROFILE%\.revitcortex` folder, the add-in ID, the `revitcortex` MCP server entry and all tool names — so existing installs and client configurations keep working. Text about services that still belong to the original project (license, support reports, update checks, error telemetry) keeps the RevitCortex name.
 
 ---
 

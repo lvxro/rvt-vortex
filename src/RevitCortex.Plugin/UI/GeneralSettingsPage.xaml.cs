@@ -41,7 +41,7 @@ public partial class GeneralSettingsPage : Page
         StartUpdateBannerPolling();
 
         // Subscribe to real-time server state changes so the status banner
-        // updates immediately when the user clicks Cortex Switch.
+        // updates immediately when the user clicks Vortex Switch.
         if (RevitCortexApp.Instance != null)
             RevitCortexApp.Instance.ServiceStateChanged += OnServiceStateChanged;
 
@@ -285,7 +285,7 @@ public partial class GeneralSettingsPage : Page
             StatusBanner.Background = new SolidColorBrush(Color.FromRgb(245, 245, 245));
             StatusBanner.BorderBrush = new SolidColorBrush(Color.FromRgb(224, 224, 224));
             StatusTitle.Text = "Server stopped";
-            StatusDetail.Text = "Click 'Cortex Switch' in the ribbon to start";
+            StatusDetail.Text = "Click 'Vortex Switch' in the ribbon to start";
             PortBadgeText.Text = $"Port {port}";
             PortBadge.Background = new SolidColorBrush(Color.FromRgb(224, 224, 224));
         }

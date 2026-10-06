@@ -1,7 +1,7 @@
 <Window x:Class="RevitCortex.Plugin.UI.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="RevitCortex Premium Settings" Height="500" Width="750"
+        Title="RVT Vortex Settings" Height="500" Width="750"
         WindowStartupLocation="CenterScreen">
     <Grid>
         <Grid.ColumnDefinitions>
@@ -13,7 +13,7 @@
         <Border Grid.Column="0" Background="#F5F5F5" BorderBrush="#E0E0E0" BorderThickness="0,0,1,0">
             <StackPanel Margin="0,10,0,0">
                 <Border Padding="12,6" Margin="0,0,0,4">
-                    <TextBlock Text="RevitCortex Premium" FontSize="15" FontWeight="SemiBold" Foreground="#00838F"/>
+                    <TextBlock Text="RVT Vortex" FontSize="15" FontWeight="SemiBold" Foreground="#D97757"/>
                 </Border>
                 <ListBox x:Name="NavListBox" BorderThickness="0" Background="Transparent"
                          SelectionChanged="NavListBox_SelectionChanged">

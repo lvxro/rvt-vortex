@@ -15,7 +15,7 @@ builder.Services
     {
         options.ServerInfo = new()
         {
-            Name = "RevitCortex",
+            Name = "RVT Vortex",
             Version = "2.0.0"
         };
         options.ServerInstructions = string.Join("\n", new[]

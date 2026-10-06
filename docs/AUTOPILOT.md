@@ -1,4 +1,4 @@
-# Autopilot: let the AI keep working in Revit while you are away
+# RVT Vortex Autopilot: let the AI keep working in Revit while you are away
 
 Give the AI a long task, walk away, and come back to the work done. If something went wrong, the log tells you exactly what happened.
 
@@ -13,11 +13,11 @@ Autopilot solves the first one. Section 2 covers the second.
 
 ## 1. In Revit: the Autopilot button
 
-The RevitCortex ribbon panel has two large toggle buttons, both **grey when off and orange when on**:
+The **RVT Vortex** ribbon panel has two large toggle buttons, both **grey when off and orange when on**:
 
 | Button | What it does |
 |---|---|
-| **Cortex Switch** | Starts/stops the server the AI talks to |
+| **Vortex Switch** | Starts/stops the server the AI talks to |
 | **Autopilot** | Lets the AI keep working without anyone clicking |
 
 Clicking **Autopilot** asks for confirmation once. Until you turn it off:
@@ -97,7 +97,7 @@ The first time the AI uses each tool, choose **"Always allow"**. Before leaving,
 ## 3. Before you leave
 
 - **Save a copy of the model** (Save As…).
-- Turn on **Cortex Switch**, then **Autopilot**.
+- Turn on **Vortex Switch**, then **Autopilot**.
 - Set Windows **not to sleep** (Settings → System → Power → Never). If the PC sleeps, the AI is cut off.
 - Leave a floor plan or 3D view open, not a sheet: several tools don't work on sheets.
 
