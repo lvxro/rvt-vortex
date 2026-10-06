@@ -87,6 +87,15 @@ function Copy-RevitAddin {
         @{ Name = 'user';    Root = $userRoot;    Other = $machineRoot }
     )
 
+    # Revit 2027+ ignores all-users manifests under C:\ProgramData (journal:
+    # "All-users Add-in manifest files must be installed to: C:\Program Files\
+    # Autodesk\Revit\Addins\2027"). Installing there — and then wiping the user
+    # copy as the "other scope" — leaves Revit with no RevitCortex at all.
+    # Use user scope only; the stale machine copy is still wiped below.
+    if ([int]$Version -ge 2027) {
+        $scopes = @( @{ Name = 'user'; Root = $userRoot; Other = $machineRoot } )
+    }
+
     $lastError = $null
     foreach ($scope in $scopes) {
         $verDir     = Join-Path $scope.Root $Version

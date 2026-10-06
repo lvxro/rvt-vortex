@@ -14,6 +14,18 @@ $TargetDir = Join-Path $AddInsDir "RevitCortex"
 $UserAddinsDir = Join-Path $env:APPDATA "Autodesk\Revit\Addins\$RevitVersion"
 $UserTargetDir = Join-Path $UserAddinsDir "RevitCortex"
 
+# Revit 2027+ no longer loads all-users manifests from C:\ProgramData: the
+# journal reports "All-users Add-in manifest files must be installed to:
+# C:\Program Files\Autodesk\Revit\Addins\2027" and skips the add-in. Deploy
+# to the per-user folder instead, which every Revit version still scans.
+$UseUserScope = [int]$RevitVersion -ge 2027
+if ($UseUserScope) {
+    $MachineAddinsDir = $AddInsDir
+    $MachineTargetDir = $TargetDir
+    $AddInsDir = $UserAddinsDir
+    $TargetDir = $UserTargetDir
+}
+
 Write-Host "=== RevitCortex Deploy ===" -ForegroundColor Cyan
 Write-Host "Revit: $RevitVersion | Config: $Configuration"
 Write-Host "Target: $TargetDir"
@@ -47,18 +59,32 @@ Write-Host "Publishing Tools..." -ForegroundColor Yellow
 dotnet publish -c "$Configuration" "$RepoRoot\src\RevitCortex.Tools\RevitCortex.Tools.csproj" -o $PublishDir --no-self-contained
 if ($LASTEXITCODE -ne 0) { throw "Tools publish failed" }
 
-# --- Remove competing user-scope install ---
-# Revit scans both ProgramData (machine) and AppData\Roaming (user). If both exist,
-# the user-scope copy can shadow this deploy and you'll silently run the wrong DLLs.
-# Always wipe user-scope before writing to machine-scope (this script is dev-only).
-if (Test-Path $UserTargetDir) {
-    Write-Host "Removing competing user-scope install: $UserTargetDir" -ForegroundColor Yellow
-    Remove-Item $UserTargetDir -Recurse -Force
+if ($UseUserScope) {
+    # --- R27+: remove the stale machine-scope copy (Revit ignores it anyway) ---
+    try {
+        if (Test-Path $MachineTargetDir) {
+            Write-Host "Removing ignored machine-scope install: $MachineTargetDir" -ForegroundColor Yellow
+            Remove-Item $MachineTargetDir -Recurse -Force
+        }
+        $machineManifest = Join-Path $MachineAddinsDir "RevitCortex.addin"
+        if (Test-Path $machineManifest) { Remove-Item $machineManifest -Force }
+    } catch {
+        Write-Host "Could not remove $MachineTargetDir (needs admin). Harmless: Revit $RevitVersion ignores it." -ForegroundColor Yellow
+    }
+} else {
+    # --- Remove competing user-scope install ---
+    # Revit scans both ProgramData (machine) and AppData\Roaming (user). If both exist,
+    # the user-scope copy can shadow this deploy and you'll silently run the wrong DLLs.
+    # Always wipe user-scope before writing to machine-scope (this script is dev-only).
+    if (Test-Path $UserTargetDir) {
+        Write-Host "Removing competing user-scope install: $UserTargetDir" -ForegroundColor Yellow
+        Remove-Item $UserTargetDir -Recurse -Force
+    }
+    $userAddinManifest = Join-Path $UserAddinsDir "RevitCortex.addin"
+    if (Test-Path $userAddinManifest) { Remove-Item $userAddinManifest -Force }
 }
-$userAddinManifest = Join-Path $UserAddinsDir "RevitCortex.addin"
-if (Test-Path $userAddinManifest) { Remove-Item $userAddinManifest -Force }
 
-# Wipe + recreate machine-scope target so stale satellite assemblies don't survive
+# Wipe + recreate the target so stale satellite assemblies don't survive
 if (Test-Path $TargetDir) { Remove-Item $TargetDir -Recurse -Force }
 New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
 
