@@ -2,48 +2,48 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="RVT Vortex"
-        Width="400" SizeToContent="Height"
+        SizeToContent="WidthAndHeight"
         WindowStartupLocation="Manual"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         ShowActivated="False"
-        WindowStyle="ToolWindow"
-        Background="White"
         Loaded="Window_Loaded">
 
+    <!--
+      Compact status pill, styled after Revit 2027's dark UI chrome rather than a
+      chat-app card: one line, one state color, one action. The long explanation
+      lives in the tooltip. Drag anywhere outside the button to move it.
+    -->
     <Window.Resources>
-        <!-- Claude orange accent shared with the ribbon "on" state. -->
+        <SolidColorBrush x:Key="Surface" Color="#2B323B"/>
+        <SolidColorBrush x:Key="Stroke" Color="#434C58"/>
+        <SolidColorBrush x:Key="Ink" Color="#E8EAED"/>
+        <SolidColorBrush x:Key="Muted" Color="#9AA3AD"/>
         <SolidColorBrush x:Key="Accent" Color="#D97757"/>
-        <SolidColorBrush x:Key="AccentSoft" Color="#FBEDE8"/>
-        <SolidColorBrush x:Key="Ink" Color="#1F1F1F"/>
-        <SolidColorBrush x:Key="Muted" Color="#6B6B6B"/>
 
-        <Style x:Key="StopButton" TargetType="Button">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#E3E3E3"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+        <Style x:Key="PillButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
+            <Setter Property="Background" Value="#38414C"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="12,9"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="12,4"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}"
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="11" Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#FBEDE8"/>
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#D97757"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#D97757"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#F6D9CE"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#C2654A"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -52,56 +52,38 @@
         </Style>
     </Window.Resources>
 
-    <Border BorderBrush="{StaticResource Accent}" BorderThickness="0,4,0,0" Background="White">
-        <StackPanel Margin="16,14,16,14">
+    <!-- Outer margin leaves room for the drop shadow. -->
+    <Grid Margin="14">
+        <Border x:Name="Pill"
+                Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                CornerRadius="17" Padding="14,6,6,6"
+                MouseLeftButtonDown="Pill_MouseLeftButtonDown">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.35" Color="#000000"/>
+            </Border.Effect>
 
-            <!-- Heading: pulsing dot + state -->
             <StackPanel Orientation="Horizontal">
-                <Ellipse x:Name="LiveDot" Width="10" Height="10"
-                         Fill="{StaticResource Accent}" VerticalAlignment="Center" Margin="0,0,8,0">
-                    <Ellipse.Triggers>
-                        <EventTrigger RoutedEvent="Loaded">
-                            <BeginStoryboard>
-                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                     From="1" To="0.3" Duration="0:0:0.9"/>
-                                </Storyboard>
-                            </BeginStoryboard>
-                        </EventTrigger>
-                    </Ellipse.Triggers>
-                </Ellipse>
-                <TextBlock x:Name="HeadingText" Text="Auto mode ON"
-                           FontSize="15" FontWeight="SemiBold"
+                <!-- State: steady accent dot, no animation. -->
+                <Ellipse Width="8" Height="8" Fill="{StaticResource Accent}"
+                         VerticalAlignment="Center" Margin="0,0,9,0"/>
+
+                <TextBlock x:Name="HeadingText" Text="Autopilot"
+                           FontSize="12" FontWeight="SemiBold"
                            Foreground="{StaticResource Ink}" VerticalAlignment="Center"/>
+
+                <Rectangle Width="1" Height="14" Fill="{StaticResource Stroke}"
+                           VerticalAlignment="Center" Margin="11,0"/>
+
+                <TextBlock x:Name="StatusText" Text="Idle"
+                           FontSize="12" Foreground="{StaticResource Muted}"
+                           MaxWidth="300" TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                <Button x:Name="StopButton" Style="{StaticResource PillButton}" Click="Stop_Click">
+                    <TextBlock x:Name="StopText" Text="Stop"/>
+                </Button>
             </StackPanel>
-
-            <TextBlock x:Name="DetailText"
-                       Text="Edits are approved automatically, without confirmation dialogs."
-                       FontSize="12" Foreground="{StaticResource Muted}"
-                       TextWrapping="Wrap" Margin="18,4,0,10"/>
-
-            <!-- Last automatic decision (Autopilot only) -->
-            <Border x:Name="StatusBox" Background="{StaticResource AccentSoft}"
-                    CornerRadius="6" Padding="10,6" Margin="0,0,0,10" Visibility="Collapsed">
-                <TextBlock x:Name="StatusText" Text="Waiting for the AI…"
-                           FontSize="12" Foreground="{StaticResource Ink}" TextWrapping="Wrap"/>
-            </Border>
-
-            <Button x:Name="StopButton" Style="{StaticResource StopButton}" Click="Stop_Click">
-                <StackPanel Orientation="Horizontal">
-                    <Rectangle Width="10" Height="10" Fill="{StaticResource Accent}"
-                               VerticalAlignment="Center" Margin="0,0,10,0" RadiusX="2" RadiusY="2"/>
-                    <StackPanel>
-                        <TextBlock x:Name="StopText" Text="Stop" FontSize="13"
-                                   FontWeight="SemiBold" Foreground="{StaticResource Ink}"/>
-                        <TextBlock x:Name="StopDetailText"
-                                   Text="Turn it off and bring back confirmation dialogs"
-                                   FontSize="11" Foreground="{StaticResource Muted}"
-                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
-                    </StackPanel>
-                </StackPanel>
-            </Button>
-
-        </StackPanel>
-    </Border>
+        </Border>
+    </Grid>
 </Window>

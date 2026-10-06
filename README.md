@@ -52,6 +52,7 @@ It is a fork of [**RevitCortex**](https://github.com/LuDattilo/revitcortex) by L
 | **Revit 2027** | Add-in not loaded | Installs to the per-user folder that Revit 2027 loads |
 | **AI guidance** | Only in `CLAUDE.md` | Sent to every MCP client on connect, with stale rules fixed |
 | **Interface** | English / Italian | Follows the Windows language: English, Spanish or Italian |
+| **License** | Premium license with a trial; edits blocked without it | None: fully open source |
 | **Updates** | — | One-click updates from this repo's releases |
 
 ## How Autopilot works
@@ -140,7 +141,7 @@ In Revit, click **Vortex Switch** (it turns orange), then ask your AI client:
 |---|---|
 | **Vortex Switch** | Starts / stops the server the AI talks to. Grey = off, orange = on. |
 | **Autopilot** | Lets the AI keep working without anyone clicking. Grey = off, orange = on. |
-| Settings · License · Power BI Export · Report a bug | Configuration, license, export wizard, and a diagnostic ZIP + new GitHub issue. |
+| Settings · Power BI Export · Report a bug | Configuration, export wizard, and a diagnostic ZIP + new GitHub issue. |
 
 ## What the AI can do
 

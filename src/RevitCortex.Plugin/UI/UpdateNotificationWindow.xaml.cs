@@ -26,6 +26,10 @@ public partial class UpdateNotificationWindow : Window
     public UpdateNotificationWindow()
     {
         InitializeComponent();
+        Title = Localization.T("upd.window_title");
+        ConfirmText.Text = Localization.T("upd.confirm_note");
+        PrimaryButton.Content = Localization.T("upd.update_now");
+        SecondaryButton.Content = Localization.T("upd.later");
         Refresh();
     }
 
@@ -61,58 +65,58 @@ public partial class UpdateNotificationWindow : Window
         switch (_state)
         {
             case NotifState.Idle:
-                NotifTitle.Text  = $"RevitCortex Premium {info.RemoteVersion} disponibile";
+                NotifTitle.Text  = Localization.T("upd.available", info.RemoteVersion);
                 NotifDetail.Text = string.IsNullOrWhiteSpace(info.Changelog)
-                    ? $"Versione corrente: {UpdateChecker.CurrentVersion}"
+                    ? Localization.T("upd.current", UpdateChecker.CurrentVersion)
                     : info.Changelog;
                 ProgressGrid.Visibility  = Visibility.Collapsed;
                 ConfirmBorder.Visibility = Visibility.Collapsed;
-                SetPrimary("Aggiorna ora",    "#FFB300", "#FF8F00");
-                SetSecondary("Più tardi", visible: true);
+                SetPrimary(Localization.T("upd.update_now"),    "#FFB300", "#FF8F00");
+                SetSecondary(Localization.T("upd.later"), visible: true);
                 break;
 
             case NotifState.Downloading:
                 var (recv, total) = UpdateChecker.DownloadProgress;
                 string prog = total > 0
                     ? $"{recv / 1_048_576.0:F0} / {total / 1_048_576.0:F0} MB"
-                    : $"{recv / 1_048_576.0:F0} MB scaricati…";
+                    : Localization.T("upd.downloaded_mb", (recv / 1_048_576.0).ToString("F0"));
                 double pct = total > 0 ? recv * 100.0 / total : 0;
 
-                NotifTitle.Text = $"Download in corso… {prog}";
+                NotifTitle.Text = Localization.T("upd.downloading", prog);
                 NotifDetail.Text = string.Empty;
                 ProgressGrid.Visibility  = Visibility.Visible;
                 ProgressBar.Value        = pct;
                 ProgressText.Text        = prog;
                 ConfirmBorder.Visibility = Visibility.Collapsed;
-                SetPrimary("Annulla", "#9E9E9E", "#757575");
+                SetPrimary(Localization.T("upd.cancel"), "#9E9E9E", "#757575");
                 SetSecondary(null, visible: false);
                 break;
 
             case NotifState.ConfirmInstall:
-                NotifTitle.Text  = "Pronto per l'installazione";
-                NotifDetail.Text = "Leggi l'avviso qui sotto prima di continuare.";
+                NotifTitle.Text  = Localization.T("upd.ready");
+                NotifDetail.Text = Localization.T("upd.ready_detail");
                 ProgressGrid.Visibility  = Visibility.Collapsed;
                 ConfirmBorder.Visibility = Visibility.Visible;
-                SetPrimary("Installa ora e chiudi Revit", "#388E3C", "#2E7D32");
-                SetSecondary("Annulla", visible: true);
+                SetPrimary(Localization.T("upd.install_close"), "#388E3C", "#2E7D32");
+                SetSecondary(Localization.T("upd.cancel"), visible: true);
                 break;
 
             case NotifState.Installing:
-                NotifTitle.Text  = "Installazione avviata";
-                NotifDetail.Text = "Al termine riavvia Revit.";
+                NotifTitle.Text  = Localization.T("upd.installing");
+                NotifDetail.Text = Localization.T("upd.installing_detail");
                 ProgressGrid.Visibility  = Visibility.Collapsed;
                 ConfirmBorder.Visibility = Visibility.Collapsed;
-                SetPrimary("Chiudi Revit ora", "#00796B", "#004D40");
+                SetPrimary(Localization.T("upd.close_revit"), "#00796B", "#004D40");
                 SetSecondary(null, visible: false);
                 break;
 
             case NotifState.Error:
-                NotifTitle.Text  = "Download fallito";
-                NotifDetail.Text = UpdateChecker.DownloadError ?? "Errore sconosciuto";
+                NotifTitle.Text  = Localization.T("upd.failed");
+                NotifDetail.Text = UpdateChecker.DownloadError ?? Localization.T("upd.unknown_error");
                 ProgressGrid.Visibility  = Visibility.Collapsed;
                 ConfirmBorder.Visibility = Visibility.Collapsed;
-                SetPrimary("Riprova", "#E53935", "#B71C1C");
-                SetSecondary("Più tardi", visible: true);
+                SetPrimary(Localization.T("upd.retry"), "#E53935", "#B71C1C");
+                SetSecondary(Localization.T("upd.later"), visible: true);
                 break;
         }
 

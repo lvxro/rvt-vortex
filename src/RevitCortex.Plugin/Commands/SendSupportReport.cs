@@ -300,7 +300,7 @@ public class SendSupportReport : IExternalCommand
 
     private static void WriteContextFile(StreamWriter w, ExternalCommandData commandData)
     {
-        w.WriteLine("RevitCortex Premium diagnostic context");
+        w.WriteLine("RVT Vortex diagnostic context");
         w.WriteLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss} (local) / {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
         w.WriteLine($"User:      {Environment.UserName}");
         w.WriteLine($"Machine:   {Environment.MachineName}");

@@ -126,9 +126,9 @@ internal static class Localization
         // ── Support report ──────────────────────────────────────────────
         ["support.title"] = new()
         {
-            ["en"] = "RevitCortex Premium",
-            ["it"] = "RevitCortex Premium",
-            ["es"] = "RevitCortex Premium",
+            ["en"] = "RVT Vortex",
+            ["it"] = "RVT Vortex",
+            ["es"] = "RVT Vortex",
         },
         ["support.already_running"] = new()
         {
@@ -190,9 +190,9 @@ internal static class Localization
         // ── Update checker ──────────────────────────────────────────────
         ["update.available_title"] = new()
         {
-            ["en"] = "RevitCortex Premium {0} is available",
-            ["it"] = "È disponibile RevitCortex Premium {0}",
-            ["es"] = "Está disponible RevitCortex Premium {0}",
+            ["en"] = "RVT Vortex {0} is available",
+            ["it"] = "È disponibile RVT Vortex {0}",
+            ["es"] = "Está disponible RVT Vortex {0}",
         },
         ["update.available_detail"] = new()
         {
@@ -252,9 +252,9 @@ internal static class Localization
         },
         ["telemetry.consent_body"] = new()
         {
-            ["en"] = "When a command fails, RevitCortex Premium can send an anonymous error report: tool name, error type, versions, timing. Never sent: model names, file paths, parameter values, user or machine names.\n\nConsent is optional and you can change it anytime in Settings > General.",
-            ["it"] = "Quando un comando fallisce, RevitCortex Premium può inviare una segnalazione di errore anonima: nome del tool, tipo di errore, versioni, tempi. Mai inviati: nomi dei modelli, percorsi file, valori dei parametri, nomi utente o macchina.\n\nIl consenso è facoltativo e puoi modificarlo in qualsiasi momento da Impostazioni > Generale.",
-            ["es"] = "Cuando un comando falla, RevitCortex Premium puede enviar un informe de error anónimo: nombre de la herramienta, tipo de error, versiones y tiempos. Nunca se envían nombres de modelos, rutas de archivos, valores de parámetros ni nombres de usuario o equipo.\n\nEl consentimiento es opcional y puede cambiarlo cuando quiera en Configuración > General.",
+            ["en"] = "When a command fails, RVT Vortex can send an anonymous error report to the developers of the original RevitCortex project: tool name, error type, versions, timing. Never sent: model names, file paths, parameter values, user or machine names.\n\nConsent is optional and you can change it anytime in Settings > General.",
+            ["it"] = "Quando un comando fallisce, RVT Vortex può inviare una segnalazione di errore anonima agli sviluppatori del progetto originale RevitCortex: nome del tool, tipo di errore, versioni, tempi. Mai inviati: nomi dei modelli, percorsi file, valori dei parametri, nomi utente o macchina.\n\nIl consenso è facoltativo e puoi modificarlo in qualsiasi momento da Impostazioni > Generale.",
+            ["es"] = "Cuando un comando falla, RVT Vortex puede enviar un informe de error anónimo a los desarrolladores del proyecto original RevitCortex: nombre de la herramienta, tipo de error, versiones y tiempos. Nunca se envían nombres de modelos, rutas de archivos, valores de parámetros ni nombres de usuario o equipo.\n\nEl consentimiento es opcional y puede cambiarlo cuando quiera en Configuración > General.",
         },
         ["telemetry.consent_enable"] = new()
         {
@@ -681,27 +681,27 @@ internal static class Localization
         },
         ["win.auto_heading"] = new()
         {
-            ["en"] = "Auto mode ON",
-            ["es"] = "Modo automático ACTIVO",
-            ["it"] = "Modalità automatica ATTIVA",
+            ["en"] = "Auto mode",
+            ["es"] = "Modo automático",
+            ["it"] = "Modalità automatica",
         },
         ["win.auto_detail"] = new()
         {
-            ["en"] = "Edits are approved automatically, without confirmation dialogs.",
-            ["es"] = "Las modificaciones se aprueban automáticamente, sin cuadros de confirmación.",
-            ["it"] = "Le modifiche vengono approvate automaticamente, senza finestre di conferma.",
+            ["en"] = "Edits are approved without confirmation dialogs.",
+            ["es"] = "Las modificaciones se aprueban sin cuadros de confirmación.",
+            ["it"] = "Le modifiche vengono approvate senza finestre di conferma.",
         },
         ["win.autopilot_heading"] = new()
         {
-            ["en"] = "Autopilot ON",
-            ["es"] = "Piloto automático ACTIVO",
-            ["it"] = "Pilota automatico ATTIVO",
+            ["en"] = "Autopilot",
+            ["es"] = "Piloto automático",
+            ["it"] = "Pilota automatico",
         },
         ["win.autopilot_detail"] = new()
         {
-            ["en"] = "The AI keeps working without dialogs. The model is saved after changes and everything is logged.",
-            ["es"] = "La IA sigue trabajando sin cuadros de diálogo. El modelo se guarda después de los cambios y todo queda registrado.",
-            ["it"] = "L'IA continua a lavorare senza finestre di dialogo. Il modello viene salvato dopo le modifiche e tutto viene registrato.",
+            ["en"] = "Edits are approved without dialogs, Revit pop-ups are closed, and the model is saved after changes. Everything is logged to autopilot.log.",
+            ["es"] = "Las modificaciones se aprueban sin cuadros, los avisos de Revit se cierran solos y el modelo se guarda después de los cambios. Todo queda en autopilot.log.",
+            ["it"] = "Le modifiche vengono approvate senza finestre, gli avvisi di Revit si chiudono da soli e il modello viene salvato dopo le modifiche. Tutto finisce in autopilot.log.",
         },
         ["win.stop"] = new()
         {
@@ -711,33 +711,33 @@ internal static class Localization
         },
         ["win.stop_desc"] = new()
         {
-            ["en"] = "Turn it off and bring back confirmation dialogs",
-            ["es"] = "Apagarlo y volver a mostrar los cuadros de confirmación",
-            ["it"] = "Spegnilo e ripristina le finestre di conferma",
+            ["en"] = "Turn off and bring back confirmation dialogs",
+            ["es"] = "Apagar y volver a mostrar los cuadros de confirmación",
+            ["it"] = "Spegni e ripristina le finestre di conferma",
         },
         ["win.status_idle"] = new()
         {
-            ["en"] = "Waiting for the AI…",
-            ["es"] = "Esperando a la IA…",
-            ["it"] = "In attesa dell'IA…",
+            ["en"] = "Idle",
+            ["es"] = "En espera",
+            ["it"] = "In attesa",
         },
         ["win.status_approved"] = new()
         {
-            ["en"] = "{0} · approved: {1} ({2})",
-            ["es"] = "{0} · aprobado: {1} ({2})",
-            ["it"] = "{0} · approvato: {1} ({2})",
+            ["en"] = "{0}  ✓ {1} ({2})",
+            ["es"] = "{0}  ✓ {1} ({2})",
+            ["it"] = "{0}  ✓ {1} ({2})",
         },
         ["win.status_declined"] = new()
         {
-            ["en"] = "{0} · declined: {1} ({2})",
-            ["es"] = "{0} · rechazado: {1} ({2})",
-            ["it"] = "{0} · rifiutato: {1} ({2})",
+            ["en"] = "{0}  ✕ {1} ({2})",
+            ["es"] = "{0}  ✕ {1} ({2})",
+            ["it"] = "{0}  ✕ {1} ({2})",
         },
         ["win.status_saved"] = new()
         {
-            ["en"] = "{0} · model saved",
-            ["es"] = "{0} · modelo guardado",
-            ["it"] = "{0} · modello salvato",
+            ["en"] = "{0}  Model saved",
+            ["es"] = "{0}  Modelo guardado",
+            ["it"] = "{0}  Modello salvato",
         },
         ["log.start"] = new()
         {
@@ -846,6 +846,145 @@ internal static class Localization
             ["en"] = "Power BI Export — error",
             ["es"] = "Exportar Power BI — error",
             ["it"] = "Power BI Export — errore",
+        },
+        // ── Fork: update notifications (en / es / it) ────────────────
+        ["upd.window_title"] = new()
+        {
+            ["en"] = "RVT Vortex — Update",
+            ["es"] = "RVT Vortex — Actualización",
+            ["it"] = "RVT Vortex — Aggiornamento",
+        },
+        ["upd.available"] = new()
+        {
+            ["en"] = "RVT Vortex {0} is available",
+            ["es"] = "Está disponible RVT Vortex {0}",
+            ["it"] = "È disponibile RVT Vortex {0}",
+        },
+        ["upd.current"] = new()
+        {
+            ["en"] = "Installed version: {0}",
+            ["es"] = "Versión instalada: {0}",
+            ["it"] = "Versione installata: {0}",
+        },
+        ["upd.current_with_notes"] = new()
+        {
+            ["en"] = "Installed: {0} — {1}",
+            ["es"] = "Instalada: {0} — {1}",
+            ["it"] = "Installata: {0} — {1}",
+        },
+        ["upd.update_now"] = new()
+        {
+            ["en"] = "Update now",
+            ["es"] = "Actualizar ahora",
+            ["it"] = "Aggiorna ora",
+        },
+        ["upd.later"] = new()
+        {
+            ["en"] = "Later",
+            ["es"] = "Más tarde",
+            ["it"] = "Più tardi",
+        },
+        ["upd.cancel"] = new()
+        {
+            ["en"] = "Cancel",
+            ["es"] = "Cancelar",
+            ["it"] = "Annulla",
+        },
+        ["upd.downloaded_mb"] = new()
+        {
+            ["en"] = "{0} MB downloaded…",
+            ["es"] = "{0} MB descargados…",
+            ["it"] = "{0} MB scaricati…",
+        },
+        ["upd.downloading"] = new()
+        {
+            ["en"] = "Downloading… {0}",
+            ["es"] = "Descargando… {0}",
+            ["it"] = "Download in corso… {0}",
+        },
+        ["upd.ready"] = new()
+        {
+            ["en"] = "Ready to install",
+            ["es"] = "Listo para instalar",
+            ["it"] = "Pronto per l'installazione",
+        },
+        ["upd.ready_detail"] = new()
+        {
+            ["en"] = "Read the note below before continuing.",
+            ["es"] = "Lea el aviso de abajo antes de continuar.",
+            ["it"] = "Leggi l'avviso qui sotto prima di continuare.",
+        },
+        ["upd.confirm_note"] = new()
+        {
+            ["en"] = "Revit will close to finish the installation. Save your work before continuing.",
+            ["es"] = "Revit se va a cerrar para terminar la instalación. Guarde su trabajo antes de continuar.",
+            ["it"] = "Revit verrà chiuso per completare l'installazione. Salva il lavoro prima di continuare.",
+        },
+        ["upd.install_close"] = new()
+        {
+            ["en"] = "Install now and close Revit",
+            ["es"] = "Instalar ahora y cerrar Revit",
+            ["it"] = "Installa ora e chiudi Revit",
+        },
+        ["upd.installing"] = new()
+        {
+            ["en"] = "Installation started",
+            ["es"] = "Instalación iniciada",
+            ["it"] = "Installazione avviata",
+        },
+        ["upd.installing_detail"] = new()
+        {
+            ["en"] = "Restart Revit when it finishes.",
+            ["es"] = "Vuelva a abrir Revit cuando termine.",
+            ["it"] = "Al termine riavvia Revit.",
+        },
+        ["upd.close_revit"] = new()
+        {
+            ["en"] = "Close Revit now",
+            ["es"] = "Cerrar Revit ahora",
+            ["it"] = "Chiudi Revit ora",
+        },
+        ["upd.failed"] = new()
+        {
+            ["en"] = "Download failed",
+            ["es"] = "La descarga falló",
+            ["it"] = "Download fallito",
+        },
+        ["upd.unknown_error"] = new()
+        {
+            ["en"] = "Unknown error",
+            ["es"] = "Error desconocido",
+            ["it"] = "Errore sconosciuto",
+        },
+        ["upd.retry"] = new()
+        {
+            ["en"] = "Retry",
+            ["es"] = "Reintentar",
+            ["it"] = "Riprova",
+        },
+        ["upd.download_install"] = new()
+        {
+            ["en"] = "Download & install",
+            ["es"] = "Descargar e instalar",
+            ["it"] = "Scarica e installa",
+        },
+        ["upd.ready_warning"] = new()
+        {
+            ["en"] = "⚠ Revit will close automatically — save your work before continuing.",
+            ["es"] = "⚠ Revit se va a cerrar automáticamente — guarde su trabajo antes de continuar.",
+            ["it"] = "⚠ Revit verrà chiuso automaticamente — salva il lavoro prima di continuare.",
+        },
+        ["upd.install_and_close"] = new()
+        {
+            ["en"] = "Install and close Revit",
+            ["es"] = "Instalar y cerrar Revit",
+            ["it"] = "Installa e chiudi Revit",
+        },
+        ["upd.installing_closing"] = new()
+        {
+            ["en"] = "Installation started — closing…",
+            ["es"] = "Instalación iniciada — cerrando…",
+            ["it"] = "Installazione avviata — chiusura in corso…",
         },
     };
 }

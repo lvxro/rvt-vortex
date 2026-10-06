@@ -6,6 +6,7 @@
 2. **Revit 2027 install fix** — with the original installers the plugin does not load in Revit 2027.
 3. **Interface refresh and localization** — a consistent ribbon with on/off states, and UI text that follows the Windows display language (English, Spanish, Italian).
 4. **AI guidance refresh** — fixes guidance that had drifted from the code and makes the usage rules reach every MCP client.
+5. **No license gate** — fully open source: no Premium license, trial or activation.
 
 License: MIT, same as the original.
 
@@ -97,11 +98,19 @@ For Revit 2027 and later, both scripts install to the per-user folder (`%APPDATA
 
 ## 3. Interface and localization
 
-- **Ribbon:** the two toggles (Cortex Switch, Autopilot) are large buttons, **grey when off and Claude orange (#D97757) when on**. Autopilot's label also changes to *Autopilot ON*. Settings, License, Power BI and Support are grouped as small stacked buttons in a single slate color instead of five unrelated colors.
-- **Floating window:** restyled with the orange accent, a pulsing status dot, and the latest automatic decision or save.
+- **Ribbon:** the two toggles (Vortex Switch, Autopilot) are large buttons, **grey when off and Claude orange (#D97757) when on**. Autopilot's label also changes to *Autopilot ON*. Settings, Power BI and Report a bug are grouped as small stacked buttons in a single slate color instead of five unrelated colors.
+- **Status pill:** while Auto mode or Autopilot is on, a compact dark pill (matching Revit 2027's UI) sits bottom-center: a steady orange dot, the mode, the latest automatic decision or save, and a Stop button. The explanation is in its tooltip; drag it anywhere.
 - **Localization:** UI language now follows the **Windows display language** first (Revit's language and the thread culture are fallbacks). Spanish was added to every existing localized string. The new ribbon labels, confirmation dialogs, Autopilot dialog, floating window and log come in English, Spanish and Italian.
 
 Not localized yet: the Settings window and the Power BI export window keep their original text.
+
+---
+
+## 5. No license gate
+
+Upstream ships a "RevitCortex Premium" license with a trial; without a valid license, every tool that edits the model is blocked, and activation keys come from the original author's service. RVT Vortex is plain open source: the license gate is never initialized (the router treats a missing gate as "allow everything"), the License & Account button is gone from the ribbon, and "Premium" no longer appears in the UI. The licensing code stays in the tree, unused, so upstream's tests keep compiling.
+
+The update notification (previously Italian-only) now follows the Windows language.
 
 ---
 

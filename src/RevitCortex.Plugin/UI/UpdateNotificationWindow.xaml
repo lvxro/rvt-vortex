@@ -1,7 +1,7 @@
 <Window x:Class="RevitCortex.Plugin.UI.UpdateNotificationWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="RevitCortex Premium — Aggiornamento"
+        Title="RVT Vortex"
         Width="400" SizeToContent="Height"
         WindowStartupLocation="Manual"
         ResizeMode="NoResize"
@@ -21,7 +21,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock x:Name="NotifTitle"
-                               Text="Aggiornamento disponibile"
+                               Text="Update available"
                                FontSize="14" FontWeight="SemiBold" Foreground="#212121"/>
                     <TextBlock x:Name="NotifDetail"
                                FontSize="12" Foreground="#666"
@@ -52,19 +52,17 @@
             <Border x:Name="ConfirmBorder" Visibility="Collapsed"
                     Background="#FFF8E1" BorderBrush="#FFB300" BorderThickness="1"
                     CornerRadius="4" Padding="10,8" Margin="0,0,0,12">
-                <TextBlock FontSize="12" Foreground="#5D4037" TextWrapping="Wrap">
-                    Revit verrà chiuso per completare l'installazione.
-                    Salva il lavoro prima di continuare.
-                </TextBlock>
+                <TextBlock x:Name="ConfirmText" FontSize="12" Foreground="#5D4037" TextWrapping="Wrap"
+                           Text="Revit will close to finish the installation. Save your work before continuing."/>
             </Border>
 
             <!-- Buttons -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,4,0,0">
-                <Button x:Name="SecondaryButton" Content="Più tardi"
+                <Button x:Name="SecondaryButton" Content="Later"
                         Padding="14,7" Margin="0,0,8,0" FontSize="12"
                         Background="#F5F5F5" Foreground="#333" BorderBrush="#E0E0E0"
                         Click="Secondary_Click" Cursor="Hand"/>
-                <Button x:Name="PrimaryButton" Content="Aggiorna ora"
+                <Button x:Name="PrimaryButton" Content="Update now"
                         Padding="14,7" FontSize="12" FontWeight="SemiBold"
                         Background="#FFB300" Foreground="White" BorderBrush="#FF8F00"
                         Click="Primary_Click" Cursor="Hand"/>

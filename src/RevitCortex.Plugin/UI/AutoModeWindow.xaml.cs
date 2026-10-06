@@ -7,9 +7,9 @@ using System.Windows.Interop;
 namespace RevitCortex.Plugin.UI;
 
 /// <summary>
-/// Non-modal floating window shown while Auto mode is active. Replaces the
-/// former ribbon "Stop Auto" button. Appears top-center above Revit and offers
-/// a single "Stop Auto" control. Closing it (X) is equivalent to clicking
+/// Non-modal floating status pill shown while Auto mode or Autopilot is active.
+/// Appears bottom-center above Revit (draggable) and offers a single Stop
+/// control. Closing it (X) is equivalent to clicking
 /// Stop Auto. Deactivation is surfaced via <see cref="StopRequested"/>, which
 /// the host (RevitCortexApp) wires to turn Auto mode off.
 /// </summary>
@@ -44,7 +44,7 @@ public partial class AutoModeWindow : Window
         InitializeComponent();
         Title = Localization.T("win.title");
         StopText.Text = Localization.T("win.stop");
-        StopDetailText.Text = Localization.T("win.stop_desc");
+        StopButton.ToolTip = Localization.T("win.stop_desc");
         StatusText.Text = Localization.T("win.status_idle");
         SetMode(false);
         AttachOwner();
@@ -57,8 +57,8 @@ public partial class AutoModeWindow : Window
     public void SetMode(bool autopilot)
     {
         HeadingText.Text = Localization.T(autopilot ? "win.autopilot_heading" : "win.auto_heading");
-        DetailText.Text = Localization.T(autopilot ? "win.autopilot_detail" : "win.auto_detail");
-        StatusBox.Visibility = autopilot ? Visibility.Visible : Visibility.Collapsed;
+        // The explanation lives in the tooltip; the pill itself stays one line.
+        Pill.ToolTip = Localization.T(autopilot ? "win.autopilot_detail" : "win.auto_detail");
     }
 
     /// <summary>Shows the latest automatic decision or save (Autopilot only).</summary>
@@ -83,10 +83,16 @@ public partial class AutoModeWindow : Window
         // foreground applications. This is intentionally not a global Topmost window.
         AttachOwner();
 
-        // Top-center of the primary work area with a small top margin.
+        // Bottom-center of the work area, above Revit's view control and status
+        // bars, so it never covers the ribbon. The user can drag it elsewhere.
         var area = SystemParameters.WorkArea;
-        Left = area.Left + (area.Width - Width) / 2;
-        Top = area.Top + 24;
+        Left = area.Left + (area.Width - ActualWidth) / 2;
+        Top = area.Bottom - ActualHeight - 64;
+    }
+
+    private void Pill_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        try { DragMove(); } catch (InvalidOperationException) { /* mouse released mid-drag */ }
     }
 
     private void AttachOwner()

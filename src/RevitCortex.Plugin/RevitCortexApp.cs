@@ -117,13 +117,12 @@ public class RevitCortexApp : IExternalApplication
 
             Telemetry.TelemetryBootstrap.Init(application);
 
-            // License gate: built before the router so it can be passed in. Best-effort —
-            // a null Gate means no gating (see LicenseBootstrap).
-            Licensing.LicenseBootstrap.Init(CortexEnvironment.Current);
-
+            // RVT Vortex is fully open source: no license gate. The upstream
+            // licensing code (Licensing/) is kept for its tests but never
+            // initialized, and a null gate means every tool is allowed.
             _router = new CortexRouter(_session, analyzer, auditLogger: auditLogger,
                 errorReporter: Telemetry.TelemetryBootstrap.Reporter,
-                licenseGate: Licensing.LicenseBootstrap.Gate);
+                licenseGate: null);
 
             var toolsAssembly = LoadToolsAssembly();
             if (toolsAssembly != null)
@@ -516,13 +515,6 @@ public class RevitCortexApp : IExternalApplication
         settingsBtn.Image = IconFactory.CreateSettingsIcon(16);
         settingsBtn.LargeImage = IconFactory.CreateSettingsIcon(32);
 
-        var licenseBtn = new PushButtonData(
-            "ID_CORTEX_LICENSE", OneLine(Localization.T("ribbon.license.text")),
-            assemblyLocation, "RevitCortex.Plugin.Commands.OpenLicense");
-        licenseBtn.ToolTip = Localization.T("ribbon.license.tooltip");
-        licenseBtn.Image = IconFactory.CreateLicenseIcon(16);
-        licenseBtn.LargeImage = IconFactory.CreateLicenseIcon(32);
-
         var powerBiBtn = new PushButtonData(
             "ID_CORTEX_POWERBI", OneLine(Localization.T("ribbon.powerbi.text")),
             assemblyLocation, "RevitCortex.Plugin.Commands.OpenPowerBiExport");
@@ -539,8 +531,7 @@ public class RevitCortexApp : IExternalApplication
         supportBtn.Image = IconFactory.CreateSupportIcon(16);
         supportBtn.LargeImage = IconFactory.CreateSupportIcon(32);
 
-        panel.AddStackedItems(settingsBtn, licenseBtn);
-        panel.AddStackedItems(powerBiBtn, supportBtn);
+        panel.AddStackedItems(settingsBtn, powerBiBtn, supportBtn);
 
         // Auto mode / Autopilot are stopped via the floating AutoModeWindow
         // shown while active (see OnAutoModeChanged) or the Autopilot toggle.

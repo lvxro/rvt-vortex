@@ -31,7 +31,7 @@ Clicking **Autopilot** asks for confirmation once. Until you turn it off:
 | The document is closed | Autopilot turns off |
 | Another document is opened | Stops auto-approving: from then on anything that needs a confirmation is declined, so a model you didn't pick is never edited |
 
-To turn it off, click **Autopilot** again (it reads *Autopilot ON* while active) or click **Stop** in the floating window at the top of the screen. The floating window also shows the last automatic decision or save.
+To turn it off, click **Autopilot** again (it reads *Autopilot ON* while active) or click **Stop** in the small status pill at the bottom of the screen (drag it anywhere). The pill also shows the last automatic decision or save; hover it for a short explanation.
 
 ### Automatic saving
 

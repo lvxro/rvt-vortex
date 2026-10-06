@@ -83,10 +83,10 @@ public partial class GeneralSettingsPage : Page
         switch (UpdateChecker.State)
         {
             case UpdateChecker.DownloadState.Idle:
-                UpdateTitle.Text = $"RevitCortex Premium {info.RemoteVersion} disponibile";
-                UpdateDetail.Text = $"Sei sulla {UpdateChecker.CurrentVersion} — {info.Changelog}";
+                UpdateTitle.Text = Localization.T("upd.available", info.RemoteVersion);
+                UpdateDetail.Text = Localization.T("upd.current_with_notes", UpdateChecker.CurrentVersion, info.Changelog);
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
-                SetActionButton("Download & Install", "#FFB300", "#FF8F00", isEnabled: true);
+                SetActionButton(Localization.T("upd.download_install"), "#FFB300", "#FF8F00", isEnabled: true);
                 UpdateManualButton.Visibility = Visibility.Collapsed;
                 StopDownloadTimer();
                 break;
@@ -95,32 +95,32 @@ public partial class GeneralSettingsPage : Page
                 var (recv, total) = UpdateChecker.DownloadProgress;
                 string progress = total > 0
                     ? $"{recv / 1_048_576.0:F0} / {total / 1_048_576.0:F0} MB"
-                    : $"{recv / 1_048_576.0:F0} MB scaricati…";
+                    : Localization.T("upd.downloaded_mb", (recv / 1_048_576.0).ToString("F0"));
                 double pct = total > 0 ? recv * 100.0 / total : 0;
-                UpdateTitle.Text = $"Download in corso… {progress}";
+                UpdateTitle.Text = Localization.T("upd.downloading", progress);
                 UpdateDetail.Text = string.Empty;
                 UpdateProgress.Value = pct;
                 UpdateProgressText.Text = progress;
                 UpdateProgressGrid.Visibility = Visibility.Visible;
-                SetActionButton("Annulla", "#9E9E9E", "#757575", isEnabled: true);
+                SetActionButton(Localization.T("upd.cancel"), "#9E9E9E", "#757575", isEnabled: true);
                 UpdateManualButton.Visibility = Visibility.Collapsed;
                 StartDownloadTimer();
                 break;
 
             case UpdateChecker.DownloadState.Ready:
-                UpdateTitle.Text = "Pronto per l'installazione";
-                UpdateDetail.Text = "⚠ Revit verrà chiuso automaticamente — salva il lavoro prima di continuare.";
+                UpdateTitle.Text = Localization.T("upd.ready");
+                UpdateDetail.Text = Localization.T("upd.ready_warning");
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
-                SetActionButton("Installa e chiudi Revit", "#388E3C", "#2E7D32", isEnabled: true);
+                SetActionButton(Localization.T("upd.install_and_close"), "#388E3C", "#2E7D32", isEnabled: true);
                 UpdateManualButton.Visibility = Visibility.Collapsed;
                 StopDownloadTimer();
                 break;
 
             case UpdateChecker.DownloadState.Installing:
-                UpdateTitle.Text = "Installazione avviata — chiusura in corso…";
-                UpdateDetail.Text = "Riavvia Revit al termine dell'installazione.";
+                UpdateTitle.Text = Localization.T("upd.installing_closing");
+                UpdateDetail.Text = Localization.T("upd.installing_detail");
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
-                SetActionButton("Installa e chiudi Revit", "#00796B", "#004D40", isEnabled: false);
+                SetActionButton(Localization.T("upd.install_and_close"), "#00796B", "#004D40", isEnabled: false);
                 UpdateManualButton.Visibility = Visibility.Collapsed;
                 StopDownloadTimer();
                 break;
@@ -131,10 +131,10 @@ public partial class GeneralSettingsPage : Page
                 break;
 
             case UpdateChecker.DownloadState.Error:
-                UpdateTitle.Text = "Download fallito";
-                UpdateDetail.Text = UpdateChecker.DownloadError ?? "Errore sconosciuto";
+                UpdateTitle.Text = Localization.T("upd.failed");
+                UpdateDetail.Text = UpdateChecker.DownloadError ?? Localization.T("upd.unknown_error");
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
-                SetActionButton("Riprova", "#E53935", "#B71C1C", isEnabled: true);
+                SetActionButton(Localization.T("upd.retry"), "#E53935", "#B71C1C", isEnabled: true);
                 UpdateManualButton.Visibility = Visibility.Visible;
                 StopDownloadTimer();
                 break;
