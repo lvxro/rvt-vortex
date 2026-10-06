@@ -426,6 +426,12 @@ internal static class Localization
             ["es"] = "Active una licencia en RevitCortex > Licencia y cuenta. Los comandos de solo lectura siguen disponibles.",
         },
 
+        ["support.issue_opened"] = new()
+        {
+            ["en"] = "The diagnostic package was created here:\n\n{0}\n\nA new issue page has opened in your browser ({1}). Describe the problem and drag the ZIP into it. Issues are public: check the ZIP first and remove anything you don't want to share.",
+            ["es"] = "El paquete de diagnóstico se creó aquí:\n\n{0}\n\nSe abrió en el navegador la página para crear un reporte ({1}). Describa el problema y arrastre el ZIP. Los reportes son públicos: revise el ZIP antes y quite lo que no quiera compartir.",
+            ["it"] = "Il pacchetto diagnostico è stato creato qui:\n\n{0}\n\nNel browser si è aperta la pagina per segnalare il problema ({1}). Descrivi il problema e trascina lo ZIP. Le segnalazioni sono pubbliche: controlla lo ZIP e rimuovi ciò che non vuoi condividere.",
+        },
         // ── Fork: ribbon, dialogs and Autopilot (en / es / it) ─────────
         ["ribbon.connect.tooltip_off"] = new()
         {
@@ -501,21 +507,21 @@ internal static class Localization
         },
         ["ribbon.support.text"] = new()
         {
-            ["en"] = "Send log\r\nto support",
-            ["es"] = "Enviar\r\nregistros",
-            ["it"] = "Invia log\r\nal supporto",
+            ["en"] = "Report\r\na bug",
+            ["es"] = "Reportar\r\nerror",
+            ["it"] = "Segnala\r\nproblema",
         },
         ["ribbon.support.tooltip"] = new()
         {
-            ["en"] = "Send a bug report to the original RevitCortex support",
-            ["es"] = "Enviar un informe de error al soporte del RevitCortex original",
-            ["it"] = "Invia una segnalazione al supporto del RevitCortex originale",
+            ["en"] = "Report a bug on the RVT Vortex GitHub page",
+            ["es"] = "Reportar un error en la página de GitHub de RVT Vortex",
+            ["it"] = "Segnala un problema sulla pagina GitHub di RVT Vortex",
         },
         ["ribbon.support.long"] = new()
         {
-            ["en"] = "Collects recent audit logs, token-usage log, settings and the most recent Revit journal into a ZIP on the desktop, then opens a pre-filled Outlook message addressed to support. Add a short description of the problem and click Send. No personal data is sent beyond what's in the logs.",
-            ["es"] = "Reúne los registros de auditoría recientes, el registro de uso de tokens, la configuración y el último journal de Revit en un ZIP en el escritorio, y abre un correo de Outlook dirigido a soporte. Agregue una breve descripción del problema y haga clic en Enviar. No se envían datos personales más allá de lo que contienen los registros.",
-            ["it"] = "Raccoglie i log di audit recenti, il log di utilizzo token, le impostazioni e il journal di Revit più recente in uno ZIP sul desktop, poi apre un messaggio Outlook precompilato per il supporto. Aggiungi una breve descrizione del problema e clicca Invia. Non vengono inviati dati personali oltre a quelli contenuti nei log.",
+            ["en"] = "Packs recent audit logs, the token-usage log, settings and the latest Revit journal into a ZIP, shows it in Explorer and opens a new issue on the RVT Vortex GitHub page. Issues are public: check the ZIP before attaching it.",
+            ["es"] = "Reúne los registros de auditoría recientes, el registro de uso de tokens, la configuración y el último journal de Revit en un ZIP, lo muestra en el Explorador y abre un reporte nuevo en la página de GitHub de RVT Vortex. Los reportes son públicos: revise el ZIP antes de adjuntarlo.",
+            ["it"] = "Raccoglie i log di audit recenti, il log di utilizzo token, le impostazioni e il journal di Revit più recente in uno ZIP, lo mostra in Esplora risorse e apre una nuova segnalazione sulla pagina GitHub di RVT Vortex. Le segnalazioni sono pubbliche: controlla lo ZIP prima di allegarlo.",
         },
         ["ribbon.license.text"] = new()
         {

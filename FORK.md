@@ -9,7 +9,9 @@
 
 License: MIT, same as the original.
 
-**Naming.** Everything the user sees says **RVT Vortex** (ribbon panel, dialogs, floating window, installer), and the server toggle is now **Vortex Switch**. Internal identifiers are unchanged on purpose — namespaces, the `%USERPROFILE%\.revitcortex` folder, the add-in ID, the `revitcortex` MCP server entry and all tool names — so existing installs and client configurations keep working. Text about services that still belong to the original project (license, support reports, update checks, error telemetry) keeps the RevitCortex name.
+**Naming.** Everything the user sees says **RVT Vortex** (ribbon panel, dialogs, floating window, installer), and the server toggle is now **Vortex Switch**. Internal identifiers are unchanged on purpose — namespaces, the `%USERPROFILE%\.revitcortex` folder, the add-in ID, the `revitcortex` MCP server entry and all tool names — so existing installs and client configurations keep working. Text about services that still belong to the original project (license activation, error telemetry) keeps the RevitCortex name.
+
+**Updates and bug reports point to this fork.** The original update checker read upstream's manifest and offered to install the upstream build with one click, which would have replaced RVT Vortex. It now reads this repository's `latest.json`. "Report a bug" (formerly "Send log to support", which e-mailed the original author) now builds the same diagnostic ZIP and opens a new issue here. Issues are public, so the pre-filled text carries only versions. Both URLs live in one place: `src/RevitCortex.Plugin/ForkInfo.cs`. The plugin version starts at **1.1.0**, above upstream's 1.0.x.
 
 ---
 
@@ -106,6 +108,21 @@ The project is about nine months old and its guidance for the AI had drifted fro
 - **Tool descriptions:** the most used and most expensive tools now carry their usage hints (`compact`, `summaryOnly`, limits, cheapest-first health checks) in their own descriptions.
 
 Fixed in `CLAUDE.md`, `AGENTS.md`, `WORKFLOWS.md` and the `ai-skills` tool-selection reference. A note at the top of `CLAUDE.md`/`AGENTS.md` points to the files every client reads, to prevent the same drift.
+
+---
+
+## Releasing a new version
+
+Publishing is automated by `.github/workflows/release.yml`:
+
+```bash
+git tag v1.1.1
+git push origin v1.1.1
+```
+
+GitHub then builds every Revit version with `build-release.ps1`, attaches `RVT-Vortex-v1.1.1.zip` to a new GitHub Release (with auto-generated notes), and rewrites `latest.json` on `main` with the version, download URL and SHA-256. Installed copies pick it up the next time Revit starts and offer the update.
+
+Use a version higher than the one installed (the plugin compares versions). Watch the run under the repository's **Actions** tab; if a Revit version fails to build, `build-release.ps1` skips it and the others still ship.
 
 ---
 

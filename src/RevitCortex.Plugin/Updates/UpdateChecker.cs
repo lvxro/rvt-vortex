@@ -28,8 +28,9 @@ namespace RevitCortex.Plugin.Updates;
 /// </summary>
 public static class UpdateChecker
 {
-    private const string ManifestUrl =
-        "https://raw.githubusercontent.com/LuDattilo/revitcortex-releases/main/latest.json";
+    // RVT Vortex: check the fork's own manifest, never the upstream one —
+    // installing an upstream release would replace the fork.
+    private const string ManifestUrl = ForkInfo.ManifestUrl;
 
     private static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(5);
 

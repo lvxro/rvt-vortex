@@ -57,28 +57,23 @@ public class SendSupportReport : IExternalCommand
 
             var (zipPath, included, skipped) = BuildReportZip(commandData);
 
-            var body = BuildEmailBody(commandData, included, skipped);
-            var subject = $"RevitCortex Premium bug report - {Environment.UserName} - {DateTime.Now:yyyy-MM-dd HH:mm}";
-
-            bool outlookOk = TryOpenOutlookWithTimeout(
-                subject, body, zipPath, TimeSpan.FromSeconds(10));
-
-            if (outlookOk)
+            // RVT Vortex: report on the fork's GitHub issues instead of e-mailing
+            // the original author. Issues are PUBLIC, so the pre-filled text
+            // carries only versions — no user name, model name or paths.
+            try
             {
-                TaskDialog.Show(title, Localization.T("support.outlook_opened", zipPath));
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{zipPath}\"");
             }
-            else
+            catch { /* non critical */ }
+
+            var issueUrl = BuildIssueUrl(commandData);
+            try
             {
-                // Fallback: open the folder so the user can attach manually.
-                try
-                {
-                    System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{zipPath}\"");
-                }
-                catch { /* non critico */ }
-
-                TaskDialog.Show(title, Localization.T("support.outlook_unavailable", zipPath, SupportEmail));
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(issueUrl) { UseShellExecute = true });
             }
+            catch { /* the dialog below still shows the link */ }
 
+            TaskDialog.Show(title, Localization.T("support.issue_opened", zipPath, ForkInfo.NewIssueUrl));
             return Result.Succeeded;
         }
         catch (Exception ex)
@@ -368,7 +363,34 @@ public class SendSupportReport : IExternalCommand
         }
     }
 
-    // ── Email body ──────────────────────────────────────────────────────────
+    // ── GitHub issue (RVT Vortex) ───────────────────────────────────────────
+
+    private static string BuildIssueUrl(ExternalCommandData commandData)
+    {
+        string revit = "?";
+        try
+        {
+            var app = commandData.Application.Application;
+            revit = $"{app.VersionName} ({app.VersionNumber})";
+        }
+        catch { /* keep the issue usable */ }
+
+        var plugin = typeof(SendSupportReport).Assembly.GetName().Version?.ToString() ?? "?";
+        var body =
+            "**What happened**\n(describe what you were doing and what went wrong)\n\n" +
+            "**Environment**\n" +
+            $"- {ForkInfo.ProductName}: {plugin}\n" +
+            $"- Revit: {revit}\n\n" +
+            "**Diagnostic ZIP**\nDrag the ZIP that just opened in Explorer into this box. " +
+            "Issues are public: open the ZIP first and remove anything you don't want to share " +
+            "(model names, paths, your user name).";
+
+        return ForkInfo.NewIssueUrl +
+               "?title=" + Uri.EscapeDataString("Bug report: ") +
+               "&body=" + Uri.EscapeDataString(body);
+    }
+
+    // ── Email body (original RevitCortex flow, kept for reference) ──────────
 
     private static string BuildEmailBody(ExternalCommandData commandData,
         List<string> included, List<string> skipped)

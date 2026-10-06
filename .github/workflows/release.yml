@@ -1,0 +1,98 @@
+# Publishes an RVT Vortex release when a version tag is pushed.
+#
+#   git tag v1.1.0
+#   git push origin v1.1.0
+#
+# The job builds every Revit version with build-release.ps1, uploads the ZIP
+# to a GitHub Release, and rewrites latest.json on main. Installed plugins read
+# latest.json (see src/RevitCortex.Plugin/ForkInfo.cs) and offer the update.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Read version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart("v")
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Tag must look like v1.2.3 (got ${{ github.ref_name }})" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Stamp version into the plugin
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $p = "src/RevitCortex.Plugin/RevitCortex.Plugin.csproj"
+          $s = Get-Content $p -Raw
+          $s = $s -replace '<Version>[^<]*</Version>', "<Version>$v</Version>"
+          $s = $s -replace '<AssemblyVersion>[^<]*</AssemblyVersion>', "<AssemblyVersion>$v.0</AssemblyVersion>"
+          $s = $s -replace '<FileVersion>[^<]*</FileVersion>', "<FileVersion>$v.0</FileVersion>"
+          Set-Content $p $s -NoNewline
+
+      - name: Build release ZIP
+        shell: pwsh
+        run: ./build-release.ps1 -Version ${{ steps.ver.outputs.version }}
+
+      - name: Rename ZIP and compute SHA-256
+        id: zip
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $zip = "RVT-Vortex-v$v.zip"
+          Move-Item "RevitCortex-v$v.zip" $zip -Force
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash
+          "name=$zip" >> $env:GITHUB_OUTPUT
+          "sha256=$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" "${{ steps.zip.outputs.name }}" `
+            --title "RVT Vortex ${{ steps.ver.outputs.version }}" `
+            --generate-notes
+
+      - name: Update latest.json on main
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v    = "${{ steps.ver.outputs.version }}"
+          $url  = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.zip.outputs.name }}"
+          $notes = (gh release view "${{ github.ref_name }}" --json body --jq .body) -join "`n"
+          if ($notes.Length -gt 1500) { $notes = $notes.Substring(0, 1500) + "..." }
+
+          git fetch origin main
+          git checkout main
+          [ordered]@{
+            version     = $v
+            downloadUrl = $url
+            sha256      = "${{ steps.zip.outputs.sha256 }}"
+            changelog   = $notes
+          } | ConvertTo-Json | Set-Content latest.json -Encoding utf8
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest.json
+          git commit -m "release: latest.json -> $v"
+          git push origin main
