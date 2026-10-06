@@ -120,6 +120,8 @@ git tag v1.1.1
 git push origin v1.1.1
 ```
 
+Publishing from the GitHub web page works too (Releases → Draft a new release → new tag `v1.1.1` → Publish): the workflow attaches the ZIP to that release instead of creating a second one.
+
 GitHub then builds every Revit version with `build-release.ps1`, attaches `RVT-Vortex-v1.1.1.zip` to a new GitHub Release (with auto-generated notes), and rewrites `latest.json` on `main` with the version, download URL and SHA-256. Installed copies pick it up the next time Revit starts and offer the update.
 
 Use a version higher than the one installed (the plugin compares versions). Watch the run under the repository's **Actions** tab; if a Revit version fails to build, `build-release.ps1` skips it and the others still ship.
