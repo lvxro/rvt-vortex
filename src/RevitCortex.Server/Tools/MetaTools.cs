@@ -8,7 +8,7 @@ namespace RevitCortex.Server.Tools;
 [McpServerToolType]
 public static class MetaTools
 {
-    [McpServerTool(Name = "say_hello"), Description("Cheap connection check — call once at the start. Returns the detected Revit UI locale (en/it/fr/de/es), which tells you the language of category and parameter display names. Shows nothing in Revit.")]
+    [McpServerTool(Name = "say_hello"), Description("Cheap connection check — call once at the start. Returns the detected Revit model locale (en/it/fr/de/es/pt), which tells you the language of category and parameter display names. Shows nothing in Revit.")]
     public static async Task<string> SayHello(RevitConnectionManager revit, CancellationToken ct)
     {
         var result = await revit.ExecuteAsync("say_hello", new JObject(), ct);

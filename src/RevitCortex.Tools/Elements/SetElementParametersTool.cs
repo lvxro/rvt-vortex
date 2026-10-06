@@ -35,7 +35,13 @@ public class SetElementParametersTool : ICortexTool
         var successCount = 0;
         var failCount = 0;
 
-        if (!session.RequestConfirmation("modify parameters on", requests.Count))
+        // dryRun runs the exact same edits inside the transaction and rolls it
+        // back, so the preview validates names, read-only flags and value
+        // parsing exactly like the real run. Defaults to false here (unlike
+        // newer tools) to keep existing callers' behavior unchanged.
+        var dryRun = ToolHelpers.GetDryRun(input, defaultValue: false);
+
+        if (!dryRun && !session.RequestConfirmation("modify parameters on", requests.Count))
             return CortexResult<object>.Fail(CortexErrorCode.Cancelled, "Operation cancelled by user");
 
         using var tx = new Transaction(doc, "RevitCortex: Set Parameters");
@@ -117,7 +123,11 @@ public class SetElementParametersTool : ICortexTool
                 }
             }
 
-            if (tx.Commit() != TransactionStatus.Committed)
+            if (dryRun)
+            {
+                tx.RollBack();
+            }
+            else if (tx.Commit() != TransactionStatus.Committed)
                 return CortexResult<object>.Fail(CortexErrorCode.TransactionFailed,
                     $"Revit rolled back the transaction: {TransactionFailureHandling.Describe(txFailures)}",
                     suggestion: "Fix the reported model errors and retry.");
@@ -131,7 +141,10 @@ public class SetElementParametersTool : ICortexTool
 
         return CortexResult<object>.Ok(new
         {
-            message = $"Set {successCount}/{requests.Count} parameters successfully",
+            message = dryRun
+                ? $"Dry run: {successCount}/{requests.Count} parameters would be set (nothing changed)"
+                : $"Set {successCount}/{requests.Count} parameters successfully",
+            dryRun,
             successCount,
             failCount,
             results

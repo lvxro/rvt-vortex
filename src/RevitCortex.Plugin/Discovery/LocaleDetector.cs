@@ -21,6 +21,8 @@ public static class LocaleDetector
         if (name == "Commenti" || name == "Commento") return "it";
         if (name == "Commentaires") return "fr";
         if (name == "Kommentare") return "de";
+        if (name == "Comentarios") return "es";
+        if (name == "Comentários") return "pt";
         return "en";
     }
 }
