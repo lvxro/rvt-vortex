@@ -21,29 +21,50 @@ public static class ConfirmationHelper
     {
         if (elementCount <= 0) return true; // Nothing to do
 
-        var dialog = new TaskDialog("RevitCortex Premium Confirmation")
+        var dialog = new TaskDialog(Localization.T("confirm.title"))
         {
-            MainInstruction = $"About to {action} ({elementCount} element(s))",
+            MainInstruction = Localization.T("confirm.instruction", action, elementCount),
             CommonButtons = TaskDialogCommonButtons.None
         };
 
         if (!string.IsNullOrEmpty(description))
             dialog.MainContent = description;
 
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Yes",
-            "Approve this operation");
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Yes to All",
-            "Approve this and all remaining operations without asking again (2 min)");
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Auto",
-            "Approve all operations automatically — a floating window lets you stop at any time");
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, "No",
-            "Cancel this operation");
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, Localization.T("confirm.yes"),
+            Localization.T("confirm.yes_desc"));
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, Localization.T("confirm.yes_all"),
+            Localization.T("confirm.yes_all_desc"));
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, Localization.T("confirm.auto"),
+            Localization.T("confirm.auto_desc"));
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, Localization.T("confirm.no"),
+            Localization.T("confirm.no_desc"));
 
-        var result = dialog.Show();
+        var result = ShowOwn(dialog);
         if (result == TaskDialogResult.CommandLink2) return null;  // Yes to All
         if (result == TaskDialogResult.CommandLink1) return true;  // Yes
         if (result == TaskDialogResult.CommandLink3) return AutoSentinel; // Auto
         return false; // No (or closed)
+    }
+
+    /// <summary>
+    /// True while one of RevitCortex's own TaskDialogs is on screen. The
+    /// unattended dialog handler checks it so it never auto-dismisses our own
+    /// confirmations (those are resolved in CortexSession instead).
+    /// </summary>
+    public static bool IsShowingOwnDialog => _ownDialogDepth > 0;
+    private static int _ownDialogDepth;
+
+    private static TaskDialogResult ShowOwn(TaskDialog dialog)
+    {
+        System.Threading.Interlocked.Increment(ref _ownDialogDepth);
+        try
+        {
+            return dialog.Show();
+        }
+        finally
+        {
+            System.Threading.Interlocked.Decrement(ref _ownDialogDepth);
+        }
     }
 
     /// <summary>
@@ -62,25 +83,25 @@ public static class ConfirmationHelper
     {
         if (elementCount <= 0) return true;
 
-        var dialog = new TaskDialog("RevitCortex Premium Confirmation")
+        var dialog = new TaskDialog(Localization.T("confirm.title"))
         {
-            MainInstruction = $"About to {action} ({elementCount} element(s))",
+            MainInstruction = Localization.T("confirm.instruction", action, elementCount),
             CommonButtons = TaskDialogCommonButtons.None
         };
 
         if (!string.IsNullOrEmpty(description))
             dialog.MainContent = description;
 
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Yes",
-            "Approve this operation");
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "Yes to All",
-            "Approve this and all remaining operations without asking again (2 min)");
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, "Auto",
-            "Approve all operations automatically — a floating window lets you stop at any time");
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, "No",
-            "Cancel this operation");
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, Localization.T("confirm.yes"),
+            Localization.T("confirm.yes_desc"));
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, Localization.T("confirm.yes_all"),
+            Localization.T("confirm.yes_all_desc"));
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink3, Localization.T("confirm.auto"),
+            Localization.T("confirm.auto_desc"));
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink4, Localization.T("confirm.no"),
+            Localization.T("confirm.no_desc"));
 
-        var result = dialog.Show();
+        var result = ShowOwn(dialog);
         if (result == TaskDialogResult.CommandLink2) return null;  // Yes to All
         if (result == TaskDialogResult.CommandLink1) return true;  // Yes
         if (result == TaskDialogResult.CommandLink3)
@@ -101,21 +122,21 @@ public static class ConfirmationHelper
     {
         if (elementCount <= 0) return true;
 
-        var dialog = new TaskDialog("RevitCortex Critical Confirmation")
+        var dialog = new TaskDialog(Localization.T("confirm.critical_title"))
         {
-            MainInstruction = $"About to {action} ({elementCount} element(s))",
+            MainInstruction = Localization.T("confirm.instruction", action, elementCount),
             CommonButtons = TaskDialogCommonButtons.None
         };
 
         if (!string.IsNullOrEmpty(description))
             dialog.MainContent = description;
 
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, "Yes",
-            "Approve this operation only");
-        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, "No",
-            "Cancel this operation");
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink1, Localization.T("confirm.yes"),
+            Localization.T("confirm.yes_only_desc"));
+        dialog.AddCommandLink(TaskDialogCommandLinkId.CommandLink2, Localization.T("confirm.no"),
+            Localization.T("confirm.no_desc"));
 
-        var result = dialog.Show();
+        var result = ShowOwn(dialog);
         if (result == TaskDialogResult.CommandLink1) return true;
         return false;
     }

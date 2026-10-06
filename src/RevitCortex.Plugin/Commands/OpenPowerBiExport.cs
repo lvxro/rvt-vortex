@@ -1,4 +1,5 @@
 using System;
+using RevitCortex.Plugin.UI;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -16,7 +17,7 @@ public class OpenPowerBiExport : IExternalCommand
             var doc = commandData.Application.ActiveUIDocument?.Document;
             if (doc == null)
             {
-                TaskDialog.Show("Power BI Export", "Apri prima un modello Revit.");
+                TaskDialog.Show("Power BI", Localization.T("pbi.open_model_first"));
                 return Result.Cancelled;
             }
 
@@ -41,7 +42,7 @@ public class OpenPowerBiExport : IExternalCommand
             // Surface the real error to the user — the default Revit dialog
             // strips the stack trace, which makes diagnosing this particular
             // window painful otherwise.
-            var dlg = new TaskDialog("Power BI Export — errore")
+            var dlg = new TaskDialog(Localization.T("pbi.error_title"))
             {
                 MainInstruction = "Impossibile aprire la finestra.",
                 MainContent = $"{ex.GetType().Name}: {ex.Message}",

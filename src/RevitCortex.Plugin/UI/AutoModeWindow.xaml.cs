@@ -42,7 +42,29 @@ public partial class AutoModeWindow : Window
     {
         _ownerHandle = ownerHandle;
         InitializeComponent();
+        Title = Localization.T("win.title");
+        StopText.Text = Localization.T("win.stop");
+        StopDetailText.Text = Localization.T("win.stop_desc");
+        StatusText.Text = Localization.T("win.status_idle");
+        SetMode(false);
         AttachOwner();
+    }
+
+    /// <summary>
+    /// Switches between plain Auto mode (user present, clicked "Auto") and
+    /// Autopilot (user away): heading, explanation and the status box.
+    /// </summary>
+    public void SetMode(bool autopilot)
+    {
+        HeadingText.Text = Localization.T(autopilot ? "win.autopilot_heading" : "win.auto_heading");
+        DetailText.Text = Localization.T(autopilot ? "win.autopilot_detail" : "win.auto_detail");
+        StatusBox.Visibility = autopilot ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Shows the latest automatic decision or save (Autopilot only).</summary>
+    public void SetStatus(string text)
+    {
+        StatusText.Text = text;
     }
 
     /// <summary>

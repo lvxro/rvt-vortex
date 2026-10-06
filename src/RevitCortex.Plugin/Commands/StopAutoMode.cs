@@ -16,8 +16,15 @@ public class StopAutoMode : IExternalCommand
             var app = RevitCortexApp.Instance;
             if (app?.Session == null) return Result.Succeeded;
 
-            app.Session.AutoMode = false;
-            ConfirmationHelper.NotifyAutoModeChanged(false);
+            if (app.Session.UnattendedMode)
+            {
+                app.StopAutopilot("log.stop");
+            }
+            else
+            {
+                app.Session.AutoMode = false;
+                ConfirmationHelper.NotifyAutoModeChanged(false);
+            }
             return Result.Succeeded;
         }
         catch (Exception ex)

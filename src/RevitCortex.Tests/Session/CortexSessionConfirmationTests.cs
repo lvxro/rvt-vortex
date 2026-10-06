@@ -266,4 +266,125 @@ public class CortexSessionConfirmationTests
 
         Assert.True(result);
     }
+
+    // ---- Unattended ("leave it working") mode ----
+
+    [Fact]
+    public void Unattended_CriticalIsDeclinedWithoutShowingDialog()
+    {
+        var session = NewSession();
+        session.UnattendedMode = true;
+        session.AutoMode = true;
+        session.CriticalConfirmAction = (_, _, _) =>
+            throw new InvalidOperationException("No dialog may open while unattended.");
+
+        var result = session.RequestConfirmation("execute C# script", 1, critical: true);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Unattended_NonCriticalIsAutoApproved()
+    {
+        var session = NewSession();
+        session.UnattendedMode = true;
+        session.AutoMode = true;
+        session.ConfirmAction = (_, _, _) =>
+            throw new InvalidOperationException("No dialog may open while unattended.");
+
+        Assert.True(session.RequestConfirmation("delete", 5));
+    }
+
+    [Fact]
+    public void Unattended_SurvivesReinitialize_AndThenFailsClosedInsteadOfBlocking()
+    {
+        var session = NewSession();
+        session.UnattendedMode = true;
+        session.AutoMode = true;
+        session.ConfirmAction = (_, _, _) =>
+            throw new InvalidOperationException("No dialog may open while unattended.");
+
+        session.Reinitialize(new DocumentCapabilities(), "en");
+
+        Assert.False(session.AutoMode);
+        Assert.True(session.UnattendedMode);
+        Assert.False(session.RequestConfirmation("delete", 5));
+    }
+
+    [Fact]
+    public void Unattended_ClearedByResetApproveAll()
+    {
+        var session = NewSession();
+        session.UnattendedMode = true;
+        session.AutoMode = true;
+
+        session.ResetApproveAll();
+
+        Assert.False(session.UnattendedMode);
+        Assert.False(session.AutoMode);
+    }
+
+    [Fact]
+    public void AutoDecision_ReportsApprovalsAndDeclines()
+    {
+        var session = NewSession();
+        var decisions = new System.Collections.Generic.List<(string, bool)>();
+        session.AutoDecision += (action, _, _, approved) => decisions.Add((action, approved));
+        session.UnattendedMode = true;
+        session.AutoMode = true;
+
+        session.RequestConfirmation("delete", 3);
+        session.RequestConfirmation("execute C# script", 1, critical: true);
+
+        Assert.Equal(2, decisions.Count);
+        Assert.Equal(("delete", true), decisions[0]);
+        Assert.Equal(("execute C# script", false), decisions[1]);
+    }
+
+    [Fact]
+    public void Unattended_WithAllowCritical_ApprovesCriticalWithoutDialog()
+    {
+        var session = NewSession();
+        session.UnattendedMode = true;
+        session.AutoMode = true;
+        session.UnattendedAllowCritical = true;
+        session.CriticalConfirmAction = (_, _, _) =>
+            throw new InvalidOperationException("No dialog may open while unattended.");
+
+        Assert.True(session.RequestConfirmation("execute C# script", 1, critical: true));
+    }
+
+    [Fact]
+    public void AllowCritical_IsIgnoredOutsideUnattended()
+    {
+        var session = NewSession();
+        session.UnattendedAllowCritical = true;
+        session.CriticalConfirmAction = (_, _, _) => false;
+
+        Assert.False(session.RequestConfirmation("execute C# script", 1, critical: true));
+    }
+
+    [Fact]
+    public void ResetApproveAll_ClearsAllowCritical()
+    {
+        var session = NewSession();
+        session.UnattendedMode = true;
+        session.UnattendedAllowCritical = true;
+
+        session.ResetApproveAll();
+
+        Assert.False(session.UnattendedAllowCritical);
+    }
+
+    [Fact]
+    public void NotUnattended_CriticalStillAsksTheUser()
+    {
+        var session = NewSession();
+        var asked = false;
+        session.AutoMode = true;
+        session.CriticalConfirmAction = (_, _, _) => { asked = true; return true; };
+
+        Assert.True(session.RequestConfirmation("execute C# script", 1, critical: true));
+        Assert.True(asked);
+    }
 }

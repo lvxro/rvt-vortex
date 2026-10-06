@@ -367,6 +367,22 @@ When adding new destructive tools, always call `session.RequestConfirmation("act
 
 When opening a Transaction in a write tool, also call `TransactionFailureHandling.SuppressWarnings(tx)` (in `RevitCortex.Tools/Utilities`) right after creating it and check `tx.Commit() != TransactionStatus.Committed`: without the preprocessor any Revit warning at Commit opens a modal TaskDialog that freezes the MCP bridge; without the commit check a Revit-side rollback would be reported as success. Read dryRun via `ToolHelpers.GetDryRun(input)` (default true, preview-first).
 
+## Autopilot (Unattended Mode)
+
+The ribbon toggle **Autopilot** (`Commands/ToggleAutopilot.cs`, grey when off, orange when on) turns on `CortexSession.UnattendedMode` (plus `AutoMode`) for users who start a long task and walk away. User guide: `docs/AUTOPILOT.md`. Start/stop go through `RevitCortexApp.StartAutopilot` / `StopAutopilot`.
+
+- Non-critical confirmations are auto-approved; critical ones (`send_code_to_revit`) are **declined** instead of opening a dialog nobody will answer — unless the user ticked "Also allow C# scripts" when starting (`UnattendedAllowCritical`). The code sandbox still applies either way.
+- `UnattendedMode` survives `Reinitialize` (document switch): AutoMode resets, so further confirmations fail closed instead of blocking. Document close, the toggle, the floating window's Stop and `ResetApproveAll()` clear it.
+- `UI/UnattendedDialogHandler` dismisses Revit's own modal dialogs via `DialogBoxShowing`, preferring Close/Cancel/No over OK. RevitCortex's own TaskDialogs are skipped (`ConfirmationHelper.IsShowingOwnDialog`).
+- Auto-save: the router marks every successful non-read-only tool in `CortexSession.AutoSave` (`AutoSaveScheduler`, 60 s throttle); `RevitCortexApp.OnIdlingAutoSave` calls `Document.Save()` from Idling (uses `SetRaiseWithoutDelay` while a save is pending). Skips read-only/never-saved docs; never syncs with central.
+- Every automatic decision, dismissed dialog and auto-save is written to `<RootFolder>/autopilot.log`, in the UI language.
+- The router rewrites `Cancelled` results while unattended (`CortexRouter.UnattendedCancelledSuggestion`): **when you see it, do not stop to ask the user — skip the step, continue, and list it as pending in the final summary.**
+- Under Autopilot, use only RevitCortex tools: never screen control or the browser (they trigger permission prompts nobody will answer).
+
+## UI Localization
+
+`UI/Localization.cs` picks the language from the **Windows display language** first (`GetUserDefaultUILanguage`), then Revit's language, then `CurrentUICulture`; unsupported languages fall back to English. Add every new user-facing string to its table with at least `en` (new fork strings also carry `es` and `it`). Ribbon toggles use `IconFactory` colors: slate for commands, grey/orange (`ClaudeOrange`, #D97757) for off/on states.
+
 ## UI Components
 
 The plugin includes a Revit ribbon panel with two buttons (Cortex Switch, Settings) and a settings window for port, log level, and tool visibility.
@@ -429,7 +445,9 @@ Then use the corresponding column from the locale mapping tables below for ALL s
 
 ### `send_code_to_revit`
 
-**NEVER use autonomously for bulk/batch operations.** When an operation involves many elements or would benefit from a custom script, ALWAYS ask the user first:
+**Exception — unattended mode:** if the user said they are away / told you to work without asking and allowed scripts, do not stop to ask: use it when it is clearly the better route, keep each script small and focused, and list every script you ran in the final summary. If the call comes back `Cancelled` with the unattended suggestion, scripts were not allowed: fall back to standard tools.
+
+**NEVER use autonomously for bulk/batch operations** (outside the exception above). When an operation involves many elements or would benefit from a custom script, ALWAYS ask the user first:
 
 > "Posso usare `send_code_to_revit` per eseguire questa operazione in modo più efficiente con uno script C#, oppure preferisci che proceda con i tool standard (potrebbe richiedere più chiamate)?"
 

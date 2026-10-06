@@ -8,20 +8,28 @@ namespace RevitCortex.Plugin.UI;
 
 /// <summary>
 /// Generates ribbon icons programmatically with vector symbols.
-/// Teal accent (#00838F) to distinguish from the fork's orange branding.
+///
+/// One palette for the whole panel:
+/// <list type="bullet">
+/// <item>Slate (#3F4A55) for plain command buttons (settings, export, support, license).</item>
+/// <item>Toggle buttons (server, Autopilot) are light gray (#9AA0A6) when off and
+/// Claude orange (#D97757) when on, so state is readable at a glance.</item>
+/// </list>
 /// </summary>
 public static class IconFactory
 {
-    private static readonly Color TealPrimary = Color.FromRgb(0, 131, 143);   // #00838F
-    private static readonly Color TealDark = Color.FromRgb(0, 96, 100);       // #006064
-    private static readonly Color IndigoAccent = Color.FromRgb(92, 107, 192); // #5C6BC0
-    private static readonly Color ActiveGreen = Color.FromRgb(46, 125, 50);   // #2E7D32
+    /// <summary>Accent used for every "on" state (Claude orange).</summary>
+    public static readonly Color ClaudeOrange = Color.FromRgb(217, 119, 87);  // #D97757
+    private static readonly Color Slate = Color.FromRgb(63, 74, 85);           // #3F4A55
+    private static readonly Color OffGray = Color.FromRgb(154, 160, 166);      // #9AA0A6
     private static readonly Color InactiveGray = Color.FromRgb(97, 97, 97);   // #616161
+    private static readonly Color TealDark = Slate;
+    private static readonly Color IndigoAccent = Slate;
 
-    /// <summary>Connection icon: lightning bolt. Green when active, gray when stopped.</summary>
+    /// <summary>Connection icon: lightning bolt. Orange when running, gray when stopped.</summary>
     public static BitmapSource CreateConnectionIcon(int size, bool isActive = false)
     {
-        var bg = isActive ? ActiveGreen : InactiveGray;
+        var bg = isActive ? ClaudeOrange : OffGray;
         return CreateIconWithDrawing(size, bg, (dc, s) =>
         {
             // Lightning bolt
@@ -141,8 +149,7 @@ public static class IconFactory
     /// </summary>
     public static BitmapSource CreatePowerBiIcon(int size)
     {
-        var amber = Color.FromRgb(245, 158, 11); // #F59E0B (warm amber)
-        return CreateIconWithDrawing(size, amber, (dc, s) =>
+        return CreateIconWithDrawing(size, Slate, (dc, s) =>
         {
             double margin = s * 0.18;
             double baseY = s - margin;
@@ -164,8 +171,7 @@ public static class IconFactory
     /// (distinct from the teal-gear Settings icon it used to borrow).</summary>
     public static BitmapSource CreateLicenseIcon(int size)
     {
-        var violet = Color.FromRgb(123, 31, 162); // #7B1FA2
-        return CreateIconWithDrawing(size, violet, (dc, s) =>
+        return CreateIconWithDrawing(size, Slate, (dc, s) =>
         {
             double m = s * 0.22;
             var pen = new Pen(Brushes.White, s * 0.07) { LineJoin = PenLineJoin.Round };
@@ -242,6 +248,38 @@ public static class IconFactory
         {
             double m = s * 0.28;
             dc.DrawRectangle(Brushes.White, null, new Rect(m, m, s - 2 * m, s - 2 * m));
+        });
+    }
+
+    /// <summary>
+    /// Autopilot icon: a ring with a "play" triangle (work keeps going) and a
+    /// small status dot. Light gray when off, Claude orange when on.
+    /// </summary>
+    public static BitmapSource CreateAutopilotIcon(int size, bool isActive = false)
+    {
+        var bg = isActive ? ClaudeOrange : OffGray;
+        return CreateIconWithDrawing(size, bg, (dc, s) =>
+        {
+            var center = new Point(s / 2.0, s / 2.0);
+            var ring = new Pen(Brushes.White, s * 0.07);
+            ring.Freeze();
+            dc.DrawEllipse(null, ring, center, s * 0.32, s * 0.32);
+
+            var play = new StreamGeometry();
+            using (var ctx = play.Open())
+            {
+                ctx.BeginFigure(new Point(s * 0.42, s * 0.34), true, true);
+                ctx.LineTo(new Point(s * 0.66, s * 0.50), true, true);
+                ctx.LineTo(new Point(s * 0.42, s * 0.66), true, true);
+            }
+            play.Freeze();
+            dc.DrawGeometry(Brushes.White, null, play);
+
+            if (isActive)
+            {
+                // "Live" dot in the corner, like a recording indicator.
+                dc.DrawEllipse(Brushes.White, null, new Point(s * 0.82, s * 0.18), s * 0.09, s * 0.09);
+            }
         });
     }
 

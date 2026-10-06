@@ -25,7 +25,9 @@ public class RevitCortexApp : IExternalApplication
     private UIApplication? _uiApplication;
     private int _port = CortexEnvironment.Current.DefaultPort;
     private Autodesk.Revit.UI.PushButton? _connectButton;
+    private Autodesk.Revit.UI.PushButton? _autopilotButton;
     private UI.AutoModeWindow? _autoModeWindow;
+    private UI.UnattendedDialogHandler? _unattendedDialogHandler;
     private bool _updateNotificationShown;
     private PbiSelectHttpListener? _pbiSelectListener;
     private PbiActionEventHandler? _pbiActionHandler;
@@ -93,6 +95,7 @@ public class RevitCortexApp : IExternalApplication
                 ConfirmationHelper.ConfirmWithSession(action, count, desc, _session);
             _session.CriticalConfirmAction = ConfirmationHelper.ConfirmCritical;
             _session.AutoModeActivity += OnAutoModeActivity;
+            _session.AutoDecision += OnAutoDecision;
             ConfirmationHelper.AutoModeChanged += OnAutoModeChanged;
             var analyzer = new DocumentAnalyzer();
 
@@ -161,6 +164,14 @@ public class RevitCortexApp : IExternalApplication
             // Capture UIApplication when Revit is idle (needed for ViewActivated hook)
             application.Idling += OnIdling;
 
+            // Unattended mode: auto-dismiss Revit's own modal dialogs so they
+            // can't freeze the session while the user is away.
+            _unattendedDialogHandler = new UI.UnattendedDialogHandler(() => _session);
+            _unattendedDialogHandler.Attach(application);
+
+            // Unattended mode: save the model after changes (throttled).
+            application.Idling += OnIdlingAutoSave;
+
             System.Diagnostics.Trace.WriteLine(
                 $"[RevitCortex] Started. {_router.TotalToolCount} tools registered.");
 
@@ -190,6 +201,9 @@ public class RevitCortexApp : IExternalApplication
             application.ControlledApplication.DocumentOpened -= OnDocumentOpened;
             application.ControlledApplication.DocumentClosing -= OnDocumentClosing;
             application.Idling -= OnIdling;
+            _unattendedDialogHandler?.Detach(application);
+            application.Idling -= OnIdlingAutoSave;
+            _unattendedDialogHandler = null;
             if (_uiApplication != null)
                 _uiApplication.ViewActivated -= OnViewActivated;
 
@@ -298,8 +312,8 @@ public class RevitCortexApp : IExternalApplication
         _connectButton.Image = IconFactory.CreateConnectionIcon(16, active);
         _connectButton.LargeImage = IconFactory.CreateConnectionIcon(32, active);
         _connectButton.ToolTip = active
-            ? $"RevitCortex Premium running on port {_port} — click to stop"
-            : "Start RevitCortex Premium server";
+            ? Localization.T("ribbon.connect.tooltip_on", _port)
+            : Localization.T("ribbon.connect.tooltip_off");
     }
 
     /// <summary>
@@ -317,13 +331,21 @@ public class RevitCortexApp : IExternalApplication
             return;
         }
 
+        UpdateAutopilotButton();
+
         if (active)
         {
-            if (_autoModeWindow != null) return; // already showing
+            var autopilot = _session?.UnattendedMode == true;
+            if (_autoModeWindow != null)
+            {
+                _autoModeWindow.SetMode(autopilot);
+                return; // already showing
+            }
             try
             {
                 var revitHandle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
                 _autoModeWindow = new UI.AutoModeWindow(revitHandle);
+                _autoModeWindow.SetMode(autopilot);
                 _autoModeWindow.StopRequested += OnAutoModeWindowStopRequested;
                 _autoModeWindow.Closed += (_, _) => _autoModeWindow = null;
                 _autoModeWindow.Show();
@@ -356,15 +378,82 @@ public class RevitCortexApp : IExternalApplication
     }
 
     /// <summary>
-    /// The floating window asked to stop Auto mode (button or X). Turn Auto off
-    /// on the session; the resulting AutoModeChanged(false) is a no-op for the
-    /// window since it is already closing.
+    /// The floating window asked to stop (button or X). Turns off Autopilot if
+    /// it is on, otherwise plain Auto mode.
     /// </summary>
     private void OnAutoModeWindowStopRequested()
     {
+        if (_session != null && _session.UnattendedMode)
+        {
+            StopAutopilot("log.stop");
+            return;
+        }
         if (_session != null)
             _session.AutoMode = false;
         ConfirmationHelper.NotifyAutoModeChanged(false);
+    }
+
+    /// <summary>
+    /// Turns on Autopilot (Auto + Unattended mode). Called by the ribbon toggle
+    /// after the user confirms.
+    /// </summary>
+    public void StartAutopilot(bool allowCriticalScripts)
+    {
+        if (_session == null) return;
+        _session.AutoSave.Reset();
+        _session.UnattendedAllowCritical = allowCriticalScripts;
+        _session.UnattendedMode = true;
+        _session.AutoMode = true;
+        UI.UnattendedLog.Separator(Localization.T(allowCriticalScripts ? "log.start_scripts" : "log.start"));
+        ConfirmationHelper.NotifyAutoModeChanged(true);
+    }
+
+    /// <summary>
+    /// Turns Autopilot off from any path (ribbon toggle, floating window,
+    /// document close). <paramref name="logKey"/> picks the log message.
+    /// </summary>
+    public void StopAutopilot(string logKey)
+    {
+        if (_session == null) return;
+        var wasOn = _session.UnattendedMode;
+        _session.AutoMode = false;
+        _session.UnattendedMode = false;
+        _session.UnattendedAllowCritical = false;
+        _session.AutoSave.Reset();
+        if (wasOn) UI.UnattendedLog.Separator(Localization.T(logKey));
+        ConfirmationHelper.NotifyAutoModeChanged(false);
+    }
+
+    /// <summary>Grey "Autopilot" when off, orange "Autopilot ON" when on.</summary>
+    private void UpdateAutopilotButton()
+    {
+        if (_autopilotButton == null) return;
+        var on = _session?.UnattendedMode == true;
+        _autopilotButton.ItemText = Localization.T(on ? "ribbon.autopilot.text_on" : "ribbon.autopilot.text_off");
+        _autopilotButton.ToolTip = Localization.T(on ? "ribbon.autopilot.tooltip_on" : "ribbon.autopilot.tooltip_off");
+        _autopilotButton.Image = IconFactory.CreateAutopilotIcon(16, on);
+        _autopilotButton.LargeImage = IconFactory.CreateAutopilotIcon(32, on);
+    }
+
+    /// <summary>
+    /// Logs every confirmation resolved without a human and shows it in the
+    /// floating window. Only while Autopilot is on, to avoid noise when the
+    /// user is present and clicked "Auto".
+    /// </summary>
+    private void OnAutoDecision(string action, int count, string? description, bool approved)
+    {
+        if (_session == null || !_session.UnattendedMode) return;
+        var detail = string.IsNullOrEmpty(description) ? "" : " — " + UI.UnattendedLog.Shorten(description, 200);
+        UI.UnattendedLog.Write(Localization.T(approved ? "log.approved" : "log.declined", action, count, detail));
+        SetWindowStatus(Localization.T(approved ? "win.status_approved" : "win.status_declined",
+            DateTime.Now.ToString("HH:mm"), action, count));
+    }
+
+    private void SetWindowStatus(string text)
+    {
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher == null) return;
+        dispatcher.BeginInvoke((System.Action)(() => _autoModeWindow?.SetStatus(text)));
     }
 
     private void CreateRibbonPanel(UIControlledApplication application)
@@ -376,62 +465,65 @@ public class RevitCortexApp : IExternalApplication
         RibbonPanel panel = application.CreateRibbonPanel(panelTitle);
         string assemblyLocation = Assembly.GetExecutingAssembly().Location;
 
-        // Connection toggle button
+        static string OneLine(string text) => text.Replace("\r\n", " ");
+
+        // ── Main toggles (large): server and Autopilot ──────────────────
+        // Both read grey when off and Claude orange when on.
         var connectBtnData = new PushButtonData(
             "ID_CORTEX_TOGGLE", "Cortex\r\nSwitch",
             assemblyLocation, "RevitCortex.Plugin.Commands.ToggleConnection");
-        connectBtnData.ToolTip = "Start RevitCortex Premium server";
+        connectBtnData.ToolTip = Localization.T("ribbon.connect.tooltip_off");
         connectBtnData.Image = IconFactory.CreateConnectionIcon(16, false);
         connectBtnData.LargeImage = IconFactory.CreateConnectionIcon(32, false);
         _connectButton = panel.AddItem(connectBtnData) as Autodesk.Revit.UI.PushButton;
 
-        // Settings button
+        var autopilotBtnData = new PushButtonData(
+            "ID_CORTEX_AUTOPILOT", Localization.T("ribbon.autopilot.text_off"),
+            assemblyLocation, "RevitCortex.Plugin.Commands.ToggleAutopilot");
+        autopilotBtnData.ToolTip = Localization.T("ribbon.autopilot.tooltip_off");
+        autopilotBtnData.LongDescription = Localization.T("ribbon.autopilot.long");
+        autopilotBtnData.Image = IconFactory.CreateAutopilotIcon(16, false);
+        autopilotBtnData.LargeImage = IconFactory.CreateAutopilotIcon(32, false);
+        _autopilotButton = panel.AddItem(autopilotBtnData) as Autodesk.Revit.UI.PushButton;
+
+        panel.AddSeparator();
+
+        // ── Secondary commands (small, stacked) ─────────────────────────
         var settingsBtn = new PushButtonData(
-            "ID_CORTEX_SETTINGS", "Settings",
+            "ID_CORTEX_SETTINGS", OneLine(Localization.T("ribbon.settings.text")),
             assemblyLocation, "RevitCortex.Plugin.Commands.OpenSettings");
-        settingsBtn.ToolTip = "RevitCortex Premium settings";
+        settingsBtn.ToolTip = Localization.T("ribbon.settings.tooltip");
         settingsBtn.Image = IconFactory.CreateSettingsIcon(16);
         settingsBtn.LargeImage = IconFactory.CreateSettingsIcon(32);
-        panel.AddItem(settingsBtn);
 
-        // Power BI export button
-        var powerBiBtn = new PushButtonData(
-            "ID_CORTEX_POWERBI", "Power BI\r\nExport",
-            assemblyLocation, "RevitCortex.Plugin.Commands.OpenPowerBiExport");
-        powerBiBtn.ToolTip = "Esporta dati e parametri in CSV per Power BI";
-        powerBiBtn.LongDescription =
-            "Apre il wizard di export Power BI: scegli categorie e parametri, " +
-            "salva profili riutilizzabili, abilita auto-export al salvataggio e " +
-            "registra il protocol handler revitcortex:// per drillthrough da PBI a Revit.";
-        powerBiBtn.Image = IconFactory.CreatePowerBiIcon(16);
-        powerBiBtn.LargeImage = IconFactory.CreatePowerBiIcon(32);
-        panel.AddItem(powerBiBtn);
-
-        // Send support report button
-        var supportBtn = new PushButtonData(
-            "ID_CORTEX_SUPPORT", "Send log\r\nto support",
-            assemblyLocation, "RevitCortex.Plugin.Commands.SendSupportReport");
-        supportBtn.ToolTip = "Send a bug report to RevitCortex Premium support";
-        supportBtn.LongDescription =
-            "Collects recent audit logs, token-usage log, settings, and the most recent " +
-            "Revit journal into a ZIP on the desktop, then opens a pre-filled Outlook " +
-            "message addressed to support. Add a short description of the problem " +
-            "and click Send. No personal data is sent beyond what's in the logs.";
-        supportBtn.Image = IconFactory.CreateSupportIcon(16);
-        supportBtn.LargeImage = IconFactory.CreateSupportIcon(32);
-        panel.AddItem(supportBtn);
-
-        // License & Account button
         var licenseBtn = new PushButtonData(
-            "ID_CORTEX_LICENSE", "License &\r\nAccount",
+            "ID_CORTEX_LICENSE", OneLine(Localization.T("ribbon.license.text")),
             assemblyLocation, "RevitCortex.Plugin.Commands.OpenLicense");
-        licenseBtn.ToolTip = "View license status and activate RevitCortex Premium";
+        licenseBtn.ToolTip = Localization.T("ribbon.license.tooltip");
         licenseBtn.Image = IconFactory.CreateLicenseIcon(16);
         licenseBtn.LargeImage = IconFactory.CreateLicenseIcon(32);
-        panel.AddItem(licenseBtn);
 
-        // Note: Auto mode is stopped via a floating AutoModeWindow shown while
-        // active (see OnAutoModeChanged), not a ribbon button.
+        var powerBiBtn = new PushButtonData(
+            "ID_CORTEX_POWERBI", OneLine(Localization.T("ribbon.powerbi.text")),
+            assemblyLocation, "RevitCortex.Plugin.Commands.OpenPowerBiExport");
+        powerBiBtn.ToolTip = Localization.T("ribbon.powerbi.tooltip");
+        powerBiBtn.LongDescription = Localization.T("ribbon.powerbi.long");
+        powerBiBtn.Image = IconFactory.CreatePowerBiIcon(16);
+        powerBiBtn.LargeImage = IconFactory.CreatePowerBiIcon(32);
+
+        var supportBtn = new PushButtonData(
+            "ID_CORTEX_SUPPORT", OneLine(Localization.T("ribbon.support.text")),
+            assemblyLocation, "RevitCortex.Plugin.Commands.SendSupportReport");
+        supportBtn.ToolTip = Localization.T("ribbon.support.tooltip");
+        supportBtn.LongDescription = Localization.T("ribbon.support.long");
+        supportBtn.Image = IconFactory.CreateSupportIcon(16);
+        supportBtn.LargeImage = IconFactory.CreateSupportIcon(32);
+
+        panel.AddStackedItems(settingsBtn, licenseBtn);
+        panel.AddStackedItems(powerBiBtn, supportBtn);
+
+        // Auto mode / Autopilot are stopped via the floating AutoModeWindow
+        // shown while active (see OnAutoModeChanged) or the Autopilot toggle.
     }
 
     private void OnDocumentOpened(object? sender, DocumentOpenedEventArgs args)
@@ -469,7 +561,10 @@ public class RevitCortexApp : IExternalApplication
             // sets AutoMode=false on the session; notify the UI so the floating
             // Auto mode window closes with the document.
             _session?.Reinitialize(new Core.Discovery.DocumentCapabilities(), "en");
-            ConfirmationHelper.NotifyAutoModeChanged(false);
+            if (_session != null && _session.UnattendedMode)
+                StopAutopilot("log.stop_doc_closed");
+            else
+                ConfirmationHelper.NotifyAutoModeChanged(false);
 
             System.Diagnostics.Trace.WriteLine(
                 "[RevitCortex] Session reset: document closing");
@@ -508,6 +603,53 @@ public class RevitCortexApp : IExternalApplication
             // If the update check already completed before Idling fired, show now.
             if (RevitCortex.Plugin.Updates.UpdateChecker.Latest?.HasUpdate == true)
                 ShowUpdateNotification();
+        }
+    }
+
+    /// <summary>
+    /// Unattended mode auto-save. Idling is a valid API context with no open
+    /// transaction, so Document.Save() is allowed here. While a save is pending
+    /// but throttled, SetRaiseWithoutDelay keeps Idling firing even with no
+    /// user input — otherwise the last batch of changes would never be saved.
+    /// Each save also leaves a Revit backup copy (.0001.rvt, .0002.rvt…).
+    /// </summary>
+    private void OnIdlingAutoSave(object? sender, Autodesk.Revit.UI.Events.IdlingEventArgs e)
+    {
+        var session = _session;
+        if (session == null || !session.UnattendedMode || !session.AutoSave.HasPending) return;
+
+        var now = DateTime.UtcNow;
+        if (!session.AutoSave.ShouldSaveNow(now))
+        {
+            e.SetRaiseWithoutDelay();
+            return;
+        }
+
+        var tools = string.Join(", ", session.AutoSave.TakePending(now));
+        try
+        {
+            var doc = (sender as UIApplication)?.ActiveUIDocument?.Document;
+            if (doc == null) return;
+
+            if (doc.IsReadOnly)
+            {
+                UI.UnattendedLog.Write(Localization.T("log.not_saved_readonly"));
+                return;
+            }
+            if (string.IsNullOrEmpty(doc.PathName))
+            {
+                UI.UnattendedLog.Write(Localization.T("log.not_saved_never"));
+                return;
+            }
+            if (!doc.IsModified) return;
+
+            doc.Save();
+            UI.UnattendedLog.Write(Localization.T("log.saved", doc.Title, tools));
+            SetWindowStatus(Localization.T("win.status_saved", DateTime.Now.ToString("HH:mm")));
+        }
+        catch (Exception ex)
+        {
+            UI.UnattendedLog.Write(Localization.T("log.save_error", tools, ex.Message));
         }
     }
 

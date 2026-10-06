@@ -2,6 +2,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using System;
+using RevitCortex.Plugin.UI;
 
 namespace RevitCortex.Plugin.Commands;
 
@@ -15,21 +16,21 @@ public class ToggleConnection : IExternalCommand
             var app = RevitCortexApp.Instance;
             if (app == null)
             {
-                TaskDialog.Show("RevitCortex Premium", "Plugin not initialized.");
+                TaskDialog.Show("RevitCortex", Localization.T("conn.not_initialized"));
                 return Result.Failed;
             }
 
             if (app.IsServiceRunning)
             {
                 app.StopService();
-                TaskDialog.Show("RevitCortex Premium", "Server stopped.");
+                TaskDialog.Show("RevitCortex", Localization.T("conn.stopped"));
             }
             else
             {
                 // Pass active document so the session is initialized immediately
                 var doc = commandData.Application.ActiveUIDocument?.Document;
                 app.StartService(doc);
-                TaskDialog.Show("RevitCortex Premium", $"Server started on port {app.Port}.");
+                TaskDialog.Show("RevitCortex", Localization.T("conn.started", app.Port));
             }
 
             return Result.Succeeded;

@@ -97,6 +97,54 @@ public class CortexSession
     private bool _autoMode;
 
     /// <summary>
+    /// Unattended ("leave it working") mode. Set from the ribbon by a user who
+    /// is about to walk away. While on:
+    /// <list type="bullet">
+    /// <item>Non-critical confirmations are auto-approved as with AutoMode.</item>
+    /// <item>Any confirmation that would need a human (critical operations, or
+    /// non-critical ones after AutoMode was reset by a document change) is
+    /// DECLINED immediately instead of opening a modal dialog nobody will
+    /// answer. The tool returns "cancelled" and the AI can move on.</item>
+    /// </list>
+    /// Unlike AutoMode it survives <see cref="Reinitialize"/>, so a document
+    /// switch makes the session fail closed rather than block. Cleared only by
+    /// an explicit stop (<see cref="ResetApproveAll"/>, Stop Auto, document close).
+    /// </summary>
+    public bool UnattendedMode
+    {
+        get { lock (_approveAllLock) { return _unattendedMode; } }
+        set { lock (_approveAllLock) { _unattendedMode = value; } }
+    }
+    private bool _unattendedMode;
+
+    /// <summary>
+    /// Opt-in chosen by the user when starting Unattended mode: also approve
+    /// critical operations (send_code_to_revit) instead of declining them.
+    /// The code sandbox still applies. Only honored while
+    /// <see cref="UnattendedMode"/> is on; cleared together with it.
+    /// </summary>
+    public bool UnattendedAllowCritical
+    {
+        get { lock (_approveAllLock) { return _unattendedAllowCritical; } }
+        set { lock (_approveAllLock) { _unattendedAllowCritical = value; } }
+    }
+    private bool _unattendedAllowCritical;
+
+    /// <summary>
+    /// Pending-save tracker for Unattended mode. The router marks successful
+    /// write tools; the plugin saves the document when Revit is idle.
+    /// </summary>
+    public AutoSaveScheduler AutoSave { get; } = new AutoSaveScheduler();
+
+    /// <summary>
+    /// Raised with (action, elementCount, description, approved) whenever a
+    /// confirmation is resolved automatically (Auto/Unattended approval or an
+    /// Unattended decline). Lets the UI keep a log of what happened while the
+    /// user was away.
+    /// </summary>
+    public event Action<string, int, string?, bool>? AutoDecision;
+
+    /// <summary>
     /// Raised every time a destructive operation is auto-approved because
     /// AutoMode is on. Core stays Revit-agnostic: UI layers can use this for
     /// status updates without changing the lifetime of Auto mode.
@@ -153,9 +201,24 @@ public class CortexSession
             // Auto-approved by Auto mode. Signal activity so the UI keeps the
             // Auto mode window alive through this burst of operations.
             AutoModeActivity?.Invoke();
+            AutoDecision?.Invoke(action, elementCount, description, true);
             return true;
         }
         if (!critical && ApproveAll) return true;
+        if (UnattendedMode && critical && UnattendedAllowCritical)
+        {
+            // The user explicitly opted in when leaving: approve without a dialog.
+            AutoDecision?.Invoke(action, elementCount, description, true);
+            return true;
+        }
+        if (UnattendedMode)
+        {
+            // Nobody is at the keyboard: a modal dialog here would freeze Revit
+            // (and every queued tool call) until the user comes back. Fail
+            // closed instead so the AI gets "cancelled" and can continue.
+            AutoDecision?.Invoke(action, elementCount, description, false);
+            return false;
+        }
         if (critical)
         {
             if (CriticalConfirmAction == null) return false;
@@ -190,5 +253,8 @@ public class CortexSession
     {
         ApproveAll = false;
         AutoMode = false;
+        UnattendedMode = false;
+        UnattendedAllowCritical = false;
+        AutoSave.Reset();
     }
 }

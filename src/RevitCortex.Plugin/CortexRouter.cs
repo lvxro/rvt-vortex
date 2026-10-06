@@ -289,6 +289,26 @@ public class CortexRouter
             _session.ApproveAll = false;
         }
 
+        // Unattended mode: remember that the model changed so the plugin saves
+        // it at the next idle moment (throttled — see AutoSaveScheduler).
+        if (result.Success && _session.UnattendedMode && !IsToolReadOnly(toolName))
+        {
+            _session.AutoSave.MarkChanged(toolName);
+        }
+
+        // Unattended mode: the stock "cancelled" suggestion tells the AI to ask
+        // the user whether to retry — but nobody is there, so the AI would stop
+        // and wait. Rewrite it so the AI skips the step and keeps going.
+        if (!result.Success && result.Error != null
+            && result.Error.Code == CortexErrorCode.Cancelled
+            && _session.UnattendedMode)
+        {
+            result = CortexResult<object>.Fail(CortexErrorCode.Cancelled,
+                result.Error.Message + " [unattended mode: the user is away]",
+                suggestion: UnattendedCancelledSuggestion,
+                context: result.Error.Context);
+        }
+
         // One serialization serves both the audit byte count and the cache entry's
         // estimate — Set used to re-serialize the same result a second time.
         var responseBytes = EstimateResponseBytes(result);
@@ -341,6 +361,15 @@ public class CortexRouter
 
         return result;
     }
+
+    /// <summary>
+    /// Suggestion returned for operations declined while Unattended mode is on.
+    /// </summary>
+    public const string UnattendedCancelledSuggestion =
+        "The user turned on unattended mode and is away. Do NOT stop to ask. " +
+        "Skip this step (or reach the same goal with standard, non-critical tools), " +
+        "continue with the rest of the task, and list this step in the final summary " +
+        "as pending the user's confirmation.";
 
     private static long EstimateResponseBytes(CortexResult<object> result)
     {
