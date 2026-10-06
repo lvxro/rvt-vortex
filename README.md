@@ -1,5 +1,7 @@
 # RevitCortex
 
+> **Fork** of [LuDattilo/revitcortex](https://github.com/LuDattilo/revitcortex) adding **Autopilot** (let the AI keep working while you're away — no dialog can stall it, with auto-save and a log), a **Revit 2027 install fix**, and a refreshed ribbon with UI text that follows the Windows language (English / Spanish / Italian). See [FORK.md](FORK.md).
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Revit](https://img.shields.io/badge/Revit-2023%E2%80%932027-blue)](#supported-revit-versions)
 [![Latest Release](https://img.shields.io/github/v/release/LuDattilo/revitcortex-releases?label=release)](https://github.com/LuDattilo/revitcortex-releases/releases/latest)
@@ -23,6 +25,7 @@ RevitCortex lets Claude, GPT, Gemini, or **any MCP-compatible LLM** (Claude Desk
 - **Sandboxed code execution** — `send_code_to_revit` validates user code against a namespace block-list
 - **Audit log** — every tool invocation appended to `~/.revitcortex/audit.jsonl`
 - **Read-only mode** — global switch in settings blocks all write tools
+- **Autopilot** — ribbon toggle (grey off / orange on): start a long task and walk away; no dialog can freeze the session, the model is auto-saved and everything decided without you is logged (see [docs/AUTOPILOT.md](docs/AUTOPILOT.md))
 
 ---
 
@@ -140,7 +143,7 @@ There are two ways to install RevitCortex:
 
 5. The installer:
    - auto-detects every installed Revit version (2023 → 2027)
-   - deploys the matching plugin DLLs to `C:\ProgramData\Autodesk\Revit\Addins\{version}\RevitCortex\`
+   - deploys the matching plugin DLLs to `C:\ProgramData\Autodesk\Revit\Addins\{version}\RevitCortex\` (Revit 2027+: `%APPDATA%\Autodesk\Revit\Addins\{version}\RevitCortex\`, because Revit 2027 ignores all-users manifests in ProgramData)
    - installs the MCP server to `%USERPROFILE%\.revitcortex\server\`
    - (optional) writes the MCP entry into `claude_desktop_config.json` automatically
 
