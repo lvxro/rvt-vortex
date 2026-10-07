@@ -217,7 +217,7 @@
                 <!-- The categories pane is 290 px wide and gives some of it
                      back on a small window, where the other two need it more. -->
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="0.77*" MinWidth="240" MaxWidth="290"/>
+                    <ColumnDefinition Width="0.77*" MinWidth="256" MaxWidth="290"/>
                     <ColumnDefinition Width="14"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="14"/>
@@ -250,18 +250,20 @@
                             <TextBlock x:Name="CategoriesCount" Grid.Column="2" Margin="10,0,0,0" FontSize="12.5"
                                        Foreground="{StaticResource Vx.Muted}" VerticalAlignment="Center"/>
                         </Grid>
+                        <!-- Three tabs fit on one line down to the minimum width;
+                             a fourth ("Other", rare) wraps under them. -->
                         <WrapPanel Grid.Row="1" Margin="16,0,12,6">
                             <RadioButton x:Name="TabModel" GroupName="VxPbiCategoryTabs" IsChecked="True"
-                                         Style="{StaticResource Vx.TabPill.Small}" Margin="0,0,4,4"
+                                         Style="{StaticResource Vx.TabPill.Small}" Padding="9,0" Margin="0,0,4,4"
                                          Checked="CategoryTab_Changed"/>
                             <RadioButton x:Name="TabAnnotation" GroupName="VxPbiCategoryTabs"
-                                         Style="{StaticResource Vx.TabPill.Small}" Margin="0,0,4,4"
+                                         Style="{StaticResource Vx.TabPill.Small}" Padding="9,0" Margin="0,0,4,4"
                                          Checked="CategoryTab_Changed"/>
                             <RadioButton x:Name="TabAnalytical" GroupName="VxPbiCategoryTabs"
-                                         Style="{StaticResource Vx.TabPill.Small}" Margin="0,0,4,4"
+                                         Style="{StaticResource Vx.TabPill.Small}" Padding="9,0" Margin="0,0,4,4"
                                          Checked="CategoryTab_Changed"/>
                             <RadioButton x:Name="TabOther" GroupName="VxPbiCategoryTabs"
-                                         Style="{StaticResource Vx.TabPill.Small}" Margin="0,0,4,4"
+                                         Style="{StaticResource Vx.TabPill.Small}" Padding="9,0" Margin="0,0,4,4"
                                          Checked="CategoryTab_Changed" Visibility="Collapsed"/>
                         </WrapPanel>
                         <Border Grid.Row="2" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0">
