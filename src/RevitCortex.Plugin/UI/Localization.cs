@@ -1114,9 +1114,9 @@ internal static class Localization
         },
         ["panel.stat_dialogs"] = new()
         {
-            ["en"] = "Dialogs closed",
-            ["es"] = "Avisos cerrados",
-            ["it"] = "Avvisi chiusi",
+            ["en"] = "Dialogs",
+            ["es"] = "Avisos",
+            ["it"] = "Avvisi",
         },
         ["panel.stat_saved"] = new()
         {

@@ -43,14 +43,6 @@ jobs:
             8.0.x
             10.0.x
 
-      # TEMPORARY (diagnosis): the whole suite, results kept with the pictures.
-      - name: Run the unit tests and keep the results
-        continue-on-error: true
-        shell: pwsh
-        run: >
-          dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --nologo
-          --logger "trx;LogFileName=unit-tests.trx" --results-directory "${{ runner.temp }}\ui-previews"
-
       - name: Render every window
         shell: pwsh
         env:
