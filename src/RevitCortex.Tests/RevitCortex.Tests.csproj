@@ -11,6 +11,12 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
+  <!-- The UI preview tests build the plugin's WPF windows. Referenced as a
+       framework, not through UseWPF: UseWPF would drop System.IO from the
+       implicit usings the other tests rely on. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\RevitCortex.Core\RevitCortex.Core.csproj" />
     <ProjectReference Include="..\RevitCortex.Plugin\RevitCortex.Plugin.csproj" />

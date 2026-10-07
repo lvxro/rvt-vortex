@@ -3,7 +3,8 @@
 #   test     - the unit tests (xUnit), built against the Revit 2025 API
 #   package  - the same build-release.ps1 the Release workflow uses, so a
 #              change that breaks any Revit version (2023-2027) or the MCP
-#              server is caught here instead of at release time
+#              server is caught here instead of at release time. The result
+#              is kept as a run artifact: a test installer for that change
 #
 # Nothing is published from this workflow.
 name: CI
@@ -51,7 +52,36 @@ jobs:
             8.0.x
             10.0.x
 
+      # A test build must not offer to "update" itself back to the published
+      # release, so it carries that release's version plus this run's number
+      # as a fourth part (1.1.3 -> 1.1.3.57): newer than the release it is
+      # based on, older than the next one. Not committed anywhere.
+      - name: Stamp a test version into the plugin
+        shell: pwsh
+        run: |
+          $released = (Get-Content latest.json -Raw | ConvertFrom-Json).version
+          if ($released -notmatch '^\d+\.\d+\.\d+$') { throw "latest.json version must look like 1.2.3 (got $released)" }
+          $v = "$released.${{ github.run_number }}"
+          $p = "src/RevitCortex.Plugin/RevitCortex.Plugin.csproj"
+          $s = Get-Content $p -Raw
+          $s = $s -replace '<Version>[^<]*</Version>', "<Version>$v</Version>"
+          $s = $s -replace '<AssemblyVersion>[^<]*</AssemblyVersion>', "<AssemblyVersion>$v</AssemblyVersion>"
+          $s = $s -replace '<FileVersion>[^<]*</FileVersion>', "<FileVersion>$v</FileVersion>"
+          Set-Content $p $s -NoNewline
+          Write-Host "Test build version: $v"
+
       # Fails if any of Revit 2023-2027 or the MCP server does not build.
       - name: Build release ZIP (not published)
         shell: pwsh
         run: ./build-release.ps1 -Version 0.0.0
+
+      # The same folder a release ZIP contains (install.bat and all), kept for
+      # two weeks so a change can be tried in Revit before it is released.
+      # Download it from this run's page, unzip, run install.bat.
+      - name: Keep the build as a downloadable test installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: RVT-Vortex-test-build-${{ github.run_number }}
+          path: release/
+          retention-days: 14
+          if-no-files-found: error
