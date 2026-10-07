@@ -5,9 +5,12 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using RevitCortex.Core.Session;
+using RevitCortex.Plugin.PowerBi;
 using RevitCortex.Plugin.UI;
 using RevitCortex.Plugin.Updates;
 using Xunit;
+// System.Reflection has a ParameterInfo too.
+using PbiParameterInfo = RevitCortex.Plugin.PowerBi.ParameterInfo;
 
 namespace RevitCortex.Tests.UiPreview;
 
@@ -58,6 +61,12 @@ public class UiPreviewTests
                 ("pill-states", PillStates),
                 ("pill-panel", PillPanel),
                 ("autopilot-summary", AutopilotSummary),
+                ("powerbi-data", PowerBiData),
+                ("powerbi-data-schedules", PowerBiDataSchedules),
+                ("powerbi-output", PowerBiOutput),
+                ("powerbi-output-advanced", PowerBiOutputAdvanced),
+                ("powerbi-output-schedules", PowerBiOutputSchedules),
+                ("powerbi-profile-dialogs", PowerBiProfileDialogs),
             };
 
             foreach (var (name, run) in scenarios)
@@ -300,6 +309,244 @@ public class UiPreviewTests
             Build(new AutopilotSummaryWindow(clean, Now, IntPtr.Zero), null),
         };
         SaveSheet(shots, "autopilot-summary");
+    }
+
+    // Power BI export. The window reads the model through IPowerBiExportSource,
+    // so here it gets a sample model instead of Revit; a profile puts it in the
+    // state a user would have reached by hand.
+
+    private static void PowerBiData()
+    {
+        var window = PowerBiWindow(SampleExport());
+        Build(window, "powerbi-data", beforeCapture: () =>
+        {
+            // One row picked in the available list, about to be added.
+            ((ListBox)window.FindName("AvailableList")).SelectedIndex = 3;
+        });
+    }
+
+    private static void PowerBiDataSchedules()
+    {
+        var window = PowerBiWindow(SampleScheduleExport());
+        Build(window, "powerbi-data-schedules");
+    }
+
+    private static void PowerBiOutput()
+    {
+        var window = PowerBiWindow(SampleExport());
+        Assert.True(window.GoToOutput(), "Step 2 did not open for a complete export.");
+        Build(window, "powerbi-output");
+    }
+
+    private static void PowerBiOutputAdvanced()
+    {
+        // Refresh on (shows the workspace and dataset fields) and the column
+        // types open in "Suggested".
+        var export = SampleExport();
+        export.SchemaMappingMode = "Suggested";
+        export.TriggerPbiRefresh = true;
+        var window = PowerBiWindow(export);
+        Assert.True(window.GoToOutput(), "Step 2 did not open for a complete export.");
+        window.ExpandAdvanced();
+        Build(window, "powerbi-output-advanced");
+    }
+
+    private static void PowerBiOutputSchedules()
+    {
+        var window = PowerBiWindow(SampleScheduleExport());
+        Assert.True(window.GoToOutput(), "Step 2 did not open for a schedule export.");
+        Build(window, "powerbi-output-schedules");
+    }
+
+    private static void PowerBiProfileDialogs()
+    {
+        var older = SampleScheduleExport();
+        older.LastUsed = Now.AddDays(-12).ToUniversalTime();
+        var shots = new List<BitmapSource?>
+        {
+            Build(new ProfileNameDialog(), null),
+            Build(new ProfilePickerDialog(new List<PowerBiExportProfile> { SampleExport(), older }), null),
+        };
+        SaveSheet(shots, "powerbi-profile-dialogs");
+    }
+
+    /// <summary>The export window on the sample model, with a profile applied.</summary>
+    private static PowerBiExportWindow PowerBiWindow(PowerBiExportProfile profile)
+    {
+        var window = new PowerBiExportWindow(new SamplePowerBiSource());
+        window.ApplyProfile(profile);
+        // "Profile loaded" is a passing message; show the footer at rest.
+        typeof(PowerBiExportWindow).GetMethod("ClearStatus", Hidden)!.Invoke(window, null);
+        return window;
+    }
+
+    private static PowerBiExportProfile SampleExport() => new PowerBiExportProfile
+    {
+        Name = "Mediciones",
+        Categories = { "OST_Walls", "OST_Floors", "OST_Doors", "OST_Rooms" },
+        InstanceParameters = { "Nivel", "Marca", "Área", "Volumen" },
+        TypeParameters = { "Nombre de tipo" },
+        IncludeTypeParameters = true,
+        OutputFolder = @"C:\Proyectos\Torre Norte\Power BI",
+        FileName = "Torre Norte.csv",
+        LastUsed = Now.AddHours(-3).ToUniversalTime(),
+    };
+
+    private static PowerBiExportProfile SampleScheduleExport() => new PowerBiExportProfile
+    {
+        Name = "Tablas para el panel",
+        UseSchedules = true,
+        ScheduleIds = { 502, 505 },
+        OutputFolder = @"C:\Proyectos\Torre Norte\Power BI",
+    };
+
+    /// <summary>A small model in Spanish, in place of Revit.</summary>
+    private sealed class SamplePowerBiSource : IPowerBiExportSource
+    {
+        private static readonly string[] Levels = { "Nivel 1", "Nivel 1", "Nivel 2", "Nivel 2", "Nivel 3" };
+
+        private static readonly Dictionary<string, string[]> Values = new()
+        {
+            ["Nivel"] = Levels,
+            ["Marca"] = new[] { "M-101", "M-102", "M-201", "M-202", "M-301" },
+            ["Área"] = new[] { "18,40 m²", "22,75 m²", "18,40 m²", "31,20 m²", "12,05 m²" },
+            ["Volumen"] = new[] { "3,68 m³", "4,55 m³", "2,76 m³", "6,24 m³", "1,81 m³" },
+            ["Nombre de tipo"] = new[]
+            {
+                "Genérico - 200 mm", "Genérico - 200 mm", "Ladrillo - 150 mm", "Genérico - 200 mm", "Ladrillo - 150 mm",
+            },
+        };
+
+        public string DocumentTitle => "Torre Norte.rvt";
+
+        public List<CategoryInfo> DiscoverCategories() => new List<CategoryInfo>
+        {
+            Category("OST_StructuralFraming", "Armazón estructural", 210),
+            Category("OST_Roofs", "Cubiertas", 6),
+            Category("OST_Stairs", "Escaleras", 8),
+            Category("OST_Rooms", "Habitaciones", 57),
+            Category("OST_Furniture", "Mobiliario", 233),
+            Category("OST_Walls", "Muros", 412),
+            Category("OST_StructuralColumns", "Pilares estructurales", 64),
+            Category("OST_Doors", "Puertas", 126),
+            Category("OST_Floors", "Suelos", 38),
+            Category("OST_Ceilings", "Techos", 41),
+            Category("OST_Windows", "Ventanas", 94),
+            Category("OST_Dimensions", "Cotas", 1830, "Annotation"),
+            Category("OST_RoomTags", "Etiquetas de habitación", 57, "Annotation"),
+            Category("OST_TextNotes", "Notas de texto", 112, "Annotation"),
+        };
+
+        public List<ScheduleInfo> DiscoverSchedules() => new List<ScheduleInfo>
+        {
+            Schedule(501, "Lista de planos", "", 24),
+            Schedule(502, "Tabla de planificación de habitaciones", "Habitaciones", 57),
+            Schedule(503, "Tabla de planificación de mobiliario", "Mobiliario", 233),
+            Schedule(504, "Tabla de planificación de muros", "Muros", 38),
+            Schedule(505, "Tabla de planificación de puertas", "Puertas", 126),
+            Schedule(506, "Tabla de planificación de ventanas", "Ventanas", 94),
+        };
+
+        public PowerBiScopeFilter ReadScope(PowerBiScope scope, IEnumerable<string> categoryOstCodes)
+        {
+            var filter = new PowerBiScopeFilter();
+            foreach (var code in categoryOstCodes) filter.Categories.Add(code);
+            return filter;
+        }
+
+        public List<PbiParameterInfo> DiscoverParameters(IEnumerable<string> categoryOstCodes, bool includeTypeParameters)
+        {
+            var parameters = new List<PbiParameterInfo>
+            {
+                Parameter("Área", "Cotas", 96, readOnly: true),
+                Parameter("Comentarios", "Datos de identidad", 12),
+                Parameter("Desfase de base", "Restricciones", 65),
+                Parameter("Fase de creación", "Proceso por fases", 100),
+                Parameter("Fase de derribo", "Proceso por fases", 0),
+                Parameter("Longitud", "Cotas", 65, readOnly: true),
+                Parameter("Marca", "Datos de identidad", 71),
+                Parameter("Nivel", "Restricciones", 100),
+                Parameter("Restricción de base", "Restricciones", 65),
+                Parameter("Volumen", "Cotas", 71, readOnly: true),
+            };
+            if (includeTypeParameters)
+            {
+                parameters.Add(Parameter("Descripción", "Datos de identidad", 34, type: true));
+                parameters.Add(Parameter("Función", "Construcción", 65, type: true));
+                parameters.Add(Parameter("Marca de tipo", "Datos de identidad", 48, type: true));
+                parameters.Add(Parameter("Nombre de tipo", "Datos de identidad", 100, type: true));
+            }
+            return parameters;
+        }
+
+        public List<ScheduleFieldInfo>? GetScheduleFields(long scheduleId) => new List<ScheduleFieldInfo>
+        {
+            new ScheduleFieldInfo { Header = "Marca" },
+            new ScheduleFieldInfo { Header = "Nivel" },
+            new ScheduleFieldInfo { Header = "Anchura", Scope = "Type" },
+            new ScheduleFieldInfo { Header = "Altura", Scope = "Type" },
+            new ScheduleFieldInfo { Header = "Nombre de tipo", Scope = "Type" },
+            new ScheduleFieldInfo { Header = "Recuento", IsReadOnly = true },
+        };
+
+        public PowerBiPreview PreviewElements(PowerBiScope scope, IList<string> categoryOstCodes,
+            IList<string> instanceParameters, IList<string> typeParameters, int take)
+        {
+            var preview = new PowerBiPreview { TotalRows = 633 };
+            var names = instanceParameters.Concat(typeParameters).ToList();
+            for (int r = 0; r < Math.Min(take, 5); r++)
+            {
+                var row = new List<string>
+                {
+                    (348112 + r * 37).ToString(), "Muros", "Muro básico", Values["Nombre de tipo"][r],
+                };
+                row.AddRange(names.Select(n => Values.TryGetValue(n, out var cells) ? cells[r] : ""));
+                preview.Rows.Add(row.ToArray());
+            }
+            return preview;
+        }
+
+        public PowerBiPreview PreviewSchedule(long scheduleId, int take) => new PowerBiPreview
+        {
+            Headers = { "Número", "Nombre", "Nivel", "Área" },
+            Rows =
+            {
+                new[] { "101", "Vestíbulo", "Nivel 1", "42,10 m²" },
+                new[] { "102", "Recepción", "Nivel 1", "18,65 m²" },
+                new[] { "103", "Sala de reuniones", "Nivel 1", "24,30 m²" },
+                new[] { "201", "Oficina abierta", "Nivel 2", "96,80 m²" },
+                new[] { "202", "Archivo", "Nivel 2", "11,45 m²" },
+            },
+            TotalRows = 57,
+        };
+
+        // The previews never export or open a Revit dialog.
+        public PowerBiExportOutcome Export(PowerBiExportProfile profile, PowerBiScope scope)
+            => new PowerBiExportOutcome { Kind = PowerBiExportResultKind.RouterUnavailable };
+
+        public void SetAutoExport(PowerBiExportProfile? profile) { }
+
+        public void ShowError(string title, string message, string? details) { }
+
+        public bool ShowExportDone(string title, string instruction, string detail,
+            string openFolderLabel, string openFolderHint) => false;
+
+        private static CategoryInfo Category(string code, string name, int count, string type = "Model")
+            => new CategoryInfo { OstCode = code, DisplayName = name, InstanceCount = count, CategoryType = type };
+
+        private static ScheduleInfo Schedule(long id, string name, string category, int rows)
+            => new ScheduleInfo { ScheduleId = id, Name = name, CategoryName = category, RowCount = rows };
+
+        private static PbiParameterInfo Parameter(string name, string group, int coverage,
+            bool type = false, bool readOnly = false)
+            => new PbiParameterInfo
+            {
+                Name = name,
+                GroupName = group,
+                CoveragePercent = coverage,
+                Scope = type ? "Type" : "Instance",
+                IsReadOnly = readOnly,
+            };
     }
 
     // ── Sample data ──────────────────────────────────────────────────────
