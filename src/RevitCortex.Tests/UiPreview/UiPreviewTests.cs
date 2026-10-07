@@ -71,6 +71,11 @@ public class UiPreviewTests
             Dispatcher.CurrentDispatcher.InvokeShutdown();
         });
 
+        // Next to the pictures, so a failed render explains itself there too.
+        if (Capturing && failures.Count > 0)
+            File.WriteAllText(Path.Combine(OutputDir!, "failures.txt"),
+                string.Join(Environment.NewLine + Environment.NewLine, failures));
+
         Assert.True(failures.Count == 0, string.Join(Environment.NewLine + Environment.NewLine, failures));
     }
 
