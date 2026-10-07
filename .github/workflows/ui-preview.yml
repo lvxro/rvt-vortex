@@ -2,7 +2,8 @@
 #
 # Runs when a pull request touches the interface (or on demand). The UI
 # preview tests build every window in the states a user can meet and save
-# each one as a PNG. The pictures go to two places:
+# each one as a PNG; the installer's console screens are saved as text with
+# color codes. The pictures go to two places:
 #
 #   - the run's "ui-previews" artifact
 #   - the "ui-previews" branch (one commit, replaced on every run), so they
@@ -18,6 +19,7 @@ on:
       - "src/RevitCortex.Plugin/UI/**"
       - "src/RevitCortex.Plugin/PowerBi/**"
       - "src/RevitCortex.Tests/UiPreview/**"
+      - "distribution/**"
       - ".github/workflows/ui-preview.yml"
   workflow_dispatch:
 
@@ -51,6 +53,28 @@ jobs:
         run: >
           dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --nologo
           --filter "FullyQualifiedName~UiPreviewTests"
+
+      # The installer's screens, drawn by Windows PowerShell 5.1 with made-up
+      # data (nothing is installed). They are text with color codes: `type`
+      # one in a terminal to see it.
+      - name: Draw the installer screens
+        if: always()
+        shell: powershell
+        env:
+          PREVIEW_DIR: ${{ runner.temp }}\ui-previews
+          VORTEX_UI: ansi
+        run: |
+          New-Item -ItemType Directory -Force $env:PREVIEW_DIR | Out-Null
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          foreach ($scenario in 'install', 'update', 'failure', 'uninstall') {
+            $ErrorActionPreference = 'Continue'
+            $lines = powershell -NoProfile -ExecutionPolicy Bypass -File distribution/tests/VortexUi.Demo.ps1 -Scenario $scenario -Language es -Fast 2>&1 | ForEach-Object { "$_" }
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host ("::error title=Installer screen '$scenario'::" + ((($lines | Select-Object -Last 30) -join "`n") -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'))
+              throw "The $scenario screen could not be drawn."
+            }
+            [System.IO.File]::WriteAllLines("$env:PREVIEW_DIR\installer-$scenario.ans", [string[]] $lines, (New-Object System.Text.UTF8Encoding $false))
+          }
 
       # Also when a window failed: the pictures of the others are still useful.
       - name: Keep the pictures with the run

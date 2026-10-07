@@ -1,312 +1,358 @@
 ﻿#requires -Version 5.1
 param(
-    # When set, skips all interactive Read-Host prompts and uses safe defaults:
+    # When set, skips all interactive prompts and uses safe defaults:
     #   - Defender exclusion: not added
-    #   - Claude client choice: Claude Desktop (option 1)
-    #   - "Press Enter" pauses: suppressed
+    #   - AI client: Claude Desktop (option 1)
+    #   - the window closes by itself a few seconds after the result
     # The in-app updater (UpdateChecker.LaunchInstaller) always passes this flag.
     [switch] $Silent
 )
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+. (Join-Path $ScriptDir 'lib\VortexUi.ps1')
 . (Join-Path $ScriptDir 'lib\ClaudeConfig.ps1')
 . (Join-Path $ScriptDir 'lib\RevitDeploy.ps1')
 . (Join-Path $ScriptDir 'lib\GitInstall.ps1')
 
-# --- Self-elevate (machine-scope Revit install path requires admin;
-#     user-scope fallback does not, but we try machine first for parity with Inno installer) ---
+Initialize-VxUi
+
+function T {
+    # A text of the installer, in its language: T 'Files' 344
+    param([string] $Key)
+    Get-VxText $Key $args
+}
+
+function Stop-Install {
+    # Shows why the install stopped, leaves it on screen, and exits with 1.
+    param([string] $Message)
+    Show-VxSummary -Title (T 'FailedTitle') -Notes @($Message) -Failed
+    # During an update nobody is there to press a key, and the window would
+    # vanish with the error in it: leave it up for half a minute.
+    if ($Silent) { Wait-VxClose -Seconds 30 } else { Wait-VxClose }
+    exit 1
+}
+
+# --- Self-elevate (the machine-scope Revit add-in folder needs admin; the user-scope
+#     fallback does not, but we try machine first for parity with the Inno installer) ---
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Requesting administrator privileges..." -ForegroundColor Yellow
+    Write-Vx
+    Write-Vx 'soft', "  $(T 'Elevating')"
     $silentArg = if ($Silent) { ' -Silent' } else { '' }
-    Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`"$silentArg"
+    try {
+        Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`"$silentArg"
+    } catch {
+        # The Windows prompt was declined.
+        Write-Vx 'fail', "  $(T 'ElevationDenied')"
+        exit 1
+    }
     exit
 }
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "   RVT Vortex Installer" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
-
-# --- Step 0: Verify Revit is not running (lock DLLs if it is) ---
-Write-Host "[0/5] Pre-flight checks..." -ForegroundColor Yellow
+# The version in this package, for the title (any of the plugin builds has it).
+$packageVersion = $null
 try {
-    # In silent mode the launcher (UpdateChecker) runs us with -NonInteractive and
-    # closes Revit a moment after launch; wait for it instead of prompting.
-    Assert-RevitClosed -NonInteractive:$Silent
-    Write-Host "  Revit is not running" -ForegroundColor Gray
-} catch {
-    Write-Host "  $_" -ForegroundColor Red
-    if (-not $Silent) { Read-Host "Press Enter to exit" }
-    exit 1
-}
-
-# --- Step 1: Detect Revit versions ---
-Write-Host ""
-Write-Host "[1/5] Detecting Revit installations..." -ForegroundColor Yellow
-
-$configMap = [ordered]@{ "2023" = "R23"; "2024" = "R24"; "2025" = "R25"; "2026" = "R26"; "2027" = "R27" }
-$machineAddinsRoot = "C:\ProgramData\Autodesk\Revit\Addins"
-$foundVersions   = @()   # installed + plugin available in this ZIP
-$skippedVersions = @()   # installed but plugin not in this ZIP
-
-foreach ($ver in $configMap.Keys) {
-    # 1. Detect whether this Revit version is actually installed on the machine.
-    #    Check three signals in order: Addins folder, registry, Revit.exe.
-    $machineVerDir = Join-Path $machineAddinsRoot $ver
-    $revitInstalled = Test-Path $machineVerDir
-
-    if (-not $revitInstalled) {
-        foreach ($rp in @(
-            "HKLM:\SOFTWARE\Autodesk\Revit\$ver",
-            "HKLM:\SOFTWARE\WOW6432Node\Autodesk\Revit\$ver",
-            "HKCU:\SOFTWARE\Autodesk\Revit\$ver"
-        )) { if (Test-Path $rp) { $revitInstalled = $true; break } }
+    $pluginDll = Get-ChildItem (Join-Path $ScriptDir 'plugin') -Filter 'RevitCortex.Plugin.dll' -Recurse -ErrorAction Stop | Select-Object -First 1
+    if ($pluginDll) {
+        $packageVersion = "$($pluginDll.VersionInfo.FileVersion)" -replace '\.0$', ''
     }
+} catch { }
 
-    if (-not $revitInstalled) {
-        $revitExe = "C:\Program Files\Autodesk\Revit $ver\Revit.exe"
-        if (Test-Path $revitExe) { $revitInstalled = $true }
-    }
-
-    if (-not $revitInstalled) { continue }
-
-    # 2. Check whether this ZIP contains the plugin build for this version.
-    $pluginDir = Join-Path $ScriptDir "plugin\$($configMap[$ver])"
-    if (-not (Test-Path $pluginDir)) {
-        $skippedVersions += $ver   # Revit installed but not bundled in this package
-        continue
-    }
-
-    $foundVersions += $ver
+$subtitle = if ($Silent) {
+    if ($packageVersion) { T 'SubUpdate' $packageVersion } else { T 'SubUpdatePlain' }
+} else {
+    if ($packageVersion) { T 'SubInstall' $packageVersion } else { T 'SubInstallPlain' }
 }
 
-if ($foundVersions.Count -eq 0 -and $skippedVersions.Count -eq 0) {
-    Write-Host "  ERROR: No supported Revit installation found (2023-2027)." -ForegroundColor Red
-    if (-not $Silent) { Read-Host "Press Enter to exit" }
-    exit 1
-}
+try { $Host.UI.RawUI.WindowTitle = 'RVT Vortex' } catch { }
+try { Clear-Host } catch { }
 
-if ($foundVersions.Count -eq 0) {
-    Write-Host "  ERROR: Revit $($skippedVersions -join ', ') detected but this package does not include a plugin build for those versions." -ForegroundColor Red
-    if (-not $Silent) { Read-Host "Press Enter to exit" }
-    exit 1
-}
-
-Write-Host "  Found Revit: $($foundVersions -join ', ')" -ForegroundColor Green
-if ($skippedVersions.Count -gt 0) {
-    Write-Host "  NOTE: Revit $($skippedVersions -join ', ') detected but not bundled in this package — skipped." -ForegroundColor Yellow
-}
-
-# Port 8080 warning (non-fatal)
 try {
-    if (Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue) {
-        Write-Host "  WARNING: Port 8080 already in use. Change in %USERPROFILE%\.revitcortex\settings.json if needed." -ForegroundColor Yellow
-    }
-} catch {}
+    $steps = 6
 
-# --- Step 2: Install Plugin (machine → user scope fallback on ACL errors) ---
-Write-Host ""
-Write-Host "[2/5] Installing Revit plugin..." -ForegroundColor Yellow
-
-$addinTemplate = Join-Path $ScriptDir "RevitCortex.addin"
-if (-not (Test-Path $addinTemplate)) {
-    Write-Host "  ERROR: RevitCortex.addin not found at $addinTemplate" -ForegroundColor Red
-    if (-not $Silent) { Read-Host "Press Enter to exit" }
-    exit 1
-}
-
-$deployFailures = @()
-foreach ($ver in $foundVersions) {
-    $suffix = $configMap[$ver]
-    $sourceDir = Join-Path $ScriptDir "plugin\$suffix"
-    $r = Copy-RevitAddin -Version $ver -PluginSource $sourceDir -AddinManifest $addinTemplate
-    if ($r.Ok) {
-        $tag = if ($r.Scope -eq 'user') { '(user scope)' } else { '' }
-        Write-Host ("  Revit {0} : {1} {2}" -f $ver, $r.TargetDir, $tag) -ForegroundColor Gray
+    # --- Step 1: Revit must be closed (it keeps the plugin DLLs locked) ---
+    if ($Silent) {
+        # The updater starts us while Revit is still open and closes it a moment
+        # later: the vortex turns until the process is gone.
+        $revitGone = Show-VxBanner -Subtitle $subtitle -While { Test-RevitRunning } -WhileText (T 'WaitRevit') -TimeoutSeconds 120
+        Write-VxStep 1 $steps (T 'StepChecks')
+        if (-not $revitGone) { Stop-Install (T 'RevitStillOpen' 120) }
     } else {
-        Write-Host ("  Revit {0} : FAILED — {1}" -f $ver, $r.Error) -ForegroundColor Red
-        $deployFailures += $ver
-    }
-}
-
-if ($deployFailures.Count -gt 0) {
-    Write-Host "  Plugin install failed for: $($deployFailures -join ', ')" -ForegroundColor Red
-    if (-not $Silent) { Read-Host "Press Enter to exit" }
-    exit 1
-}
-Write-Host "  Plugin installed for $($foundVersions.Count) Revit version(s)." -ForegroundColor Green
-
-# --- Step 3: Install MCP Server (C# self-contained) ---
-Write-Host ""
-Write-Host "[3/5] Installing MCP server..." -ForegroundColor Yellow
-
-$serverSource = Join-Path $ScriptDir "server"
-$serverTarget = Join-Path $env:USERPROFILE ".revitcortex\server"
-
-if (-not (Test-Path $serverSource)) {
-    Write-Host "  ERROR: Server files not found at $serverSource" -ForegroundColor Red
-    if (-not $Silent) { Read-Host "Press Enter to exit" }
-    exit 1
-}
-
-# The MCP client (Claude Desktop, Claude Code, Cursor...) keeps RevitCortex.Server.exe
-# running while it is open, which locks clrjit.dll and the other server files.
-# Stop it first; the client restarts it on its next launch.
-$running = Get-Process -Name 'RevitCortex.Server' -ErrorAction SilentlyContinue
-if ($running) {
-    Write-Host "  Stopping the running MCP server ($($running.Count) process(es)). Restart your AI client (e.g. Claude Desktop) afterwards." -ForegroundColor Yellow
-    $running | Stop-Process -Force -ErrorAction SilentlyContinue
-    try { $running | Wait-Process -Timeout 10 -ErrorAction SilentlyContinue } catch {}
-}
-
-if (Test-Path $serverTarget) {
-    $removed = $false
-    for ($attempt = 1; $attempt -le 5 -and -not $removed; $attempt++) {
-        try {
-            Remove-Item $serverTarget -Recurse -Force -ErrorAction Stop
-            $removed = $true
-        } catch {
-            if ($attempt -eq 5) {
-                Write-Host "  ERROR: Could not replace $serverTarget — a file is still in use." -ForegroundColor Red
-                Write-Host "  Quit your AI client completely (Claude Desktop: tray icon > Quit) and run the installer again." -ForegroundColor Red
-                if (-not $Silent) { Read-Host "Press Enter to exit" }
-                exit 1
-            }
-            Start-Sleep -Seconds 2
+        [void] (Show-VxBanner -Subtitle $subtitle)
+        Write-VxStep 1 $steps (T 'StepChecks')
+        while (Test-RevitRunning) {
+            Write-VxWarn (T 'RevitOpen')
+            $answer = Read-VxLine (T 'RevitOpenPrompt')
+            if ("$answer".Trim() -match '^q$') { Stop-Install (T 'Aborted') }
         }
     }
-}
-New-Item -ItemType Directory -Path $serverTarget -Force | Out-Null
-Copy-Item "$serverSource\*" $serverTarget -Recurse -Force
+    Write-VxOk (T 'RevitClosed')
 
-$serverExe = Join-Path $serverTarget "RevitCortex.Server.exe"
-if (-not (Test-Path $serverExe)) {
-    Write-Host "  ERROR: Expected RevitCortex.Server.exe in server/ — check release package" -ForegroundColor Red
-    if (-not $Silent) { Read-Host "Press Enter to exit" }
-    exit 1
-}
+    # --- Step 2: Detect Revit versions ---
+    Write-VxStep 2 $steps (T 'StepDetect')
 
-# Unblock Zone.Identifier so Defender/SmartScreen don't block on first run
-Get-ChildItem $serverTarget -Recurse -File | ForEach-Object { Unblock-File -Path $_.FullName -ErrorAction SilentlyContinue }
+    $configMap = [ordered]@{ "2023" = "R23"; "2024" = "R24"; "2025" = "R25"; "2026" = "R26"; "2027" = "R27" }
+    $machineAddinsRoot = "C:\ProgramData\Autodesk\Revit\Addins"
+    $foundVersions   = @()   # installed + plugin available in this ZIP
+    $skippedVersions = @()   # installed but plugin not in this ZIP
 
-# Defender exclusion (opt-in, idempotent) — skipped in Silent mode
-if (-not $Silent -and (Get-Command Add-MpPreference -ErrorAction SilentlyContinue)) {
-    $existing = @()
-    try { $mp = Get-MpPreference -ErrorAction SilentlyContinue; if ($mp -and $mp.ExclusionPath) { $existing = @($mp.ExclusionPath) } } catch {}
-    if ($existing -notcontains $serverTarget) {
-        $a = Read-Host "  Add Windows Defender exclusion for '$serverTarget'? (y/N)"
-        if ($a -eq 'y' -or $a -eq 'Y') {
-            Add-MpPreference -ExclusionPath $serverTarget -ErrorAction SilentlyContinue
-            Write-Host "  Defender exclusion added" -ForegroundColor Gray
+    foreach ($ver in $configMap.Keys) {
+        # 1. Detect whether this Revit version is actually installed on the machine.
+        #    Check three signals in order: Addins folder, registry, Revit.exe.
+        $machineVerDir = Join-Path $machineAddinsRoot $ver
+        $revitInstalled = Test-Path $machineVerDir
+
+        if (-not $revitInstalled) {
+            foreach ($rp in @(
+                "HKLM:\SOFTWARE\Autodesk\Revit\$ver",
+                "HKLM:\SOFTWARE\WOW6432Node\Autodesk\Revit\$ver",
+                "HKCU:\SOFTWARE\Autodesk\Revit\$ver"
+            )) { if (Test-Path $rp) { $revitInstalled = $true; break } }
         }
-    }
-}
 
-Write-Host "  Server installed: $serverExe" -ForegroundColor Green
-
-# AI Skill — install RevitCortex skill to user-level paths
-# Guard on client root (.claude / .codex) existing: if the user doesn't have
-# the client at all we skip (no profile pollution). If the client root exists
-# but skills/ doesn't yet, we create it — first-time skill install must work.
-$skillSrc = Join-Path $PSScriptRoot "ai-skills\revitcortex"
-if (Test-Path $skillSrc) {
-    $skillTargets = @(
-        @{ ClientRoot = (Join-Path $env:USERPROFILE ".claude");  Target = (Join-Path $env:USERPROFILE ".claude\skills\revitcortex");  Name = "Claude Code" },
-        @{ ClientRoot = (Join-Path $env:USERPROFILE ".codex");   Target = (Join-Path $env:USERPROFILE ".codex\skills\revitcortex");   Name = "Codex CLI" }
-    )
-    foreach ($entry in $skillTargets) {
-        if (Test-Path $entry.ClientRoot) {
-            if (-not (Test-Path $entry.Target)) { New-Item -ItemType Directory -Path $entry.Target -Force | Out-Null }
-            Copy-Item "$skillSrc\*" $entry.Target -Recurse -Force
-            Write-Host "  Installed skill -> $($entry.Target)"
-        } else {
-            Write-Host "  Skipped skill install ($($entry.Name) not detected at $($entry.ClientRoot))"
+        if (-not $revitInstalled) {
+            $revitExe = "C:\Program Files\Autodesk\Revit $ver\Revit.exe"
+            if (Test-Path $revitExe) { $revitInstalled = $true }
         }
+
+        if (-not $revitInstalled) { continue }
+
+        # 2. Check whether this ZIP contains the plugin build for this version.
+        $pluginDir = Join-Path $ScriptDir "plugin\$($configMap[$ver])"
+        if (-not (Test-Path $pluginDir)) {
+            $skippedVersions += $ver   # Revit installed but not bundled in this package
+            continue
+        }
+
+        $foundVersions += $ver
     }
-} else {
-    Write-Host "  ai-skills not bundled — skipping skill install"
-}
 
-# --- Step 4: Ensure Git (needed by Claude Code for many workflows) ---
-Write-Host ""
-Write-Host "[4/5] Checking Git..." -ForegroundColor Yellow
-$gitOk = Ensure-Git
+    if ($foundVersions.Count -eq 0 -and $skippedVersions.Count -eq 0) { Stop-Install (T 'NoRevit') }
+    if ($foundVersions.Count -eq 0) { Stop-Install (T 'NotBundled' ($skippedVersions -join ', ')) }
 
-# --- Step 5: Configure Claude clients ---
-Write-Host ""
-Write-Host "[5/5] Configure Claude client" -ForegroundColor Yellow
-Write-Host ""
+    Write-VxOk ("Revit {0}" -f ($foundVersions -join ', '))
+    if ($skippedVersions.Count -gt 0) { Write-VxWarn (T 'SkippedRevit' ($skippedVersions -join ', ')) }
 
-if ($Silent) {
-    # Non-interactive update: always configure Claude Desktop (safe default).
-    $choice = "1"
-    Write-Host "  Silent mode: configuring Claude Desktop automatically." -ForegroundColor Gray
-} else {
-    Write-Host "  How will you use RevitCortex?"
-    Write-Host "  [1] Claude Desktop"
-    Write-Host "  [2] Claude Code (CLI)"
-    Write-Host "  [3] Both"
-    Write-Host "  [4] Skip (configure later)"
-    Write-Host ""
-    $choice = Read-Host "  Enter choice (1-4)"
-}
-
-$claudeDesktopConfigured = $false
-$claudeCodeConfigured    = $false
-
-if ($choice -eq "1" -or $choice -eq "3") {
-    $configPath = Join-Path $env:APPDATA "Claude\claude_desktop_config.json"
+    # Port 8080 warning (non-fatal)
     try {
-        $result = Merge-ClaudeMcpServer -ConfigPath $configPath -ServerName 'revitcortex' -Command $serverExe -Arguments @()
-        if ($result.BackupPath) {
-            Write-Host ("  Claude Desktop config backed up: {0}" -f $result.BackupPath) -ForegroundColor Gray
+        if (Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue) {
+            Write-VxWarn (T 'PortBusy')
         }
-        Write-Host ("  Claude Desktop: revitcortex {0}." -f $result.Action) -ForegroundColor Green
-        $claudeDesktopConfigured = $true
+    } catch {}
+
+    # --- Step 3: Install the plugin (machine -> user scope fallback on ACL errors) ---
+    Write-VxStep 3 $steps (T 'StepPlugin')
+
+    $addinTemplate = Join-Path $ScriptDir "RevitCortex.addin"
+    if (-not (Test-Path $addinTemplate)) { Stop-Install (T 'AddinMissing' $addinTemplate) }
+
+    $deployFailures = @()
+    foreach ($ver in $foundVersions) {
+        $suffix = $configMap[$ver]
+        $sourceDir = Join-Path $ScriptDir "plugin\$suffix"
+        $r = Copy-RevitAddin -Version $ver -PluginSource $sourceDir -AddinManifest $addinTemplate
+        if ($r.Ok) {
+            $where = Format-VxPath $r.TargetDir
+            if ($r.Scope -eq 'user') { $where = "$where ($(T 'UserScope'))" }
+            Write-VxOk "Revit $ver" $where
+        } else {
+            Write-VxFail "Revit ${ver}: $($r.Error)"
+            $deployFailures += $ver
+        }
+    }
+
+    if ($deployFailures.Count -gt 0) { Stop-Install (T 'PluginFailed' ($deployFailures -join ', ')) }
+
+    # --- Step 4: Install the MCP server (C#, self-contained) ---
+    Write-VxStep 4 $steps (T 'StepServer')
+
+    $serverSource = Join-Path $ScriptDir "server"
+    $serverTarget = Join-Path $env:USERPROFILE ".revitcortex\server"
+
+    if (-not (Test-Path $serverSource)) { Stop-Install (T 'ServerMissing' $serverSource) }
+
+    # The MCP client (Claude Desktop, Claude Code, Cursor...) keeps RevitCortex.Server.exe
+    # running while it is open, which locks clrjit.dll and the other server files.
+    # Stop it first; the client restarts it on its next launch.
+    $running = Get-Process -Name 'RevitCortex.Server' -ErrorAction SilentlyContinue
+    if ($running) {
+        Write-VxWarn (T 'StoppingServer')
+        $running | Stop-Process -Force -ErrorAction SilentlyContinue
+        try { $running | Wait-Process -Timeout 10 -ErrorAction SilentlyContinue } catch {}
+    }
+
+    if (Test-Path $serverTarget) {
+        $removed = $false
+        for ($attempt = 1; $attempt -le 5 -and -not $removed; $attempt++) {
+            try {
+                Remove-Item $serverTarget -Recurse -Force -ErrorAction Stop
+                $removed = $true
+            } catch {
+                if ($attempt -eq 5) { Stop-Install (T 'ServerLocked' (Format-VxPath $serverTarget)) }
+                Start-Sleep -Seconds 2
+            }
+        }
+    }
+    New-Item -ItemType Directory -Path $serverTarget -Force | Out-Null
+
+    # File by file, so the bar shows how far the copy really is. Same result as
+    # Copy-Item "$serverSource\*" $serverTarget -Recurse -Force.
+    $sourceRoot = (Resolve-Path $serverSource).Path.TrimEnd('\', '/')
+    $serverFiles = @(Get-ChildItem $sourceRoot -Recurse -File -Force)
+    $filesText = T 'Files' $serverFiles.Count
+    try {
+        $lastDraw = [System.Diagnostics.Stopwatch]::StartNew()
+        $copied = 0
+        foreach ($file in $serverFiles) {
+            $relative = $file.FullName.Substring($sourceRoot.Length).TrimStart('\', '/')
+            $destination = Join-Path $serverTarget $relative
+            $destinationDir = Split-Path -Parent $destination
+            if (-not (Test-Path -LiteralPath $destinationDir)) {
+                New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+            }
+            Copy-Item -LiteralPath $file.FullName -Destination $destination -Force -ErrorAction Stop
+            $copied++
+            if ($lastDraw.ElapsedMilliseconds -ge 40) {
+                Write-VxProgress $copied $serverFiles.Count $filesText
+                $lastDraw.Restart()
+            }
+        }
+        # Folders with nothing in them are part of the tree too.
+        foreach ($dir in @(Get-ChildItem $sourceRoot -Recurse -Directory -Force)) {
+            $destinationDir = Join-Path $serverTarget ($dir.FullName.Substring($sourceRoot.Length).TrimStart('\', '/'))
+            if (-not (Test-Path -LiteralPath $destinationDir)) {
+                New-Item -ItemType Directory -Path $destinationDir -Force | Out-Null
+            }
+        }
+        Complete-VxProgress $serverFiles.Count $filesText
     } catch {
-        Write-Host "  Claude Desktop config update FAILED: $_" -ForegroundColor Red
-        Write-Host "  Your existing config has been preserved. Fix the JSON and re-run this installer." -ForegroundColor Yellow
+        Write-Vx
+        Stop-Install (T 'CopyFailed' "$_")
     }
-}
 
-if ($choice -eq "2" -or $choice -eq "3") {
-    $claudeCli = Get-Command claude -ErrorAction SilentlyContinue
-    if ($claudeCli) {
-        try {
-            & claude mcp add revitcortex $serverExe 2>$null | Out-Null
-            Write-Host "  Claude Code: revitcortex configured." -ForegroundColor Green
-            $claudeCodeConfigured = $true
-        } catch {
-            Write-Host "  Claude Code CLI returned: $_" -ForegroundColor Yellow
+    $serverExe = Join-Path $serverTarget "RevitCortex.Server.exe"
+    if (-not (Test-Path $serverExe)) { Stop-Install (T 'ServerExeMissing') }
+
+    # Unblock Zone.Identifier so Defender/SmartScreen don't block on first run
+    Get-ChildItem $serverTarget -Recurse -File | ForEach-Object { Unblock-File -Path $_.FullName -ErrorAction SilentlyContinue }
+
+    Write-VxOk (T 'ServerInstalled') (Format-VxPath $serverExe)
+
+    # Defender exclusion (opt-in, idempotent), never during an update
+    if (-not $Silent -and (Get-Command Add-MpPreference -ErrorAction SilentlyContinue)) {
+        $existing = @()
+        try { $mp = Get-MpPreference -ErrorAction SilentlyContinue; if ($mp -and $mp.ExclusionPath) { $existing = @($mp.ExclusionPath) } } catch {}
+        if ($existing -notcontains $serverTarget) {
+            if (Test-VxYes (Read-VxLine (T 'DefenderPrompt'))) {
+                Add-MpPreference -ExclusionPath $serverTarget -ErrorAction SilentlyContinue
+                Write-VxOk (T 'DefenderAdded')
+            }
         }
-    } else {
-        Write-Host "  Claude Code CLI not found. Add manually:" -ForegroundColor Yellow
-        Write-Host "    claude mcp add revitcortex `"$serverExe`"" -ForegroundColor Gray
     }
-}
 
-if ($choice -eq "4") {
-    Write-Host "  Skipped. Configure later:" -ForegroundColor Yellow
-    Write-Host "    Claude Desktop: add to %APPDATA%\Claude\claude_desktop_config.json" -ForegroundColor Gray
-    Write-Host "    Claude Code:    claude mcp add revitcortex `"$serverExe`"" -ForegroundColor Gray
-}
+    # AI skill: install the RevitCortex skill to user-level paths.
+    # Guard on the client root (.claude / .codex) existing: if the user doesn't have
+    # the client at all we skip (no profile pollution). If the client root exists
+    # but skills/ doesn't yet, we create it: a first-time skill install must work.
+    $skillSrc = Join-Path $ScriptDir "ai-skills\revitcortex"
+    if (Test-Path $skillSrc) {
+        $skillTargets = @(
+            @{ ClientRoot = (Join-Path $env:USERPROFILE ".claude");  Target = (Join-Path $env:USERPROFILE ".claude\skills\revitcortex");  Name = "Claude Code" },
+            @{ ClientRoot = (Join-Path $env:USERPROFILE ".codex");   Target = (Join-Path $env:USERPROFILE ".codex\skills\revitcortex");   Name = "Codex CLI" }
+        )
+        foreach ($entry in $skillTargets) {
+            if (Test-Path $entry.ClientRoot) {
+                if (-not (Test-Path $entry.Target)) { New-Item -ItemType Directory -Path $entry.Target -Force | Out-Null }
+                Copy-Item "$skillSrc\*" $entry.Target -Recurse -Force
+                Write-VxOk (T 'SkillInstalled' $entry.Name)
+            }
+        }
+    }
 
-# --- Summary ---
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "   RevitCortex installed successfully" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
-Write-Host ("  Plugin:  Revit {0}" -f ($foundVersions -join ', ')) -ForegroundColor White
-Write-Host ("  Server:  {0}" -f $serverExe) -ForegroundColor White
-Write-Host ("  Git:     {0}" -f $(if ($gitOk) { 'OK' } else { 'NOT installed (install manually)' })) -ForegroundColor White
-if ($claudeDesktopConfigured) { Write-Host "  Client:  Claude Desktop" -ForegroundColor White }
-if ($claudeCodeConfigured)    { Write-Host "  Client:  Claude Code" -ForegroundColor White }
-Write-Host ""
-Write-Host "  Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Restart Revit" -ForegroundColor White
-Write-Host "  2. Restart Claude Desktop / Claude Code" -ForegroundColor White
-Write-Host ""
-if (-not $Silent) { Read-Host "Press Enter to close" }
+    # --- Step 5: Git (Claude Code needs it for many workflows) ---
+    Write-VxStep 5 $steps (T 'StepGit')
+    $gitOk = Test-GitInstalled
+    if ($gitOk) {
+        Write-VxOk (T 'GitPresent')
+    } else {
+        Write-VxNote (T 'GitInstalling')
+        $gitOk = [bool] (Ensure-Git -Quiet 6>$null)
+        # winget draws on the console itself; make sure colors still work after it.
+        Initialize-VxUi
+        if ($gitOk) { Write-VxOk (T 'GitInstalled') } else { Write-VxWarn (T 'GitFailed') }
+    }
+
+    # --- Step 6: Connect the AI client ---
+    Write-VxStep 6 $steps (T 'StepClient')
+
+    if ($Silent) {
+        # An update asks nothing: Claude Desktop, the safe default.
+        $choice = "1"
+    } else {
+        Write-Vx 'soft', "$($script:VxItemIndent)$(T 'ClientQuestion')"
+        Write-Vx 'accent', "$($script:VxItemIndent)  1  ", 'soft', 'Claude Desktop'
+        Write-Vx 'accent', "$($script:VxItemIndent)  2  ", 'soft', 'Claude Code (CLI)'
+        Write-Vx 'accent', "$($script:VxItemIndent)  3  ", 'soft', (T 'ClientBoth')
+        Write-Vx 'accent', "$($script:VxItemIndent)  4  ", 'soft', (T 'ClientSkip')
+        $choice = "$(Read-VxLine (T 'ClientPrompt'))".Trim()
+    }
+
+    $clients = @()
+
+    if ($choice -eq "1" -or $choice -eq "3") {
+        $configPath = Join-Path $env:APPDATA "Claude\claude_desktop_config.json"
+        try {
+            $result = Merge-ClaudeMcpServer -ConfigPath $configPath -ServerName 'revitcortex' -Command $serverExe -Arguments @()
+            Write-VxOk (T 'DesktopDone')
+            if ($result.BackupPath) { Write-VxNote (T 'DesktopBackup' (Format-VxPath $result.BackupPath)) }
+            $clients += 'Claude Desktop'
+        } catch {
+            Write-VxFail (T 'DesktopFailed' "$_")
+            Write-VxNote (T 'DesktopUntouched')
+        }
+    }
+
+    if ($choice -eq "2" -or $choice -eq "3") {
+        $claudeCli = Get-Command claude -ErrorAction SilentlyContinue
+        if ($claudeCli) {
+            try {
+                & claude mcp add revitcortex $serverExe 2>$null | Out-Null
+                Write-VxOk (T 'CodeDone')
+                $clients += 'Claude Code'
+            } catch {
+                Write-VxWarn (T 'CodeFailed' "$_")
+            }
+        } else {
+            Write-VxWarn (T 'CodeMissing')
+            # A command to copy: on one line, never split to fit the window.
+            Write-Vx 'soft', "$($script:VxItemIndent)  claude mcp add revitcortex `"$serverExe`""
+        }
+    }
+
+    if ($choice -ne "1" -and $choice -ne "2" -and $choice -ne "3") {
+        Write-VxNote (T 'ClientLater')
+        Write-VxNote (T 'ClientLaterDesktop')
+        Write-VxNote 'Claude Code:'
+        # A command to copy: on one line, never split to fit the window.
+        Write-Vx 'soft', "$($script:VxItemIndent)  claude mcp add revitcortex `"$serverExe`""
+    }
+
+    # --- Summary ---
+    $gitText = if ($gitOk) { T 'GitOk' } else { T 'GitMissing' }
+    $rows = @(
+        @((T 'RowPlugin'), ("Revit {0}" -f ($foundVersions -join ', '))),
+        @((T 'RowServer'), (Format-VxPath $serverExe)),
+        @((T 'RowGit'), $gitText)
+    )
+    if ($clients.Count -gt 0) { $rows += , @((T 'RowClient'), ($clients -join ', ')) }
+
+    $title = if ($Silent) { T 'SummaryUpdated' } else { T 'SummaryInstalled' }
+    Show-VxSummary -Title $title -Rows $rows -NextTitle (T 'NextTitle') -Next @((T 'NextRevit'), (T 'NextClient'))
+
+    # During an update nobody is there to press Enter: show the result, then close.
+    if ($Silent) { Wait-VxClose -Seconds 8 } else { Wait-VxClose }
+} catch {
+    # Anything not handled above: say what it was instead of letting the
+    # window close on a raw PowerShell error.
+    Stop-Install "$($_.Exception.Message)"
+}

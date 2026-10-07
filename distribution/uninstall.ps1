@@ -2,83 +2,92 @@
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+. (Join-Path $ScriptDir 'lib\VortexUi.ps1')
 . (Join-Path $ScriptDir 'lib\ClaudeConfig.ps1')
 . (Join-Path $ScriptDir 'lib\RevitDeploy.ps1')
 
+Initialize-VxUi
+
+function T {
+    # A text of the installer, in its language.
+    param([string] $Key)
+    Get-VxText $Key $args
+}
+
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Requesting administrator privileges..." -ForegroundColor Yellow
-    Start-Process powershell -Verb RunAs -ArgumentList "-ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`""
+    Write-Vx
+    Write-Vx 'soft', "  $(T 'Elevating')"
+    try {
+        Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$($MyInvocation.MyCommand.Path)`""
+    } catch {
+        Write-Vx 'fail', "  $(T 'ElevationDenied')"
+        exit 1
+    }
     exit
 }
 
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "   RVT Vortex Uninstaller" -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host ""
+try { $Host.UI.RawUI.WindowTitle = 'RVT Vortex' } catch { }
+try { Clear-Host } catch { }
 
-$confirm = Read-Host "This will remove RevitCortex from all Revit versions. Continue? (y/n)"
-if ($confirm -ne "y") { Write-Host "Cancelled." -ForegroundColor Yellow; exit }
-
-# --- Revit plugin (both scopes) ---
-Write-Host ""
-Write-Host "Removing Revit plugin..." -ForegroundColor Yellow
-$totalRemoved = 0
-foreach ($ver in @("2023","2024","2025","2026","2027")) {
-    $removed = Remove-RevitAddin -Version $ver
-    foreach ($path in $removed) {
-        Write-Host "  Removed: $path" -ForegroundColor Gray
-        $totalRemoved++
-    }
-}
-if ($totalRemoved -eq 0) { Write-Host "  No Revit plugin found." -ForegroundColor Gray }
-else { Write-Host "  Removed $totalRemoved plugin folder(s)." -ForegroundColor Green }
-
-# --- MCP server ---
-Write-Host ""
-Write-Host "Removing MCP server..." -ForegroundColor Yellow
-$serverDir = Join-Path $env:USERPROFILE ".revitcortex\server"
-if (Test-Path $serverDir) {
-    Remove-Item $serverDir -Recurse -Force
-    Write-Host "  Removed: $serverDir" -ForegroundColor Green
-} else {
-    Write-Host "  Server directory not found." -ForegroundColor Gray
-}
-
-# --- Claude Desktop config entry (safe, preserves other MCP servers) ---
-Write-Host ""
-Write-Host "Removing Claude Desktop config entry..." -ForegroundColor Yellow
-$configPath = Join-Path $env:APPDATA "Claude\claude_desktop_config.json"
 try {
-    $result = Remove-ClaudeMcpServer -ConfigPath $configPath -ServerName 'revitcortex'
-    if ($result.Action -eq 'removed') {
-        Write-Host "  revitcortex entry removed" -ForegroundColor Green
-        if ($result.BackupPath) { Write-Host ("  Backup: {0}" -f $result.BackupPath) -ForegroundColor Gray }
-    } else {
-        Write-Host "  revitcortex entry not found (nothing to remove)" -ForegroundColor Gray
+    [void] (Show-VxBanner -Subtitle (T 'SubUninstall'))
+    Write-Vx
+
+    if (-not (Test-VxYes (Read-VxLine (T 'UninstallConfirm')))) {
+        Write-VxNote (T 'Cancelled')
+        exit
     }
+
+    $steps = 3
+
+    # --- Revit plugin (both scopes) ---
+    Write-VxStep 1 $steps (T 'StepRemovePlugin')
+    $totalRemoved = 0
+    foreach ($ver in @("2023","2024","2025","2026","2027")) {
+        foreach ($path in @(Remove-RevitAddin -Version $ver)) {
+            Write-VxOk "Revit $ver" (Format-VxPath $path)
+            $totalRemoved++
+        }
+    }
+    if ($totalRemoved -eq 0) { Write-VxNote (T 'NoPlugin') }
+
+    # --- MCP server ---
+    Write-VxStep 2 $steps (T 'StepRemoveServer')
+    $serverDir = Join-Path $env:USERPROFILE ".revitcortex\server"
+    if (Test-Path $serverDir) {
+        Remove-Item $serverDir -Recurse -Force
+        Write-VxOk (T 'ServerRemoved') (Format-VxPath $serverDir)
+    } else {
+        Write-VxNote (T 'ServerNotFound')
+    }
+
+    # --- AI clients (the Claude Desktop entry is removed safely: other MCP servers stay) ---
+    Write-VxStep 3 $steps (T 'StepRemoveClient')
+    $configPath = Join-Path $env:APPDATA "Claude\claude_desktop_config.json"
+    try {
+        $result = Remove-ClaudeMcpServer -ConfigPath $configPath -ServerName 'revitcortex'
+        if ($result.Action -eq 'removed') {
+            Write-VxOk (T 'DesktopRemoved')
+            if ($result.BackupPath) { Write-VxNote (T 'DesktopBackup' (Format-VxPath $result.BackupPath)) }
+        } else {
+            Write-VxNote (T 'DesktopNotThere')
+        }
+    } catch {
+        Write-VxWarn (T 'DesktopFailed' "$_")
+    }
+
+    $claudeCli = Get-Command claude -ErrorAction SilentlyContinue
+    if ($claudeCli) {
+        try { & claude mcp remove revitcortex 2>$null | Out-Null; Write-VxOk (T 'CodeRemoved') } catch {}
+    }
+
+    # --- Summary (user data is kept) ---
+    $dataDir = Join-Path $env:USERPROFILE ".revitcortex"
+    Show-VxSummary -Title (T 'SummaryRemoved') -Notes @((T 'DataKept' (Format-VxPath $dataDir))) `
+        -NextTitle (T 'NextTitle') -Next @((T 'NextAfterRemove'))
+    Wait-VxClose
 } catch {
-    Write-Host "  Claude Desktop config update FAILED: $_" -ForegroundColor Yellow
+    Show-VxSummary -Title (T 'UninstallFailed') -Notes @("$($_.Exception.Message)") -Failed
+    Wait-VxClose
+    exit 1
 }
-
-# --- Claude Code ---
-$claudeCli = Get-Command claude -ErrorAction SilentlyContinue
-if ($claudeCli) {
-    try { & claude mcp remove revitcortex 2>$null | Out-Null; Write-Host "  Claude Code: revitcortex removed." -ForegroundColor Green } catch {}
-}
-
-# --- User data preserved ---
-Write-Host ""
-Write-Host "User data preserved:" -ForegroundColor Yellow
-$dataDir = Join-Path $env:USERPROFILE ".revitcortex"
-Write-Host "  $dataDir (settings, logs, usage data)" -ForegroundColor Gray
-Write-Host "  Delete manually if no longer needed." -ForegroundColor Gray
-
-Write-Host ""
-Write-Host "========================================" -ForegroundColor Green
-Write-Host "   RevitCortex removed successfully" -ForegroundColor Green
-Write-Host "========================================" -ForegroundColor Green
-Write-Host ""
-Write-Host "  Restart Revit and Claude to complete." -ForegroundColor White
-Write-Host ""
-Read-Host "Press Enter to close"
