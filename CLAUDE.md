@@ -374,7 +374,7 @@ When opening a Transaction in a write tool, also call `TransactionFailureHandlin
 
 The ribbon toggle **Autopilot** (`Commands/ToggleAutopilot.cs`, grey when off, orange when on) turns on `CortexSession.UnattendedMode` (plus `AutoMode`) for users who start a long task and walk away. User guide: `docs/AUTOPILOT.md`. Start/stop go through `RevitCortexApp.StartAutopilot` / `StopAutopilot`.
 
-- Non-critical confirmations are auto-approved; critical ones (`send_code_to_revit`) are **declined** instead of opening a dialog nobody will answer — unless the user ticked "Also allow C# scripts" when starting (`UnattendedAllowCritical`). The code sandbox still applies either way.
+- Non-critical confirmations are auto-approved; critical ones (`send_code_to_revit`) are **declined** instead of opening a dialog nobody will answer — unless the user ticked "Also allow C# scripts" when starting (`UnattendedAllowCritical`). The script pattern filter (`CodeSandbox`) still applies either way; it is not isolation (see Security Requirements).
 - `UnattendedMode` survives `Reinitialize` (document switch): AutoMode resets, so further confirmations fail closed instead of blocking. Document close, the toggle, the floating window's Stop and `ResetApproveAll()` clear it.
 - `UI/UnattendedDialogHandler` dismisses Revit's own modal dialogs via `DialogBoxShowing`, preferring Close/Cancel/No over OK. RevitCortex's own TaskDialogs are skipped (`ConfirmationHelper.IsShowingOwnDialog`).
 - Auto-save: the router marks every successful non-read-only tool in `CortexSession.AutoSave` (`AutoSaveScheduler`, 60 s throttle); `RevitCortexApp.OnIdlingAutoSave` calls `Document.Save()` from Idling (uses `SetRaiseWithoutDelay` while a save is pending). Skips read-only/never-saved docs; never syncs with central.
@@ -551,6 +551,8 @@ Code submitted via `send_code_to_revit` is validated at runtime before execution
 - `System.Runtime.InteropServices` -- native interop
 
 The sandbox is implemented in `CodeSandbox.Validate(string code)` in RevitCortex.Core. All tools that execute user-provided code MUST call this before execution. The sandbox can be bypassed only by disabling `send_code_to_revit` entirely in settings.
+
+**It is a pattern filter, not an isolation boundary.** `CodeSandbox.Validate` matches text patterns against the submitted source; it does not restrict what the compiled script can reach at runtime, and the script is compiled against every assembly loaded in Revit. Treat it as a guard against accidents and obvious misuse. Do not describe it to users as blocking file or network access, and do not rely on it as the control that makes unattended script execution safe: the controls are `EnableCodeExecution` (off by default), the confirmation dialog, and the user's explicit opt-in under Autopilot.
 
 ### Audit Log
 

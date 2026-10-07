@@ -47,7 +47,7 @@ User guide, including a ready-to-use prompt: [docs/AUTOPILOT.md](docs/AUTOPILOT.
 
 - **Opt-in, and nothing changes if you don't use it.** Without clicking Autopilot, the plugin behaves like the original.
 - **Fail closed.** Anything that would need a human decision is declined, not approved. The worst outcome is a pending step, not an unwanted change.
-- **C# scripts still go through the plugin's code sandbox** (no file, network, registry or process access), even when allowed without confirmation.
+- **C# scripts still go through the plugin's script filter**, even when allowed without confirmation. The filter rejects code containing common file, network, registry, process or reflection calls. It is a text check that catches accidents and obvious misuse, not an isolation boundary: a script that passes runs inside Revit with the user's Windows permissions. Ticking "Also allow C# scripts" therefore means trusting whatever the AI writes during that session, including anything it was led to write by text it read in a model or a linked file.
 - **RevitCortex's own dialogs are never auto-dismissed.** The pop-up handler tells them apart from Revit's.
 
 ### Files

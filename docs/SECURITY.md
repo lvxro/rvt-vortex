@@ -26,6 +26,13 @@ Nel contesto di un professionista BIM che usa il sistema su modelli propri, il r
 2. **Warning visibile**: Ogni invocazione di `send_code_to_revit` mostra un avviso all'utente
 3. **Modalita locked**: `send_code_to_revit` puo essere disabilitato nelle impostazioni per ambienti di produzione
 
+> **RVT Vortex note:** countermeasure 1 is a text-pattern filter on the submitted source, not an isolation
+> boundary. It does not restrict what a compiled script can reach at runtime, so it reduces accidents and
+> obvious misuse but does not contain a script written to get around it. The effective controls are
+> `EnableCodeExecution` (off by default), the confirmation dialog and, under Autopilot, the user's explicit
+> opt-in. With scripts allowed under Autopilot there is no human review, so the prompt-injection risk in the
+> table below should be read as **not mitigated** for that mode.
+
 ## Gestione dei dati del modello BIM
 
 I modelli Revit contengono informazioni sensibili: dati di progetto, localizzazione di edifici, dati cliente, planimetrie. RevitCortex non trasmette questi dati a server esterni durante l'esecuzione -- tutto rimane locale. Tuttavia quando Claude Desktop elabora una richiesta che include dati del modello (ad esempio "analizza questi parametri"), quei dati transitano verso i server Anthropic per l'elaborazione del linguaggio naturale.

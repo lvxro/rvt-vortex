@@ -152,7 +152,7 @@ In Revit, click **Vortex Switch** (it turns orange), then ask your AI client:
 | Rebar | 64 | create, shape, splice, number and annotate reinforcement |
 | Structural steel | 48 | connections, cuts, fabrication data |
 | Elements & Power BI | 36 | query, filter, select, copy, measure; publish to Power BI |
-| Project & workflows | 35 | health check, warnings, purge, clash detection, tags, levels, rooms, sandboxed C# scripts |
+| Project & workflows | 35 | health check, warnings, purge, clash detection, tags, levels, rooms, C# scripts (opt-in) |
 | Views & sheets | 24 | views, templates, filters, sheets, viewports, schedules |
 | Creation & exchange | 22 | point/line/surface-based elements, floors, grids, dimensions; Excel and CSV import/export |
 | IFC | 20 | export, link, rebuild IFC geometry as native elements |
@@ -167,7 +167,7 @@ Full list with parameters: [`tool-schemas.txt`](tool-schemas.txt) · description
 
 - **Preview first** — tools that change the model default to `dryRun: true`.
 - **Confirmations** — destructive edits ask before running, unless you turn on Autopilot.
-- **Sandboxed scripts** — `send_code_to_revit` blocks file, network, registry and process access.
+- **Scripts are opt-in and filtered** — `send_code_to_revit` is off until you enable it in Settings, and rejects scripts that contain common file, network, registry, process or reflection calls. That filter is a text check, not isolation: a script that passes runs inside Revit with your Windows account's permissions, so only allow scripts in an AI session you trust.
 - **Audit log** — every call goes to `%USERPROFILE%\.revitcortex\audit.jsonl`.
 - **Read-only mode** — one setting blocks every write tool.
 
