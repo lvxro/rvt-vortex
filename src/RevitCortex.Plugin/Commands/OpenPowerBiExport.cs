@@ -21,7 +21,9 @@ public class OpenPowerBiExport : IExternalCommand
                 return Result.Cancelled;
             }
 
-            var window = new PowerBiExportWindow(doc);
+            // The window never touches Revit itself: it reads the model
+            // and exports through this source.
+            var window = new PowerBiExportWindow(new RevitPowerBiExportSource(doc));
             try
             {
                 _ = new System.Windows.Interop.WindowInteropHelper(window)
@@ -44,7 +46,7 @@ public class OpenPowerBiExport : IExternalCommand
             // window painful otherwise.
             var dlg = new TaskDialog(Localization.T("pbi.error_title"))
             {
-                MainInstruction = "Impossibile aprire la finestra.",
+                MainInstruction = Localization.T("pbi.open_failed"),
                 MainContent = $"{ex.GetType().Name}: {ex.Message}",
                 ExpandedContent = ex.StackTrace ?? "",
                 CommonButtons = TaskDialogCommonButtons.Close

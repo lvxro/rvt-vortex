@@ -1582,5 +1582,1106 @@ internal static class Localization
             ["es"] = "Guardado ✓  {0} herramientas desactivadas · scripts C# permitidos.",
             ["it"] = "Salvato ✓  {0} strumenti disattivati · script C# consentiti.",
         },
+
+        // ── Power BI export window (en / es / it) ───────────────────────
+        // Window, steps, footer
+        ["pbi.window_title"] = new()
+        {
+            ["en"] = "RVT Vortex",
+            ["es"] = "RVT Vortex",
+            ["it"] = "RVT Vortex",
+        },
+        ["pbi.title"] = new()
+        {
+            ["en"] = "Export to Power BI",
+            ["es"] = "Exportar a Power BI",
+            ["it"] = "Esporta in Power BI",
+        },
+        ["pbi.subtitle_data"] = new()
+        {
+            ["en"] = "Choose which model data goes into the CSV file.",
+            ["es"] = "Elija qué datos del modelo van al archivo CSV.",
+            ["it"] = "Scegli quali dati del modello vanno nel file CSV.",
+        },
+        ["pbi.subtitle_output"] = new()
+        {
+            ["en"] = "Where the file is saved and how it stays up to date.",
+            ["es"] = "Dónde se guarda el archivo y cómo se mantiene al día.",
+            ["it"] = "Dove viene salvato il file e come resta aggiornato.",
+        },
+        ["pbi.step_data"] = new()
+        {
+            ["en"] = "Data",
+            ["es"] = "Datos",
+            ["it"] = "Dati",
+        },
+        ["pbi.step_output"] = new()
+        {
+            ["en"] = "Output",
+            ["es"] = "Salida",
+            ["it"] = "Output",
+        },
+        ["pbi.back"] = new()
+        {
+            ["en"] = "Back",
+            ["es"] = "Atrás",
+            ["it"] = "Indietro",
+        },
+        ["pbi.next"] = new()
+        {
+            ["en"] = "Next",
+            ["es"] = "Siguiente",
+            ["it"] = "Avanti",
+        },
+        ["pbi.export"] = new()
+        {
+            ["en"] = "Export",
+            ["es"] = "Exportar",
+            ["it"] = "Esporta",
+        },
+        ["pbi.cancel"] = new()
+        {
+            ["en"] = "Cancel",
+            ["es"] = "Cancelar",
+            ["it"] = "Annulla",
+        },
+        ["pbi.save"] = new()
+        {
+            ["en"] = "Save",
+            ["es"] = "Guardar",
+            ["it"] = "Salva",
+        },
+        ["pbi.open_failed"] = new()
+        {
+            ["en"] = "The window could not be opened.",
+            ["es"] = "No se pudo abrir la ventana.",
+            ["it"] = "Impossibile aprire la finestra.",
+        },
+        // Counts (each has a _one and a _many form)
+        ["pbi.count.categories_one"] = new()
+        {
+            ["en"] = "{0} category",
+            ["es"] = "{0} categoría",
+            ["it"] = "{0} categoria",
+        },
+        ["pbi.count.categories_many"] = new()
+        {
+            ["en"] = "{0} categories",
+            ["es"] = "{0} categorías",
+            ["it"] = "{0} categorie",
+        },
+        ["pbi.count.columns_one"] = new()
+        {
+            ["en"] = "{0} column",
+            ["es"] = "{0} columna",
+            ["it"] = "{0} colonna",
+        },
+        ["pbi.count.columns_many"] = new()
+        {
+            ["en"] = "{0} columns",
+            ["es"] = "{0} columnas",
+            ["it"] = "{0} colonne",
+        },
+        ["pbi.count.schedules_one"] = new()
+        {
+            ["en"] = "{0} schedule",
+            ["es"] = "{0} tabla de planificación",
+            ["it"] = "{0} abaco",
+        },
+        ["pbi.count.schedules_many"] = new()
+        {
+            ["en"] = "{0} schedules",
+            ["es"] = "{0} tablas de planificación",
+            ["it"] = "{0} abachi",
+        },
+        ["pbi.count.chosen_f_one"] = new()
+        {
+            ["en"] = "{0} selected",
+            ["es"] = "{0} elegida",
+            ["it"] = "{0} selezionata",
+        },
+        ["pbi.count.chosen_f_many"] = new()
+        {
+            ["en"] = "{0} selected",
+            ["es"] = "{0} elegidas",
+            ["it"] = "{0} selezionate",
+        },
+        ["pbi.count.schedules_chosen_one"] = new()
+        {
+            ["en"] = "{0} selected",
+            ["es"] = "{0} elegida",
+            ["it"] = "{0} selezionato",
+        },
+        ["pbi.count.schedules_chosen_many"] = new()
+        {
+            ["en"] = "{0} selected",
+            ["es"] = "{0} elegidas",
+            ["it"] = "{0} selezionati",
+        },
+        ["pbi.rows_one"] = new()
+        {
+            ["en"] = "{0:N0} row",
+            ["es"] = "{0:N0} fila",
+            ["it"] = "{0:N0} riga",
+        },
+        ["pbi.rows_many"] = new()
+        {
+            ["en"] = "{0:N0} rows",
+            ["es"] = "{0:N0} filas",
+            ["it"] = "{0:N0} righe",
+        },
+        // Step 1: where the rows come from
+        ["pbi.scope.whole"] = new()
+        {
+            ["en"] = "Whole model",
+            ["es"] = "Todo el modelo",
+            ["it"] = "Tutto il modello",
+        },
+        ["pbi.scope.whole_help"] = new()
+        {
+            ["en"] = "Every element of the project",
+            ["es"] = "Todos los elementos del proyecto",
+            ["it"] = "Tutti gli elementi del progetto",
+        },
+        ["pbi.scope.view"] = new()
+        {
+            ["en"] = "Active view",
+            ["es"] = "Vista activa",
+            ["it"] = "Vista attiva",
+        },
+        ["pbi.scope.view_help"] = new()
+        {
+            ["en"] = "Only what the current view shows",
+            ["es"] = "Solo lo visible en la vista actual",
+            ["it"] = "Solo ciò che è visibile nella vista corrente",
+        },
+        ["pbi.scope.selection"] = new()
+        {
+            ["en"] = "Current selection",
+            ["es"] = "Selección actual",
+            ["it"] = "Selezione corrente",
+        },
+        ["pbi.scope.selection_help"] = new()
+        {
+            ["en"] = "The elements selected in Revit",
+            ["es"] = "Los elementos seleccionados en Revit",
+            ["it"] = "Gli elementi selezionati in Revit",
+        },
+        ["pbi.scope.schedules"] = new()
+        {
+            ["en"] = "Schedules",
+            ["es"] = "Tablas de planificación",
+            ["it"] = "Abachi",
+        },
+        ["pbi.scope.schedules_help"] = new()
+        {
+            ["en"] = "Reuse the schedules that already exist",
+            ["es"] = "Reutiliza las tablas que ya existen",
+            ["it"] = "Riusa gli abachi già presenti",
+        },
+        // Step 1: categories
+        ["pbi.categories"] = new()
+        {
+            ["en"] = "Categories",
+            ["es"] = "Categorías",
+            ["it"] = "Categorie",
+        },
+        ["pbi.categories.model"] = new()
+        {
+            ["en"] = "Model",
+            ["es"] = "Modelo",
+            ["it"] = "Modello",
+        },
+        ["pbi.categories.annotation"] = new()
+        {
+            ["en"] = "Annotation",
+            ["es"] = "Anotación",
+            ["it"] = "Annotazione",
+        },
+        ["pbi.categories.analytical"] = new()
+        {
+            ["en"] = "Analytical",
+            ["es"] = "Analítico",
+            ["it"] = "Analitico",
+        },
+        ["pbi.categories.other"] = new()
+        {
+            ["en"] = "Other",
+            ["es"] = "Otras",
+            ["it"] = "Altre",
+        },
+        ["pbi.categories.none_in_model"] = new()
+        {
+            ["en"] = "The model has no categories with elements.",
+            ["es"] = "El modelo no tiene categorías con elementos.",
+            ["it"] = "Il modello non ha categorie con elementi.",
+        },
+        ["pbi.categories.none_here"] = new()
+        {
+            ["en"] = "No categories here.",
+            ["es"] = "No hay categorías aquí.",
+            ["it"] = "Nessuna categoria qui.",
+        },
+        ["pbi.select_all"] = new()
+        {
+            ["en"] = "Select all",
+            ["es"] = "Elegir todas",
+            ["it"] = "Seleziona tutto",
+        },
+        ["pbi.select_none"] = new()
+        {
+            ["en"] = "Clear all",
+            ["es"] = "Quitar todas",
+            ["it"] = "Deseleziona tutto",
+        },
+        // Step 1: parameters and columns
+        ["pbi.available"] = new()
+        {
+            ["en"] = "Available parameters",
+            ["es"] = "Parámetros disponibles",
+            ["it"] = "Parametri disponibili",
+        },
+        ["pbi.filter"] = new()
+        {
+            ["en"] = "Filter…",
+            ["es"] = "Filtrar…",
+            ["it"] = "Filtra…",
+        },
+        ["pbi.filter_tip"] = new()
+        {
+            ["en"] = "Filter by name or group",
+            ["es"] = "Filtrar por nombre o grupo",
+            ["it"] = "Filtra per nome o gruppo",
+        },
+        ["pbi.include_type"] = new()
+        {
+            ["en"] = "Type parameters",
+            ["es"] = "Parámetros de tipo",
+            ["it"] = "Parametri di tipo",
+        },
+        ["pbi.include_type_tip"] = new()
+        {
+            ["en"] = "Also list the parameters of each element's type.",
+            ["es"] = "Incluye también los parámetros del tipo de cada elemento.",
+            ["it"] = "Include anche i parametri del tipo di ogni elemento.",
+        },
+        ["pbi.hide_empty"] = new()
+        {
+            ["en"] = "Hide empty ones",
+            ["es"] = "Ocultar los vacíos",
+            ["it"] = "Nascondi i vuoti",
+        },
+        ["pbi.hide_empty_tip"] = new()
+        {
+            ["en"] = "Hides the parameters that have no value on any sampled element.",
+            ["es"] = "Oculta los parámetros que no tienen valor en ningún elemento de la muestra.",
+            ["it"] = "Nasconde i parametri senza valore in tutti gli elementi campionati.",
+        },
+        ["pbi.available.pick_category"] = new()
+        {
+            ["en"] = "Tick one or more categories to see their parameters.",
+            ["es"] = "Elija una o más categorías para ver sus parámetros.",
+            ["it"] = "Seleziona una o più categorie per vederne i parametri.",
+        },
+        ["pbi.available.all_added"] = new()
+        {
+            ["en"] = "Every parameter is already a column.",
+            ["es"] = "Todos los parámetros ya son columnas.",
+            ["it"] = "Tutti i parametri sono già colonne.",
+        },
+        ["pbi.available.no_match"] = new()
+        {
+            ["en"] = "No parameters match. Try another word, or show the empty ones.",
+            ["es"] = "Ningún parámetro coincide. Pruebe con otra palabra o muestre los vacíos.",
+            ["it"] = "Nessun parametro corrisponde. Prova con un'altra parola o mostra i vuoti.",
+        },
+        ["pbi.move.add"] = new()
+        {
+            ["en"] = "Add the selected parameters",
+            ["es"] = "Agregar los seleccionados",
+            ["it"] = "Aggiungi i selezionati",
+        },
+        ["pbi.move.add_all"] = new()
+        {
+            ["en"] = "Add all the listed parameters",
+            ["es"] = "Agregar todos los visibles",
+            ["it"] = "Aggiungi tutti i visibili",
+        },
+        ["pbi.move.remove"] = new()
+        {
+            ["en"] = "Remove the selected columns",
+            ["es"] = "Quitar los seleccionados",
+            ["it"] = "Rimuovi i selezionati",
+        },
+        ["pbi.move.remove_all"] = new()
+        {
+            ["en"] = "Remove all columns",
+            ["es"] = "Quitar todos",
+            ["it"] = "Rimuovi tutti",
+        },
+        ["pbi.move.up"] = new()
+        {
+            ["en"] = "Move up",
+            ["es"] = "Subir",
+            ["it"] = "Sposta su",
+        },
+        ["pbi.move.down"] = new()
+        {
+            ["en"] = "Move down",
+            ["es"] = "Bajar",
+            ["it"] = "Sposta giù",
+        },
+        ["pbi.columns"] = new()
+        {
+            ["en"] = "CSV columns",
+            ["es"] = "Columnas del CSV",
+            ["it"] = "Colonne del CSV",
+        },
+        ["pbi.columns.caption_none"] = new()
+        {
+            ["en"] = "No columns yet.",
+            ["es"] = "Todavía no hay columnas.",
+            ["it"] = "Ancora nessuna colonna.",
+        },
+        ["pbi.columns.caption_one"] = new()
+        {
+            ["en"] = "{0} parameter.",
+            ["es"] = "{0} parámetro.",
+            ["it"] = "{0} parametro.",
+        },
+        ["pbi.columns.caption_many"] = new()
+        {
+            ["en"] = "{0} parameters, in the order they appear in the file.",
+            ["es"] = "{0} parámetros, en el orden en que salen en el archivo.",
+            ["it"] = "{0} parametri, nell'ordine in cui compaiono nel file.",
+        },
+        ["pbi.columns.empty"] = new()
+        {
+            ["en"] = "Add parameters with the arrows or a double click.",
+            ["es"] = "Agregue parámetros con las flechas o con doble clic.",
+            ["it"] = "Aggiungi parametri con le frecce o con un doppio clic.",
+        },
+        ["pbi.badge.type"] = new()
+        {
+            ["en"] = "type",
+            ["es"] = "tipo",
+            ["it"] = "tipo",
+        },
+        ["pbi.badge.calculated"] = new()
+        {
+            ["en"] = "calculated",
+            ["es"] = "calculado",
+            ["it"] = "calcolato",
+        },
+        ["pbi.param.instance"] = new()
+        {
+            ["en"] = "Instance parameter",
+            ["es"] = "Parámetro de ejemplar",
+            ["it"] = "Parametro di istanza",
+        },
+        ["pbi.param.type"] = new()
+        {
+            ["en"] = "Type parameter",
+            ["es"] = "Parámetro de tipo",
+            ["it"] = "Parametro di tipo",
+        },
+        ["pbi.param.coverage"] = new()
+        {
+            ["en"] = "{0}% of the sampled elements have a value",
+            ["es"] = "{0} % de la muestra tiene valor",
+            ["it"] = "{0}% del campione ha un valore",
+        },
+        ["pbi.param.read_only"] = new()
+        {
+            ["en"] = "read-only",
+            ["es"] = "solo lectura",
+            ["it"] = "sola lettura",
+        },
+        ["pbi.param.shared"] = new()
+        {
+            ["en"] = "shared",
+            ["es"] = "compartido",
+            ["it"] = "condiviso",
+        },
+        ["pbi.need_category"] = new()
+        {
+            ["en"] = "Tick at least one category.",
+            ["es"] = "Elija al menos una categoría.",
+            ["it"] = "Seleziona almeno una categoria.",
+        },
+        ["pbi.need_parameter"] = new()
+        {
+            ["en"] = "Add at least one parameter to the CSV columns.",
+            ["es"] = "Agregue al menos un parámetro a las columnas del CSV.",
+            ["it"] = "Aggiungi almeno un parametro alle colonne del CSV.",
+        },
+        ["pbi.need_schedule"] = new()
+        {
+            ["en"] = "Tick at least one schedule.",
+            ["es"] = "Elija al menos una tabla de planificación.",
+            ["it"] = "Seleziona almeno un abaco.",
+        },
+        // Step 1: schedules
+        ["pbi.schedules"] = new()
+        {
+            ["en"] = "Schedules",
+            ["es"] = "Tablas de planificación",
+            ["it"] = "Abachi",
+        },
+        ["pbi.schedules.empty"] = new()
+        {
+            ["en"] = "The model has no schedules.",
+            ["es"] = "El modelo no tiene tablas de planificación.",
+            ["it"] = "Il modello non ha abachi.",
+        },
+        ["pbi.schedule_columns"] = new()
+        {
+            ["en"] = "Columns",
+            ["es"] = "Columnas",
+            ["it"] = "Colonne",
+        },
+        ["pbi.schedule_columns_of"] = new()
+        {
+            ["en"] = "Columns of {0}",
+            ["es"] = "Columnas de {0}",
+            ["it"] = "Colonne di {0}",
+        },
+        ["pbi.schedule_columns.pick"] = new()
+        {
+            ["en"] = "Tick a schedule to see its columns.",
+            ["es"] = "Elija una tabla para ver sus columnas.",
+            ["it"] = "Seleziona un abaco per vederne le colonne.",
+        },
+        ["pbi.schedule_columns.unreadable"] = new()
+        {
+            ["en"] = "This schedule could not be read.",
+            ["es"] = "No se pudo leer esta tabla.",
+            ["it"] = "Impossibile leggere questo abaco.",
+        },
+        ["pbi.schedule_columns.none"] = new()
+        {
+            ["en"] = "This schedule has no visible columns.",
+            ["es"] = "Esta tabla no tiene columnas visibles.",
+            ["it"] = "Questo abaco non ha colonne visibili.",
+        },
+        // Step 2: file
+        ["pbi.file"] = new()
+        {
+            ["en"] = "File",
+            ["es"] = "Archivo",
+            ["it"] = "File",
+        },
+        ["pbi.file_help"] = new()
+        {
+            ["en"] = "Where the CSV is saved.",
+            ["es"] = "Dónde se guarda el CSV.",
+            ["it"] = "Dove viene salvato il CSV.",
+        },
+        ["pbi.output_folder"] = new()
+        {
+            ["en"] = "Output folder",
+            ["es"] = "Carpeta de salida",
+            ["it"] = "Cartella di output",
+        },
+        ["pbi.browse"] = new()
+        {
+            ["en"] = "Browse…",
+            ["es"] = "Examinar…",
+            ["it"] = "Sfoglia…",
+        },
+        ["pbi.browse_tip"] = new()
+        {
+            ["en"] = "Choose another folder",
+            ["es"] = "Elegir otra carpeta",
+            ["it"] = "Scegli un'altra cartella",
+        },
+        ["pbi.browse_title"] = new()
+        {
+            ["en"] = "Choose the output folder (go into it and press Open)",
+            ["es"] = "Elija la carpeta de salida (entre en ella y presione Abrir)",
+            ["it"] = "Scegli la cartella di output (entra e premi Apri)",
+        },
+        ["pbi.browse_placeholder"] = new()
+        {
+            ["en"] = "Select-this-folder",
+            ["es"] = "Elegir-esta-carpeta",
+            ["it"] = "Seleziona-questa-cartella",
+        },
+        ["pbi.browse_filter"] = new()
+        {
+            ["en"] = "Folder",
+            ["es"] = "Carpeta",
+            ["it"] = "Cartella",
+        },
+        ["pbi.open"] = new()
+        {
+            ["en"] = "Open",
+            ["es"] = "Abrir",
+            ["it"] = "Apri",
+        },
+        ["pbi.open_tip"] = new()
+        {
+            ["en"] = "Opens this folder in File Explorer, to check the files already exported.",
+            ["es"] = "Abre esta carpeta en el Explorador, para revisar los archivos ya exportados.",
+            ["it"] = "Apre questa cartella in Esplora file, per controllare i file già esportati.",
+        },
+        ["pbi.file_name"] = new()
+        {
+            ["en"] = "File name",
+            ["es"] = "Nombre de archivo",
+            ["it"] = "Nome del file",
+        },
+        ["pbi.schedule_files_one"] = new()
+        {
+            ["en"] = "File that will be written",
+            ["es"] = "Archivo que se escribirá",
+            ["it"] = "File che verrà scritto",
+        },
+        ["pbi.schedule_files_many"] = new()
+        {
+            ["en"] = "Files that will be written ({0}, one per schedule)",
+            ["es"] = "Archivos que se escribirán ({0}, uno por tabla)",
+            ["it"] = "File che verranno scritti ({0}, uno per abaco)",
+        },
+        ["pbi.schedule_files_note"] = new()
+        {
+            ["en"] = "The names come from each schedule, and the files are replaced on every export.",
+            ["es"] = "Los nombres salen de cada tabla y los archivos se reemplazan en cada exportación.",
+            ["it"] = "I nomi derivano da ogni abaco e i file vengono sostituiti a ogni esportazione.",
+        },
+        // Step 2: keeping it up to date, Power BI
+        ["pbi.update"] = new()
+        {
+            ["en"] = "Updates",
+            ["es"] = "Actualización",
+            ["it"] = "Aggiornamento",
+        },
+        ["pbi.update_help"] = new()
+        {
+            ["en"] = "Keep the CSV current without exporting by hand.",
+            ["es"] = "Mantenga el CSV al día sin exportar a mano.",
+            ["it"] = "Mantieni il CSV aggiornato senza esportare a mano.",
+        },
+        ["pbi.overwrite"] = new()
+        {
+            ["en"] = "Overwrite the existing file",
+            ["es"] = "Sobrescribir el archivo existente",
+            ["it"] = "Sovrascrivi il file esistente",
+        },
+        ["pbi.overwrite_help"] = new()
+        {
+            ["en"] = "Recommended when Power BI refreshes on a schedule. Off: each export gets the date in its name.",
+            ["es"] = "Recomendado si Power BI actualiza de forma programada. Apagado: cada exportación lleva la fecha en el nombre.",
+            ["it"] = "Consigliato se Power BI si aggiorna in modo pianificato. Disattivato: ogni esportazione ha la data nel nome.",
+        },
+        ["pbi.auto_export"] = new()
+        {
+            ["en"] = "Export when the model is saved",
+            ["es"] = "Exportar al guardar el modelo",
+            ["it"] = "Esporta al salvataggio del modello",
+        },
+        ["pbi.auto_export_help"] = new()
+        {
+            ["en"] = "The CSV is exported again on every save, for this Revit session and while Vortex is on.",
+            ["es"] = "El CSV se vuelve a exportar cada vez que guarda, en esta sesión de Revit y con Vortex encendido.",
+            ["it"] = "Il CSV viene riesportato a ogni salvataggio, in questa sessione di Revit e con Vortex acceso.",
+        },
+        ["pbi.powerbi"] = new()
+        {
+            ["en"] = "Power BI",
+            ["es"] = "Power BI",
+            ["it"] = "Power BI",
+        },
+        ["pbi.powerbi_help"] = new()
+        {
+            ["en"] = "The link with Power BI Desktop and the Power BI service.",
+            ["es"] = "Conexión con Power BI Desktop y el servicio Power BI.",
+            ["it"] = "Collegamento con Power BI Desktop e il servizio Power BI.",
+        },
+        ["pbi.select_in_revit"] = new()
+        {
+            ["en"] = "Select in Revit from Power BI",
+            ["es"] = "Seleccionar en Revit desde Power BI",
+            ["it"] = "Seleziona in Revit da Power BI",
+        },
+        ["pbi.select_in_revit_help"] = new()
+        {
+            ["en"] = "Registers the revitcortex:// protocol on this computer.",
+            ["es"] = "Registra el protocolo revitcortex:// en este equipo.",
+            ["it"] = "Registra il protocollo revitcortex:// su questo computer.",
+        },
+        ["pbi.refresh"] = new()
+        {
+            ["en"] = "Refresh the dashboard in the Power BI service",
+            ["es"] = "Actualizar el panel en Power BI Service",
+            ["it"] = "Aggiorna la dashboard in Power BI Service",
+        },
+        ["pbi.refresh_help"] = new()
+        {
+            ["en"] = "Starts the dataset refresh after exporting.",
+            ["es"] = "Lanza la actualización del dataset después de exportar.",
+            ["it"] = "Avvia l'aggiornamento del dataset dopo l'esportazione.",
+        },
+        ["pbi.refresh_ids_help"] = new()
+        {
+            ["en"] = "Both are in the dataset's address: app.powerbi.com/groups/<workspace>/datasets/<dataset>.",
+            ["es"] = "Los dos están en la dirección del dataset: app.powerbi.com/groups/<workspace>/datasets/<dataset>.",
+            ["it"] = "Entrambi sono nell'indirizzo del dataset: app.powerbi.com/groups/<workspace>/datasets/<dataset>.",
+        },
+        ["pbi.workspace_tip"] = new()
+        {
+            ["en"] = "GUID of the Power BI workspace",
+            ["es"] = "GUID del workspace de Power BI",
+            ["it"] = "GUID del workspace di Power BI",
+        },
+        ["pbi.dataset_tip"] = new()
+        {
+            ["en"] = "GUID of the dataset the CSV feeds",
+            ["es"] = "GUID del dataset que lee el CSV",
+            ["it"] = "GUID del dataset alimentato dal CSV",
+        },
+        // Step 2: preview
+        ["pbi.preview"] = new()
+        {
+            ["en"] = "Preview",
+            ["es"] = "Vista previa",
+            ["it"] = "Anteprima",
+        },
+        ["pbi.preview.first_rows"] = new()
+        {
+            ["en"] = "First {0} rows",
+            ["es"] = "Primeras {0} filas",
+            ["it"] = "Prime {0} righe",
+        },
+        ["pbi.preview.first_rows_of"] = new()
+        {
+            ["en"] = "First {0} rows of {1}",
+            ["es"] = "Primeras {0} filas de {1}",
+            ["it"] = "Prime {0} righe di {1}",
+        },
+        ["pbi.preview.summary"] = new()
+        {
+            ["en"] = "About {0} rows · {1} columns · {2}",
+            ["es"] = "Unas {0} filas · {1} columnas · {2}",
+            ["it"] = "Circa {0} righe · {1} colonne · {2}",
+        },
+        ["pbi.preview.more_columns"] = new()
+        {
+            ["en"] = "The file also carries UniqueId, DocumentTitle, DocumentPath and EpisodeId.",
+            ["es"] = "El archivo lleva además UniqueId, DocumentTitle, DocumentPath y EpisodeId.",
+            ["it"] = "Il file contiene anche UniqueId, DocumentTitle, DocumentPath ed EpisodeId.",
+        },
+        ["pbi.preview.skipped_one"] = new()
+        {
+            ["en"] = "{0} parameter is left out: a fixed column has the same name.",
+            ["es"] = "{0} parámetro queda fuera: una columna fija tiene el mismo nombre.",
+            ["it"] = "{0} parametro è escluso: una colonna fissa ha lo stesso nome.",
+        },
+        ["pbi.preview.skipped_many"] = new()
+        {
+            ["en"] = "{0} parameters are left out: fixed columns have the same names.",
+            ["es"] = "{0} parámetros quedan fuera: hay columnas fijas con el mismo nombre.",
+            ["it"] = "{0} parametri sono esclusi: colonne fisse hanno lo stesso nome.",
+        },
+        ["pbi.preview.capped"] = new()
+        {
+            ["en"] = "The export stops at {0} rows.",
+            ["es"] = "La exportación se detiene en {0} filas.",
+            ["it"] = "L'esportazione si ferma a {0} righe.",
+        },
+        ["pbi.preview.first_schedule_only"] = new()
+        {
+            ["en"] = "Showing the first schedule; each one gets its own file.",
+            ["es"] = "Se muestra la primera tabla; cada una tiene su propio archivo.",
+            ["it"] = "È mostrato il primo abaco; ognuno ha il proprio file.",
+        },
+        ["pbi.preview.no_rows"] = new()
+        {
+            ["en"] = "No rows to show.",
+            ["es"] = "No hay filas para mostrar.",
+            ["it"] = "Nessuna riga da mostrare.",
+        },
+        ["pbi.preview.nothing"] = new()
+        {
+            ["en"] = "Nothing to preview.",
+            ["es"] = "No hay nada para previsualizar.",
+            ["it"] = "Niente da mostrare in anteprima.",
+        },
+        // Step 2: column types (advanced)
+        ["pbi.advanced"] = new()
+        {
+            ["en"] = "Advanced: column types",
+            ["es"] = "Avanzado: tipos de columna",
+            ["it"] = "Avanzate: tipi di colonna",
+        },
+        ["pbi.advanced_help"] = new()
+        {
+            ["en"] = "Power BI guesses each column's type, and the guess can change with the language, with empty first rows or with dates. Setting the types here keeps them the same on every refresh: the export adds a .pq file next to the CSV, and a _Raw column for each number.",
+            ["es"] = "Power BI deduce el tipo de cada columna, y esa deducción cambia según el idioma, las primeras filas vacías o las fechas. Fijar los tipos aquí los mantiene iguales en cada actualización: la exportación agrega un archivo .pq junto al CSV y una columna _Raw por cada número.",
+            ["it"] = "Power BI deduce il tipo di ogni colonna, e la deduzione cambia con la lingua, con le prime righe vuote o con le date. Impostare i tipi qui li mantiene uguali a ogni aggiornamento: l'esportazione aggiunge un file .pq accanto al CSV e una colonna _Raw per ogni numero.",
+        },
+        ["pbi.schema.auto"] = new()
+        {
+            ["en"] = "Automatic",
+            ["es"] = "Automático",
+            ["it"] = "Automatico",
+        },
+        ["pbi.schema.suggested"] = new()
+        {
+            ["en"] = "Suggested",
+            ["es"] = "Sugerido",
+            ["it"] = "Suggerito",
+        },
+        ["pbi.schema.custom"] = new()
+        {
+            ["en"] = "Custom",
+            ["es"] = "Personalizado",
+            ["it"] = "Personalizzato",
+        },
+        ["pbi.schema.column"] = new()
+        {
+            ["en"] = "Column",
+            ["es"] = "Columna",
+            ["it"] = "Colonna",
+        },
+        ["pbi.schema.type"] = new()
+        {
+            ["en"] = "Type in Power BI",
+            ["es"] = "Tipo en Power BI",
+            ["it"] = "Tipo in Power BI",
+        },
+        ["pbi.schema.format"] = new()
+        {
+            ["en"] = "Format",
+            ["es"] = "Formato",
+            ["it"] = "Formato",
+        },
+        ["pbi.schema.suggest"] = new()
+        {
+            ["en"] = "Suggest types from the parameters",
+            ["es"] = "Sugerir tipos a partir de los parámetros",
+            ["it"] = "Suggerisci i tipi dai parametri",
+        },
+        // Profiles
+        ["pbi.profiles"] = new()
+        {
+            ["en"] = "Profiles",
+            ["es"] = "Perfiles",
+            ["it"] = "Profili",
+        },
+        ["pbi.profiles.load"] = new()
+        {
+            ["en"] = "Load a profile…",
+            ["es"] = "Cargar perfil…",
+            ["it"] = "Carica profilo…",
+        },
+        ["pbi.profiles.save"] = new()
+        {
+            ["en"] = "Save as profile…",
+            ["es"] = "Guardar como perfil…",
+            ["it"] = "Salva come profilo…",
+        },
+        ["pbi.profiles.import"] = new()
+        {
+            ["en"] = "Import from file…",
+            ["es"] = "Importar desde archivo…",
+            ["it"] = "Importa da file…",
+        },
+        ["pbi.profiles.open_folder"] = new()
+        {
+            ["en"] = "Open profiles folder",
+            ["es"] = "Abrir carpeta de perfiles",
+            ["it"] = "Apri cartella dei profili",
+        },
+        ["pbi.profiles.import_title"] = new()
+        {
+            ["en"] = "Import a profile (.json)",
+            ["es"] = "Importar un perfil (.json)",
+            ["it"] = "Importa un profilo (.json)",
+        },
+        ["pbi.profiles.import_filter"] = new()
+        {
+            ["en"] = "RVT Vortex profiles",
+            ["es"] = "Perfiles de RVT Vortex",
+            ["it"] = "Profili RVT Vortex",
+        },
+        ["pbi.profile_name.heading"] = new()
+        {
+            ["en"] = "Save as profile",
+            ["es"] = "Guardar como perfil",
+            ["it"] = "Salva come profilo",
+        },
+        ["pbi.profile_name.help"] = new()
+        {
+            ["en"] = "A profile keeps this export (data, columns and output) so you can load it again from Profiles.",
+            ["es"] = "Un perfil guarda esta exportación (datos, columnas y salida) para volver a cargarla desde Perfiles.",
+            ["it"] = "Un profilo conserva questa esportazione (dati, colonne e output) per ricaricarla da Profili.",
+        },
+        ["pbi.profile_name.label"] = new()
+        {
+            ["en"] = "Profile name",
+            ["es"] = "Nombre del perfil",
+            ["it"] = "Nome del profilo",
+        },
+        ["pbi.profile_picker.heading"] = new()
+        {
+            ["en"] = "Load a profile",
+            ["es"] = "Cargar perfil",
+            ["it"] = "Carica profilo",
+        },
+        ["pbi.profile_picker.help"] = new()
+        {
+            ["en"] = "The saved exports, most recent first.",
+            ["es"] = "Las exportaciones guardadas, la más reciente primero.",
+            ["it"] = "Le esportazioni salvate, dalla più recente.",
+        },
+        ["pbi.profile_picker.empty"] = new()
+        {
+            ["en"] = "No saved profiles.",
+            ["es"] = "No hay perfiles guardados.",
+            ["it"] = "Nessun profilo salvato.",
+        },
+        ["pbi.profile_picker.delete"] = new()
+        {
+            ["en"] = "Delete",
+            ["es"] = "Eliminar",
+            ["it"] = "Elimina",
+        },
+        ["pbi.profile_picker.load"] = new()
+        {
+            ["en"] = "Load",
+            ["es"] = "Cargar",
+            ["it"] = "Carica",
+        },
+        // Footer messages
+        ["pbi.status.categories_failed"] = new()
+        {
+            ["en"] = "The model's categories could not be read: {0}",
+            ["es"] = "No se pudieron leer las categorías del modelo: {0}",
+            ["it"] = "Impossibile leggere le categorie del modello: {0}",
+        },
+        ["pbi.status.no_categories"] = new()
+        {
+            ["en"] = "The active model has no categories with elements.",
+            ["es"] = "El modelo activo no tiene categorías con elementos.",
+            ["it"] = "Il modello attivo non ha categorie con elementi.",
+        },
+        ["pbi.status.selection_empty"] = new()
+        {
+            ["en"] = "Nothing is selected in Revit. Select elements in the model, then choose Current selection again.",
+            ["es"] = "No hay nada seleccionado en Revit. Seleccione elementos en el modelo y vuelva a elegir Selección actual.",
+            ["it"] = "Nessun elemento selezionato in Revit. Seleziona degli elementi nel modello e scegli di nuovo Selezione corrente.",
+        },
+        ["pbi.status.parameters_failed"] = new()
+        {
+            ["en"] = "The parameters could not be read: {0}",
+            ["es"] = "No se pudieron leer los parámetros: {0}",
+            ["it"] = "Impossibile leggere i parametri: {0}",
+        },
+        ["pbi.status.preview_failed"] = new()
+        {
+            ["en"] = "The preview could not be built: {0}",
+            ["es"] = "No se pudo armar la vista previa: {0}",
+            ["it"] = "Impossibile creare l'anteprima: {0}",
+        },
+        ["pbi.status.no_profiles"] = new()
+        {
+            ["en"] = "No saved profiles yet. Set up an export and keep it with Save as profile.",
+            ["es"] = "Todavía no hay perfiles guardados. Arme una exportación y guárdela con Guardar como perfil.",
+            ["it"] = "Nessun profilo salvato. Configura un'esportazione e conservala con Salva come profilo.",
+        },
+        ["pbi.status.profile_loaded"] = new()
+        {
+            ["en"] = "Profile “{0}” loaded.",
+            ["es"] = "Perfil «{0}» cargado.",
+            ["it"] = "Profilo «{0}» caricato.",
+        },
+        ["pbi.status.profile_saved"] = new()
+        {
+            ["en"] = "Profile “{0}” saved in {1}",
+            ["es"] = "Perfil «{0}» guardado en {1}",
+            ["it"] = "Profilo «{0}» salvato in {1}",
+        },
+        ["pbi.status.profile_save_failed"] = new()
+        {
+            ["en"] = "The profile could not be saved: {0}",
+            ["es"] = "No se pudo guardar el perfil: {0}",
+            ["it"] = "Impossibile salvare il profilo: {0}",
+        },
+        ["pbi.status.profile_invalid"] = new()
+        {
+            ["en"] = "That file is not a profile, or it has no name.",
+            ["es"] = "Ese archivo no es un perfil o no tiene nombre.",
+            ["it"] = "Quel file non è un profilo o non ha un nome.",
+        },
+        ["pbi.status.profile_imported"] = new()
+        {
+            ["en"] = "Profile “{0}” imported and applied.",
+            ["es"] = "Perfil «{0}» importado y aplicado.",
+            ["it"] = "Profilo «{0}» importato e applicato.",
+        },
+        ["pbi.status.profile_import_failed"] = new()
+        {
+            ["en"] = "The profile could not be imported: {0}",
+            ["es"] = "No se pudo importar el perfil: {0}",
+            ["it"] = "Impossibile importare il profilo: {0}",
+        },
+        ["pbi.status.open_folder_failed"] = new()
+        {
+            ["en"] = "The folder could not be opened: {0}",
+            ["es"] = "No se pudo abrir la carpeta: {0}",
+            ["it"] = "Impossibile aprire la cartella: {0}",
+        },
+        ["pbi.status.need_folder"] = new()
+        {
+            ["en"] = "Set an output folder first.",
+            ["es"] = "Primero indique una carpeta de salida.",
+            ["it"] = "Imposta prima una cartella di output.",
+        },
+        ["pbi.status.exporting"] = new()
+        {
+            ["en"] = "Exporting…",
+            ["es"] = "Exportando…",
+            ["it"] = "Esportazione in corso…",
+        },
+        ["pbi.status.no_router"] = new()
+        {
+            ["en"] = "RVT Vortex did not finish starting. Restart Revit and try again.",
+            ["es"] = "RVT Vortex no terminó de iniciar. Reinicie Revit y vuelva a intentar.",
+            ["it"] = "RVT Vortex non ha completato l'avvio. Riavvia Revit e riprova.",
+        },
+        ["pbi.status.no_response"] = new()
+        {
+            ["en"] = "The export gave no answer.",
+            ["es"] = "La exportación no devolvió respuesta.",
+            ["it"] = "L'esportazione non ha dato risposta.",
+        },
+        ["pbi.status.export_failed"] = new()
+        {
+            ["en"] = "The export failed ({0}): {1}",
+            ["es"] = "La exportación falló ({0}): {1}",
+            ["it"] = "Esportazione non riuscita ({0}): {1}",
+        },
+        ["pbi.status.exported"] = new()
+        {
+            ["en"] = "Export finished: {0} rows → {1}",
+            ["es"] = "Exportación terminada: {0} filas → {1}",
+            ["it"] = "Esportazione completata: {0} righe → {1}",
+        },
+        ["pbi.status.unexpected"] = new()
+        {
+            ["en"] = "Unexpected error ({0}): {1}",
+            ["es"] = "Error inesperado ({0}): {1}",
+            ["it"] = "Errore imprevisto ({0}): {1}",
+        },
+        ["pbi.status.refresh_starting"] = new()
+        {
+            ["en"] = "Export finished. Asking Power BI to refresh…",
+            ["es"] = "Exportación terminada. Pidiendo a Power BI que actualice…",
+            ["it"] = "Esportazione completata. Richiesta di aggiornamento a Power BI…",
+        },
+        ["pbi.status.refresh_not_signed_in"] = new()
+        {
+            ["en"] = "Export finished. The refresh was not started: you are not signed in to Power BI (ask the AI to run pbi_check_auth).",
+            ["es"] = "Exportación terminada. No se lanzó la actualización: no inició sesión en Power BI (pídale a la IA que ejecute pbi_check_auth).",
+            ["it"] = "Esportazione completata. Aggiornamento non avviato: non hai effettuato l'accesso a Power BI (chiedi all'IA di eseguire pbi_check_auth).",
+        },
+        ["pbi.status.refresh_queued"] = new()
+        {
+            ["en"] = "Export finished. Refresh queued; the dashboard updates in about 30 seconds.",
+            ["es"] = "Exportación terminada. Actualización en cola; el panel se actualiza en unos 30 segundos.",
+            ["it"] = "Esportazione completata. Aggiornamento in coda; la dashboard si aggiorna in circa 30 secondi.",
+        },
+        ["pbi.status.refresh_started"] = new()
+        {
+            ["en"] = "Export finished. Refresh started (request {0}); the dashboard updates in about 30 seconds.",
+            ["es"] = "Exportación terminada. Actualización iniciada (solicitud {0}); el panel se actualiza en unos 30 segundos.",
+            ["it"] = "Esportazione completata. Aggiornamento avviato (richiesta {0}); la dashboard si aggiorna in circa 30 secondi.",
+        },
+        ["pbi.status.refresh_failed"] = new()
+        {
+            ["en"] = "Export finished. The refresh failed: {0}",
+            ["es"] = "Exportación terminada. La actualización falló: {0}",
+            ["it"] = "Esportazione completata. Aggiornamento non riuscito: {0}",
+        },
+        ["pbi.unknown_error"] = new()
+        {
+            ["en"] = "unknown error",
+            ["es"] = "error desconocido",
+            ["it"] = "errore sconosciuto",
+        },
+        ["pbi.unknown_path"] = new()
+        {
+            ["en"] = "(unknown path)",
+            ["es"] = "(ruta desconocida)",
+            ["it"] = "(percorso sconosciuto)",
+        },
+        // Revit dialogs
+        ["pbi.dialog.categories_failed"] = new()
+        {
+            ["en"] = "Power BI export: the categories could not be read",
+            ["es"] = "Exportar a Power BI: no se pudieron leer las categorías",
+            ["it"] = "Esporta in Power BI: impossibile leggere le categorie",
+        },
+        ["pbi.dialog.export_failed"] = new()
+        {
+            ["en"] = "Power BI export failed ({0})",
+            ["es"] = "La exportación a Power BI falló ({0})",
+            ["it"] = "Esportazione in Power BI non riuscita ({0})",
+        },
+        ["pbi.dialog.unexpected"] = new()
+        {
+            ["en"] = "Power BI export: unexpected error",
+            ["es"] = "Exportar a Power BI: error inesperado",
+            ["it"] = "Esporta in Power BI: errore imprevisto",
+        },
+        ["pbi.dialog.done_title"] = new()
+        {
+            ["en"] = "Power BI export finished",
+            ["es"] = "Exportación a Power BI terminada",
+            ["it"] = "Esportazione in Power BI completata",
+        },
+        ["pbi.dialog.exported_rows"] = new()
+        {
+            ["en"] = "{0} rows exported",
+            ["es"] = "Se exportaron {0} filas",
+            ["it"] = "Esportate {0} righe",
+        },
+        ["pbi.dialog.exported_schedules_one"] = new()
+        {
+            ["en"] = "{0} schedule exported",
+            ["es"] = "Se exportó {0} tabla de planificación",
+            ["it"] = "Esportato {0} abaco",
+        },
+        ["pbi.dialog.exported_schedules_many"] = new()
+        {
+            ["en"] = "{0} schedules exported",
+            ["es"] = "Se exportaron {0} tablas de planificación",
+            ["it"] = "Esportati {0} abachi",
+        },
+        ["pbi.dialog.file"] = new()
+        {
+            ["en"] = "File: {0}",
+            ["es"] = "Archivo: {0}",
+            ["it"] = "File: {0}",
+        },
+        ["pbi.dialog.files_in"] = new()
+        {
+            ["en"] = "Files written to: {0}",
+            ["es"] = "Archivos escritos en: {0}",
+            ["it"] = "File scritti in: {0}",
+        },
+        ["pbi.dialog.open_folder"] = new()
+        {
+            ["en"] = "Open the folder",
+            ["es"] = "Abrir la carpeta",
+            ["it"] = "Apri la cartella",
+        },
+        ["pbi.dialog.open_folder_hint"] = new()
+        {
+            ["en"] = "Shows the output folder in File Explorer",
+            ["es"] = "Muestra la carpeta de salida en el Explorador",
+            ["it"] = "Mostra la cartella di output in Esplora file",
+        },
     };
 }
