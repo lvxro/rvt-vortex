@@ -2,9 +2,9 @@
 
 What changed in RVT Vortex, release by release. Versions start at 1.1.0, above the 1.0.x of [RevitCortex](https://github.com/LuDattilo/revitcortex), the project this fork is built on. The reasoning behind the larger changes is in [FORK.md](FORK.md).
 
-## Unreleased
+## 1.2.0 — 2026-10-07
 
-On `main`, in the next release.
+The interface release.
 
 ### Interface
 
