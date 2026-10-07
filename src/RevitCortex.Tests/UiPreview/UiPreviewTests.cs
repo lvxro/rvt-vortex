@@ -37,6 +37,11 @@ public class UiPreviewTests
 
     private static readonly DateTime Now = new DateTime(2026, 3, 9, 14, 37, 20);
 
+    // What a resizable window's border and title bar take from its size on
+    // Windows 10 and 11 at 100 %: 1200 x 720 leaves a 1184 x 681 client area.
+    private const double WindowFrameWidth = 16;
+    private const double WindowFrameHeight = 39;
+
     [Fact]
     public void Every_window_builds_in_every_state()
     {
@@ -62,6 +67,7 @@ public class UiPreviewTests
                 ("pill-panel", PillPanel),
                 ("autopilot-summary", AutopilotSummary),
                 ("powerbi-data", PowerBiData),
+                ("powerbi-data-narrow", PowerBiDataNarrow),
                 ("powerbi-data-schedules", PowerBiDataSchedules),
                 ("powerbi-output", PowerBiOutput),
                 ("powerbi-output-advanced", PowerBiOutputAdvanced),
@@ -318,24 +324,32 @@ public class UiPreviewTests
     private static void PowerBiData()
     {
         var window = PowerBiWindow(SampleExport());
-        Build(window, "powerbi-data", beforeCapture: () =>
+        Build(window, "powerbi-data", atDesignSize: true, beforeCapture: () =>
         {
             // One row picked in the available list, about to be added.
             ((ListBox)window.FindName("AvailableList")).SelectedIndex = 3;
         });
     }
 
+    private static void PowerBiDataNarrow()
+    {
+        // Shown for real: on the CI screen (1024 px) Windows shrinks the
+        // window to its minimum width, the tightest layout a user can get.
+        var window = PowerBiWindow(SampleExport());
+        Build(window, "powerbi-data-narrow");
+    }
+
     private static void PowerBiDataSchedules()
     {
         var window = PowerBiWindow(SampleScheduleExport());
-        Build(window, "powerbi-data-schedules");
+        Build(window, "powerbi-data-schedules", atDesignSize: true);
     }
 
     private static void PowerBiOutput()
     {
         var window = PowerBiWindow(SampleExport());
         Assert.True(window.GoToOutput(), "Step 2 did not open for a complete export.");
-        Build(window, "powerbi-output");
+        Build(window, "powerbi-output", atDesignSize: true);
     }
 
     private static void PowerBiOutputAdvanced()
@@ -348,14 +362,14 @@ public class UiPreviewTests
         var window = PowerBiWindow(export);
         Assert.True(window.GoToOutput(), "Step 2 did not open for a complete export.");
         window.ExpandAdvanced();
-        Build(window, "powerbi-output-advanced");
+        Build(window, "powerbi-output-advanced", atDesignSize: true);
     }
 
     private static void PowerBiOutputSchedules()
     {
         var window = PowerBiWindow(SampleScheduleExport());
         Assert.True(window.GoToOutput(), "Step 2 did not open for a schedule export.");
-        Build(window, "powerbi-output-schedules");
+        Build(window, "powerbi-output-schedules", atDesignSize: true);
     }
 
     private static void PowerBiProfileDialogs()
@@ -594,8 +608,29 @@ public class UiPreviewTests
     /// picture (saved as <paramref name="saveAs"/>.png when that is given).
     /// </summary>
     private static BitmapSource? Build(Window window, string? saveAs, Action? beforeCapture = null,
-        Action? close = null)
+        Action? close = null, bool atDesignSize = false)
     {
+        if (Capturing && atDesignSize)
+        {
+            // The window is wider than the CI screen, and Windows would
+            // shrink it when shown. Lay its content out off screen at the
+            // size its client area has on a normal monitor, and draw that.
+            var content = (FrameworkElement)window.Content;
+            var size = new Size(window.Width - WindowFrameWidth, window.Height - WindowFrameHeight);
+            content.Measure(size);
+            content.Arrange(new Rect(size));
+            content.UpdateLayout();
+            Pump();
+            beforeCapture?.Invoke();
+            content.UpdateLayout();
+            Pump();
+
+            var ground = window.Background is SolidColorBrush brush ? brush.Color : Backdrop;
+            var shot = RenderVisual(content, size.Width, size.Height, 2, ground);
+            if (saveAs != null) SavePng(shot, saveAs);
+            return shot;
+        }
+
         if (!Capturing)
         {
             // No window on screen: lay out the content on its own.

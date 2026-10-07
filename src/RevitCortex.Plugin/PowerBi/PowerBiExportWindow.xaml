@@ -214,8 +214,10 @@
 
             <!-- Categories, their parameters, and the columns chosen -->
             <Grid x:Name="CategoryPanes" Grid.Row="1" Margin="32,18,32,18">
+                <!-- The categories pane is 290 px wide and gives some of it
+                     back on a small window, where the other two need it more. -->
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="290"/>
+                    <ColumnDefinition Width="0.77*" MinWidth="240" MaxWidth="290"/>
                     <ColumnDefinition Width="14"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="14"/>
@@ -692,9 +694,11 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
+                                    <!-- A path is often longer than the box: the tooltip has all of it. -->
                                     <TextBox x:Name="OutputFolderBox" Grid.Column="0" Height="34" FontSize="12.5"
                                              Style="{StaticResource Vx.TextBox}"
-                                             FontFamily="{StaticResource Vx.Mono}"/>
+                                             FontFamily="{StaticResource Vx.Mono}"
+                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                                     <Button x:Name="BrowseBtn" Grid.Column="1" Height="34" Margin="8,0,0,0"
                                             Style="{StaticResource Vx.Button}" Click="BrowseFolder_Click"/>
                                     <Button x:Name="OpenFolderBtn" Grid.Column="2" Height="34" Margin="8,0,0,0"
@@ -721,7 +725,7 @@
                                                         <TextBlock Text="{Binding}" FontSize="12" Margin="0,1"
                                                                    FontFamily="{StaticResource Vx.Mono}"
                                                                    Foreground="{StaticResource Vx.InkSoft}"
-                                                                   TextTrimming="CharacterEllipsis"/>
+                                                                   TextWrapping="Wrap"/>
                                                     </DataTemplate>
                                                 </ItemsControl.ItemTemplate>
                                             </ItemsControl>

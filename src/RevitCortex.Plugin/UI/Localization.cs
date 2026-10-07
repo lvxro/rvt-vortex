@@ -1740,8 +1740,8 @@ internal static class Localization
         ["pbi.scope.whole_help"] = new()
         {
             ["en"] = "Every element of the project",
-            ["es"] = "Todos los elementos del proyecto",
-            ["it"] = "Tutti gli elementi del progetto",
+            ["es"] = "Cada elemento del proyecto",
+            ["it"] = "Ogni elemento del progetto",
         },
         ["pbi.scope.view"] = new()
         {
@@ -1751,9 +1751,9 @@ internal static class Localization
         },
         ["pbi.scope.view_help"] = new()
         {
-            ["en"] = "Only what the current view shows",
-            ["es"] = "Solo lo visible en la vista actual",
-            ["it"] = "Solo ciò che è visibile nella vista corrente",
+            ["en"] = "What the current view shows",
+            ["es"] = "Lo visible en la vista actual",
+            ["it"] = "Ciò che la vista mostra",
         },
         ["pbi.scope.selection"] = new()
         {
@@ -1763,9 +1763,9 @@ internal static class Localization
         },
         ["pbi.scope.selection_help"] = new()
         {
-            ["en"] = "The elements selected in Revit",
-            ["es"] = "Los elementos seleccionados en Revit",
-            ["it"] = "Gli elementi selezionati in Revit",
+            ["en"] = "What is selected in Revit",
+            ["es"] = "Lo seleccionado en Revit",
+            ["it"] = "La selezione fatta in Revit",
         },
         ["pbi.scope.schedules"] = new()
         {
@@ -1775,9 +1775,9 @@ internal static class Localization
         },
         ["pbi.scope.schedules_help"] = new()
         {
-            ["en"] = "Reuse the schedules that already exist",
-            ["es"] = "Reutiliza las tablas que ya existen",
-            ["it"] = "Riusa gli abachi già presenti",
+            ["en"] = "Schedules already in the model",
+            ["es"] = "Las tablas que ya existen",
+            ["it"] = "Gli abachi già presenti",
         },
         // Step 1: categories
         ["pbi.categories"] = new()
