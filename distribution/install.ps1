@@ -324,14 +324,17 @@ try {
             }
         } else {
             Write-VxWarn (T 'CodeMissing')
-            Write-VxNote "claude mcp add revitcortex `"$serverExe`""
+            # A command to copy: on one line, never split to fit the window.
+            Write-Vx 'soft', "$($script:VxItemIndent)  claude mcp add revitcortex `"$serverExe`""
         }
     }
 
     if ($choice -ne "1" -and $choice -ne "2" -and $choice -ne "3") {
         Write-VxNote (T 'ClientLater')
         Write-VxNote (T 'ClientLaterDesktop')
-        Write-VxNote "Claude Code: claude mcp add revitcortex `"$serverExe`""
+        Write-VxNote 'Claude Code:'
+        # A command to copy: on one line, never split to fit the window.
+        Write-Vx 'soft', "$($script:VxItemIndent)  claude mcp add revitcortex `"$serverExe`""
     }
 
     # --- Summary ---
