@@ -26,6 +26,13 @@ Nel contesto di un professionista BIM che usa il sistema su modelli propri, il r
 2. **Warning visibile**: Ogni invocazione di `send_code_to_revit` mostra un avviso all'utente
 3. **Modalita locked**: `send_code_to_revit` puo essere disabilitato nelle impostazioni per ambienti di produzione
 
+> **RVT Vortex note:** countermeasure 1 is a text-pattern filter on the submitted source, not an isolation
+> boundary. It does not restrict what a compiled script can reach at runtime, so it reduces accidents and
+> obvious misuse but does not contain a script written to get around it. The effective controls are
+> `EnableCodeExecution` (off by default), the confirmation dialog and, under Autopilot, the user's explicit
+> opt-in. With scripts allowed under Autopilot there is no human review, so the prompt-injection risk in the
+> table below should be read as **not mitigated** for that mode.
+
 ## Gestione dei dati del modello BIM
 
 I modelli Revit contengono informazioni sensibili: dati di progetto, localizzazione di edifici, dati cliente, planimetrie. RevitCortex non trasmette questi dati a server esterni durante l'esecuzione -- tutto rimane locale. Tuttavia quando Claude Desktop elabora una richiesta che include dati del modello (ad esempio "analizza questi parametri"), quei dati transitano verso i server Anthropic per l'elaborazione del linguaggio naturale.
@@ -150,6 +157,12 @@ I tool di export e import dati restano invece su policy stretta: scrivere o legg
 ---
 
 ## Outbound telemetry (v1.0.4x+)
+
+> **RVT Vortex: disabled.** This fork never starts the telemetry stack
+> (`ForkInfo.TelemetryEnabled = false` in `src/RevitCortex.Plugin/ForkInfo.cs`):
+> no event is queued or sent, there is no consent dialog and no Settings
+> toggle. The description below documents the upstream RevitCortex behavior
+> that the dormant code implements.
 
 RevitCortex can send pseudonymous error/bottleneck events to
 `https://ingest.revitcortex.dev` (`POST /v1/events`). This surface is:

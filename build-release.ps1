@@ -1,6 +1,12 @@
 ﻿param(
     [Parameter(Mandatory=$true)]
-    [string]$Version
+    [string]$Version,
+
+    # By default a Revit version that fails to build stops the release. A ZIP
+    # that quietly lacks a version (for example Revit 2027 on a machine without
+    # the .NET 10 SDK) would otherwise be published as if it were complete.
+    # Pass -AllowSkip to package whatever builds, for a local partial package.
+    [switch]$AllowSkip
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +32,7 @@ $pluginProject = Join-Path $RepoRoot "src\RevitCortex.Plugin\RevitCortex.Plugin.
 $toolsProject = Join-Path $RepoRoot "src\RevitCortex.Tools\RevitCortex.Tools.csproj"
 
 $builtVersions = @()
+$failedVersions = @()
 
 foreach ($rv in @("R23", "R24", "R25", "R26", "R27")) {
     $config = "Release $rv"
@@ -34,15 +41,17 @@ foreach ($rv in @("R23", "R24", "R25", "R26", "R27")) {
     Write-Host "  Building $rv..." -ForegroundColor Gray
     dotnet publish -c "$config" $pluginProject -o $outDir --no-self-contained -v quiet 2>$null
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "    SKIPPED (build errors)" -ForegroundColor Yellow
+        Write-Host "    FAILED (plugin build errors)" -ForegroundColor Red
         if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
+        $failedVersions += $rv
         continue
     }
 
     dotnet publish -c "$config" $toolsProject -o $outDir --no-self-contained -v quiet 2>$null
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "    SKIPPED (build errors)" -ForegroundColor Yellow
+        Write-Host "    FAILED (tools build errors)" -ForegroundColor Red
         if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
+        $failedVersions += $rv
         continue
     }
 
@@ -51,6 +60,13 @@ foreach ($rv in @("R23", "R24", "R25", "R26", "R27")) {
     $builtVersions += $rv
 }
 
+if ($failedVersions.Count -gt 0) {
+    $failedList = $failedVersions -join ', '
+    if (-not $AllowSkip) {
+        throw "Revit version(s) failed to build: $failedList. Fix the build, or pass -AllowSkip to package the others (Release R27 needs the .NET 10 SDK)."
+    }
+    Write-Host "  Skipped (build errors, -AllowSkip): $failedList" -ForegroundColor Yellow
+}
 if ($builtVersions.Count -eq 0) { throw "No Revit versions built successfully" }
 Write-Host "  Built: $($builtVersions -join ', ')" -ForegroundColor Green
 
@@ -129,6 +145,7 @@ Write-Host "   Release package ready" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "  File:    $ZipName" -ForegroundColor White
+Write-Host "  Revit:   $($builtVersions -join ', ')" -ForegroundColor White
 Write-Host "  Size:    $sizeMB MB" -ForegroundColor White
 Write-Host "  Upload:  GitHub Releases" -ForegroundColor White
 Write-Host ""

@@ -10,9 +10,9 @@
 
 License: MIT, same as the original.
 
-**Naming.** Everything the user sees says **RVT Vortex** (ribbon panel, dialogs, floating window, installer), and the server toggle is now **Vortex Switch**. Internal identifiers are unchanged on purpose — namespaces, the `%USERPROFILE%\.revitcortex` folder, the add-in ID, the `revitcortex` MCP server entry and all tool names — so existing installs and client configurations keep working. Text about services that still belong to the original project (license activation, error telemetry) keeps the RevitCortex name.
+**Naming.** Everything the user sees says **RVT Vortex** (ribbon panel, dialogs, floating window, installer), and the server toggle is now **Vortex Switch**. Internal identifiers are unchanged on purpose — namespaces, the `%USERPROFILE%\.revitcortex` folder, the add-in ID, the `revitcortex` MCP server entry and all tool names — so existing installs and client configurations keep working. Text about services that still belong to the original project (license activation) keeps the RevitCortex name.
 
-**Updates and bug reports point to this fork.** The original update checker read upstream's manifest and offered to install the upstream build with one click, which would have replaced RVT Vortex. It now reads this repository's `latest.json`. "Report a bug" (formerly "Send log to support", which e-mailed the original author) now builds the same diagnostic ZIP and opens a new issue here. Issues are public, so the pre-filled text carries only versions. Both URLs live in one place: `src/RevitCortex.Plugin/ForkInfo.cs`. The plugin version starts at **1.1.0**, above upstream's 1.0.x.
+**Updates and bug reports point to this fork.** The original update checker read upstream's manifest and offered to install the upstream build with one click, which would have replaced RVT Vortex. It now reads this repository's `latest.json`. "Report a bug" (formerly "Send log to support", which e-mailed the original author) now builds a diagnostic ZIP and opens a new issue here. Issues are public, so the pre-filled text carries only versions and the ZIP is redacted by default: no user or machine name, no model names or paths, no tool inputs or script source, no Revit journal (the audit log is reduced to tool name, outcome, timing and a scrubbed error message). To get the full package for a private exchange, set `"SupportReportIncludePrivateData": true` in `settings.json`; in that mode no public issue is opened. Both URLs live in one place: `src/RevitCortex.Plugin/ForkInfo.cs`. The plugin version starts at **1.1.0**, above upstream's 1.0.x.
 
 ---
 
@@ -47,7 +47,7 @@ User guide, including a ready-to-use prompt: [docs/AUTOPILOT.md](docs/AUTOPILOT.
 
 - **Opt-in, and nothing changes if you don't use it.** Without clicking Autopilot, the plugin behaves like the original.
 - **Fail closed.** Anything that would need a human decision is declined, not approved. The worst outcome is a pending step, not an unwanted change.
-- **C# scripts still go through the plugin's code sandbox** (no file, network, registry or process access), even when allowed without confirmation.
+- **C# scripts still go through the plugin's script filter**, even when allowed without confirmation. The filter rejects code containing common file, network, registry, process or reflection calls. It is a text check that catches accidents and obvious misuse, not an isolation boundary: a script that passes runs inside Revit with the user's Windows permissions. Ticking "Also allow C# scripts" therefore means trusting whatever the AI writes during that session, including anything it was led to write by text it read in a model or a linked file.
 - **RevitCortex's own dialogs are never auto-dismissed.** The pop-up handler tells them apart from Revit's.
 
 ### Files
@@ -128,6 +128,8 @@ Upstream ships a "RevitCortex Premium" license with a trial; without a valid lic
 
 The update notification (previously Italian-only) now follows the Windows language.
 
+**No telemetry.** Upstream can send opt-in error reports to the original project's ingest service. That service is not part of this fork, so RVT Vortex keeps the code but never starts it (`ForkInfo.TelemetryEnabled` is `false`): nothing is queued or sent, Revit no longer asks for telemetry consent on first run, and the toggle is hidden in Settings.
+
 ---
 
 ## Releasing a new version
@@ -143,7 +145,9 @@ Publishing from the GitHub web page works too (Releases → Draft a new release 
 
 GitHub then builds every Revit version with `build-release.ps1`, attaches `RVT-Vortex-v1.1.1.zip` to a new GitHub Release (with auto-generated notes), and rewrites `latest.json` on `main` with the version, download URL and SHA-256. Installed copies pick it up the next time Revit starts and offer the update.
 
-Use a version higher than the one installed (the plugin compares versions). Watch the run under the repository's **Actions** tab; if a Revit version fails to build, `build-release.ps1` skips it and the others still ship.
+Use a version higher than the one installed (the plugin compares versions). Watch the run under the repository's **Actions** tab; the run first executes the unit tests, and if they fail or any Revit version fails to build, nothing is published (`build-release.ps1 -AllowSkip` still builds a partial package locally).
+
+Every push to `main` and every pull request also runs `.github/workflows/ci.yml`: the unit tests plus a full package build for all five Revit versions.
 
 ---
 

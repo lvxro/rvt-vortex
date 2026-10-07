@@ -19,6 +19,11 @@ internal static class TelemetryBootstrap
 
     public static void Init(UIControlledApplication application)
     {
+        // RVT Vortex: telemetry is off (see ForkInfo.TelemetryEnabled). Leaving
+        // Config and Reporter null disables every downstream path: the router
+        // records nothing and PromptConsentIfNeeded returns without a dialog.
+        if (!ForkInfo.TelemetryEnabled) return;
+
         try
         {
             var config = TelemetryConfig.Load();

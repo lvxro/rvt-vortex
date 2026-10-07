@@ -25,13 +25,19 @@ Clicking **Autopilot** asks for confirmation once. Until you turn it off:
 | Situation | What happens |
 |---|---|
 | A tool asks to confirm an ordinary edit (delete, rename, change parameters…) | Approved automatically |
-| A C# script (`send_code_to_revit`) | Depends on the **"Also allow C# scripts"** box in the start dialog. Ticked: runs without asking. Not ticked: **declined** instead of waiting, and the AI carries on with standard tools |
+| A C# script (`send_code_to_revit`) | Depends on the **"Also allow C# scripts"** box in the start dialog. Ticked: runs without asking (see the note below). Not ticked: **declined** instead of waiting, and the AI carries on with standard tools |
 | A Revit pop-up appears | Closed automatically, choosing Close / Cancel / No; OK only when the pop-up offers nothing else |
 | The model changes | **Saved automatically** as soon as Revit is idle (see below) |
 | The document is closed | Autopilot turns off |
 | Another document is opened | Stops auto-approving: from then on anything that needs a confirmation is declined, so a model you didn't pick is never edited |
 
 To turn it off, click **Autopilot** again (it reads *Autopilot ON* while active) or click **Stop** in the small status pill at the bottom of the screen (drag it anywhere). The pill also shows the last automatic decision or save; hover it for a short explanation.
+
+### Before you tick "Also allow C# scripts"
+
+Scripts are checked by a filter that rejects code containing common file, network, registry, process or reflection calls. It catches accidents and obvious misuse, but it is a text check, **not a sandbox**: a script that passes it runs inside Revit with your Windows account's permissions, and nobody is there to read it first.
+
+So tick the box only when you trust the session: your own prompt, your own models. Be more careful when the AI will read content you did not write (linked models, imported files, text copied from elsewhere), because instructions hidden in that content can end up shaping the scripts it writes. Leaving the box unticked costs little: the AI keeps working with the standard tools and lists what it skipped. Every script that ran is recorded in `audit.jsonl`.
 
 ### Automatic saving
 

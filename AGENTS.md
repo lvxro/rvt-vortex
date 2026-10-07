@@ -476,6 +476,8 @@ Code submitted via `send_code_to_revit` is validated at runtime before execution
 
 The sandbox is implemented in `CodeSandbox.Validate(string code)` in RevitCortex.Core. All tools that execute user-provided code MUST call this before execution. The sandbox can be bypassed only by disabling `send_code_to_revit` entirely in settings.
 
+**It is a pattern filter, not an isolation boundary.** `CodeSandbox.Validate` matches text patterns against the submitted source; it does not restrict what the compiled script can reach at runtime, and the script is compiled against every assembly loaded in Revit. Treat it as a guard against accidents and obvious misuse. Do not describe it to users as blocking file or network access, and do not rely on it as the control that makes unattended script execution safe: the controls are `EnableCodeExecution` (off by default), the confirmation dialog, and the user's explicit opt-in under Autopilot.
+
 ### Audit Log
 
 Every tool execution is logged to `~/.revitcortex/audit.jsonl` with:

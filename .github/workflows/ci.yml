@@ -1,0 +1,57 @@
+# Runs on every push to main and on every pull request.
+#
+#   test     - the unit tests (xUnit), built against the Revit 2025 API
+#   package  - the same build-release.ps1 the Release workflow uses, so a
+#              change that breaks any Revit version (2023-2027) or the MCP
+#              server is caught here instead of at release time
+#
+# Nothing is published from this workflow.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # Target the test project with an explicit configuration: a solution-wide
+      # `dotnet test` cannot restore (see "Tests" in CLAUDE.md).
+      - name: Run tests
+        shell: pwsh
+        run: dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --nologo
+
+  package:
+    name: Build all Revit versions
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # Fails if any of Revit 2023-2027 or the MCP server does not build.
+      - name: Build release ZIP (not published)
+        shell: pwsh
+        run: ./build-release.ps1 -Version 0.0.0
