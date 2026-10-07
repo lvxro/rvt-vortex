@@ -66,6 +66,15 @@ public partial class GeneralSettingsPage : Page
         OpenReportsFolderButton.Content = Localization.T("support.settings.open_folder");
         DeleteAllReportsButton.Content = Localization.T("support.settings.delete_now");
         EnableTelemetryCheckBox.Content = Localization.T("telemetry.settings_toggle");
+
+        // RVT Vortex: telemetry is off (ForkInfo.TelemetryEnabled), so a toggle
+        // that changes nothing would only mislead. Hide the whole row.
+        if (!ForkInfo.TelemetryEnabled)
+        {
+            TelemetryPanel.Visibility = System.Windows.Visibility.Collapsed;
+            EnableTelemetryCheckBox.Visibility = System.Windows.Visibility.Collapsed;
+            TelemetrySeparator.Visibility = System.Windows.Visibility.Collapsed;
+        }
     }
 
     private void RefreshUpdateBanner()
@@ -394,7 +403,10 @@ public partial class GeneralSettingsPage : Page
             settings["LogLevel"] = logLevel;
             settings["ReadOnlyMode"] = ReadOnlyCheckBox.IsChecked == true;
             settings["SupportReportKeepCount"] = keep;
-            settings["EnableTelemetry"] = EnableTelemetryCheckBox.IsChecked == true;
+            // Never persist "enabled" while the fork has telemetry switched off,
+            // even if an older settings.json (from upstream) had it on.
+            settings["EnableTelemetry"] = ForkInfo.TelemetryEnabled
+                && EnableTelemetryCheckBox.IsChecked == true;
             // Saving the page is an affirmative action: stamp consent so the
             // first-run dialog does not re-ask what the user just decided.
             settings["TelemetryConsentAnswered"] = true;

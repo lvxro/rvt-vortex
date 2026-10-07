@@ -10,7 +10,7 @@
 
 License: MIT, same as the original.
 
-**Naming.** Everything the user sees says **RVT Vortex** (ribbon panel, dialogs, floating window, installer), and the server toggle is now **Vortex Switch**. Internal identifiers are unchanged on purpose — namespaces, the `%USERPROFILE%\.revitcortex` folder, the add-in ID, the `revitcortex` MCP server entry and all tool names — so existing installs and client configurations keep working. Text about services that still belong to the original project (license activation, error telemetry) keeps the RevitCortex name.
+**Naming.** Everything the user sees says **RVT Vortex** (ribbon panel, dialogs, floating window, installer), and the server toggle is now **Vortex Switch**. Internal identifiers are unchanged on purpose — namespaces, the `%USERPROFILE%\.revitcortex` folder, the add-in ID, the `revitcortex` MCP server entry and all tool names — so existing installs and client configurations keep working. Text about services that still belong to the original project (license activation) keeps the RevitCortex name.
 
 **Updates and bug reports point to this fork.** The original update checker read upstream's manifest and offered to install the upstream build with one click, which would have replaced RVT Vortex. It now reads this repository's `latest.json`. "Report a bug" (formerly "Send log to support", which e-mailed the original author) now builds the same diagnostic ZIP and opens a new issue here. Issues are public, so the pre-filled text carries only versions. Both URLs live in one place: `src/RevitCortex.Plugin/ForkInfo.cs`. The plugin version starts at **1.1.0**, above upstream's 1.0.x.
 
@@ -127,6 +127,8 @@ Fixed in `CLAUDE.md`, `AGENTS.md`, `WORKFLOWS.md` and the `ai-skills` tool-selec
 Upstream ships a "RevitCortex Premium" license with a trial; without a valid license, every tool that edits the model is blocked, and activation keys come from the original author's service. RVT Vortex is plain open source: the license gate is never initialized (the router treats a missing gate as "allow everything"), the License & Account button is gone from the ribbon, and "Premium" no longer appears in the UI. The licensing code stays in the tree, unused, so upstream's tests keep compiling.
 
 The update notification (previously Italian-only) now follows the Windows language.
+
+**No telemetry.** Upstream can send opt-in error reports to the original project's ingest service. That service is not part of this fork, so RVT Vortex keeps the code but never starts it (`ForkInfo.TelemetryEnabled` is `false`): nothing is queued or sent, Revit no longer asks for telemetry consent on first run, and the toggle is hidden in Settings.
 
 ---
 

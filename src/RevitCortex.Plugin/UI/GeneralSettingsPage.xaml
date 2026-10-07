@@ -154,14 +154,14 @@
                 <Separator Grid.Row="5" Grid.ColumnSpan="2" Margin="0,5" Background="#E0E0E0"/>
 
                 <!-- Error Telemetry -->
-                <StackPanel Grid.Row="6" Grid.Column="0" Margin="0,10" VerticalAlignment="Center">
+                <StackPanel x:Name="TelemetryPanel" Grid.Row="6" Grid.Column="0" Margin="0,10" VerticalAlignment="Center">
                     <TextBlock x:Name="TelemetryTitle" Text="Error Telemetry" FontSize="14" FontWeight="SemiBold" Foreground="#333"/>
                     <TextBlock x:Name="TelemetrySubtitle" Text="Pseudonymous, opt-in, no model data" FontSize="11" Foreground="#666" Margin="0,3,0,0"/>
                 </StackPanel>
                 <CheckBox x:Name="EnableTelemetryCheckBox" Grid.Row="6" Grid.Column="1"
                           Margin="15,10,0,10" VerticalAlignment="Center" FontSize="13" Foreground="#333"/>
 
-                <Separator Grid.Row="7" Grid.ColumnSpan="2" Margin="0,5" Background="#E0E0E0"/>
+                <Separator x:Name="TelemetrySeparator" Grid.Row="7" Grid.ColumnSpan="2" Margin="0,5" Background="#E0E0E0"/>
 
                 <!-- Support Reports -->
                 <StackPanel Grid.Row="8" Grid.Column="0" Margin="0,10" VerticalAlignment="Center">

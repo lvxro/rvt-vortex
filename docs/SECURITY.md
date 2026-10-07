@@ -151,6 +151,12 @@ I tool di export e import dati restano invece su policy stretta: scrivere o legg
 
 ## Outbound telemetry (v1.0.4x+)
 
+> **RVT Vortex: disabled.** This fork never starts the telemetry stack
+> (`ForkInfo.TelemetryEnabled = false` in `src/RevitCortex.Plugin/ForkInfo.cs`):
+> no event is queued or sent, there is no consent dialog and no Settings
+> toggle. The description below documents the upstream RevitCortex behavior
+> that the dormant code implements.
+
 RevitCortex can send pseudonymous error/bottleneck events to
 `https://ingest.revitcortex.dev` (`POST /v1/events`). This surface is:
 
