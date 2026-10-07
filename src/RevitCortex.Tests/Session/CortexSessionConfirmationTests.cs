@@ -90,9 +90,14 @@ public class CortexSessionConfirmationTests
     {
         var source = ReadAutoModeWindowSource();
 
-        Assert.DoesNotContain("DispatcherTimer", source);
         Assert.DoesNotContain("InactivitySeconds", source);
         Assert.DoesNotContain("OnInactivityElapsed", source);
+
+        // The pill redraws itself once a second (elapsed times, save state,
+        // warnings). That is the only timer allowed in the window, and all it
+        // may do is redraw: nothing on a timer may stop Auto mode.
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(source, "new DispatcherTimer"));
+        Assert.Contains("_refreshTimer.Tick += (_, _) => RefreshFromProvider();", source);
     }
 
     [Fact]

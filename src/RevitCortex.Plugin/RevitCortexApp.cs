@@ -28,6 +28,11 @@ public class RevitCortexApp : IExternalApplication
     private Autodesk.Revit.UI.PushButton? _autopilotButton;
     private UI.AutoModeWindow? _autoModeWindow;
     private UI.UnattendedDialogHandler? _unattendedDialogHandler;
+    // What Autopilot decided on its own, for the status pill and the summary.
+    private readonly AutopilotActivity _activity = new AutopilotActivity();
+    // Revit's UI thread dispatcher, captured in OnStartup. Application.Current
+    // is not guaranteed to exist inside Revit, so UI work is posted here.
+    private System.Windows.Threading.Dispatcher? _uiDispatcher;
     private bool _updateNotificationShown;
     private PbiSelectHttpListener? _pbiSelectListener;
     private PbiActionEventHandler? _pbiActionHandler;
@@ -76,6 +81,12 @@ public class RevitCortexApp : IExternalApplication
         }
     }
 
+    /// <summary>
+    /// The listener's own flag, without the TCP probe of
+    /// <see cref="IsServiceRunning"/>. Cheap enough to poll from a UI timer.
+    /// </summary>
+    public bool IsServiceListening => _socketService?.IsRunning == true;
+
     public int Port => _port;
     public UIApplication? UiApplication => _uiApplication;
     public CortexRouter? Router => _router;
@@ -84,6 +95,7 @@ public class RevitCortexApp : IExternalApplication
     public Result OnStartup(UIControlledApplication application)
     {
         Instance = this;
+        _uiDispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
 
         // Roslyn (send_code_to_revit, net8+) needs Microsoft.CodeAnalysis 4.12 plus its
         // System.Collections.Immutable / System.Reflection.Metadata 8.0 dependencies.
@@ -123,6 +135,7 @@ public class RevitCortexApp : IExternalApplication
             _router = new CortexRouter(_session, analyzer, auditLogger: auditLogger,
                 errorReporter: Telemetry.TelemetryBootstrap.Reporter,
                 licenseGate: null);
+            _router.ToolRouted += OnToolRouted;
 
             var toolsAssembly = LoadToolsAssembly();
             if (toolsAssembly != null)
@@ -176,6 +189,7 @@ public class RevitCortexApp : IExternalApplication
             // Unattended mode: auto-dismiss Revit's own modal dialogs so they
             // can't freeze the session while the user is away.
             _unattendedDialogHandler = new UI.UnattendedDialogHandler(() => _session);
+            _unattendedDialogHandler.DialogDismissed += OnRevitDialogDismissed;
             _unattendedDialogHandler.Attach(application);
 
             // Unattended mode: save the model after changes (throttled).
@@ -328,6 +342,7 @@ public class RevitCortexApp : IExternalApplication
     {
         if (_connectButton == null) return;
         bool active = IsServiceRunning;
+        _connectButton.ItemText = Localization.T(active ? "ribbon.connect.text_on" : "ribbon.connect.text_off");
         _connectButton.Image = IconFactory.CreateConnectionIcon(16, active);
         _connectButton.LargeImage = IconFactory.CreateConnectionIcon(32, active);
         _connectButton.ToolTip = active
@@ -343,7 +358,7 @@ public class RevitCortexApp : IExternalApplication
     /// </summary>
     private void OnAutoModeChanged(bool active)
     {
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        var dispatcher = UiDispatcher;
         if (dispatcher != null && !dispatcher.CheckAccess())
         {
             dispatcher.BeginInvoke((System.Action)(() => OnAutoModeChanged(active)));
@@ -365,7 +380,9 @@ public class RevitCortexApp : IExternalApplication
                 var revitHandle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
                 _autoModeWindow = new UI.AutoModeWindow(revitHandle);
                 _autoModeWindow.SetMode(autopilot);
+                _autoModeWindow.StateProvider = BuildPillState;
                 _autoModeWindow.StopRequested += OnAutoModeWindowStopRequested;
+                _autoModeWindow.StartServerRequested += StartServiceFromUi;
                 _autoModeWindow.Closed += (_, _) => _autoModeWindow = null;
                 _autoModeWindow.Show();
             }
@@ -391,7 +408,7 @@ public class RevitCortexApp : IExternalApplication
     /// </summary>
     private void OnAutoModeActivity()
     {
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        var dispatcher = UiDispatcher;
         if (dispatcher == null) return;
         dispatcher.BeginInvoke((System.Action)(() => _autoModeWindow?.RegisterActivity()));
     }
@@ -420,6 +437,7 @@ public class RevitCortexApp : IExternalApplication
     {
         if (_session == null) return;
         _session.AutoSave.Reset();
+        _activity.Start(DateTime.Now);
         _session.UnattendedAllowCritical = allowCriticalScripts;
         _session.UnattendedMode = true;
         _session.AutoMode = true;
@@ -441,6 +459,85 @@ public class RevitCortexApp : IExternalApplication
         _session.AutoSave.Reset();
         if (wasOn) UI.UnattendedLog.Separator(Localization.T(logKey));
         ConfirmationHelper.NotifyAutoModeChanged(false);
+        if (wasOn) ShowAutopilotSummary();
+    }
+
+    /// <summary>
+    /// After Autopilot stops, tells the user what it did on its own: totals
+    /// and the steps it declined. Skipped when nothing happened. Non-modal and
+    /// posted to the UI thread, so it can never block the path that stopped
+    /// Autopilot (which includes a document that is closing).
+    /// </summary>
+    private void ShowAutopilotSummary()
+    {
+        var snapshot = _activity.Snapshot();
+        if (!snapshot.HasAnything) return;
+
+        var dispatcher = UiDispatcher;
+        if (dispatcher == null) return;
+        var stoppedAt = DateTime.Now;
+
+        dispatcher.BeginInvoke((System.Action)(() =>
+        {
+            try
+            {
+                var revitHandle = System.Diagnostics.Process.GetCurrentProcess().MainWindowHandle;
+                new UI.AutopilotSummaryWindow(snapshot, stoppedAt, revitHandle).Show();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine(
+                    $"[RevitCortex] Could not show the Autopilot summary: {ex.Message}");
+            }
+        }));
+    }
+
+    /// <summary>Current state for the Autopilot pill. Called on the UI thread.</summary>
+    private UI.AutopilotPillState BuildPillState()
+    {
+        var session = _session;
+        bool autopilot = session?.UnattendedMode == true;
+        return new UI.AutopilotPillState
+        {
+            Autopilot = autopilot,
+            ScriptsAllowed = autopilot && session!.UnattendedAllowCritical,
+            // Autopilot is on but Auto approval was reset by a document switch:
+            // everything that needs a confirmation is now declined.
+            ApprovalsPaused = autopilot && !session!.AutoMode,
+            // The cheap flag, not IsServiceRunning: this runs every second and
+            // that property opens a TCP connection on each read.
+            ServerOff = autopilot && !IsServiceListening,
+            SavePending = autopilot && session!.AutoSave.HasPending,
+            Activity = _activity.Snapshot(),
+            Now = DateTime.Now,
+        };
+    }
+
+    /// <summary>
+    /// Starts the server from UI that is not a Revit command (the Settings
+    /// page, the Autopilot pill). No document is passed on purpose: those
+    /// clicks arrive outside a Revit API context, where reading the model is
+    /// not allowed, and the session already follows the active document
+    /// through DocumentOpened / ViewActivated. Re-analyzing it here would also
+    /// reset Auto approval in the middle of an Autopilot run.
+    /// </summary>
+    public void StartServiceFromUi() => StartService(null);
+
+    /// <summary>The UI dispatcher: Revit's own, or the WPF application's as a fallback.</summary>
+    private System.Windows.Threading.Dispatcher? UiDispatcher =>
+        _uiDispatcher ?? System.Windows.Application.Current?.Dispatcher;
+
+    private void OnRevitDialogDismissed(string answer)
+    {
+        if (_session == null || !_session.UnattendedMode) return;
+        _activity.RecordDialogClosed(Localization.T("pill.ev_dialog", answer), DateTime.Now);
+    }
+
+    private void OnToolRouted(string toolName)
+    {
+        // Heartbeat only; runs on a socket worker thread.
+        if (_session != null && _session.UnattendedMode)
+            _activity.RecordToolCall(DateTime.Now);
     }
 
     /// <summary>Grey "Autopilot" when off, orange "Autopilot ON" when on.</summary>
@@ -464,13 +561,15 @@ public class RevitCortexApp : IExternalApplication
         if (_session == null || !_session.UnattendedMode) return;
         var detail = string.IsNullOrEmpty(description) ? "" : " — " + UI.UnattendedLog.Shorten(description, 200);
         UI.UnattendedLog.Write(Localization.T(approved ? "log.approved" : "log.declined", action, count, detail));
+        _activity.RecordDecision(approved,
+            Localization.T(approved ? "pill.ev_approved" : "pill.ev_declined", action, count), DateTime.Now);
         SetWindowStatus(Localization.T(approved ? "win.status_approved" : "win.status_declined",
             DateTime.Now.ToString("HH:mm"), action, count));
     }
 
     private void SetWindowStatus(string text)
     {
-        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        var dispatcher = UiDispatcher;
         if (dispatcher == null) return;
         dispatcher.BeginInvoke((System.Action)(() => _autoModeWindow?.SetStatus(text)));
     }
@@ -489,7 +588,7 @@ public class RevitCortexApp : IExternalApplication
         // ── Main toggles (large): server and Autopilot ──────────────────
         // Both read grey when off and Claude orange when on.
         var connectBtnData = new PushButtonData(
-            "ID_CORTEX_TOGGLE", "Vortex\r\nSwitch",
+            "ID_CORTEX_TOGGLE", Localization.T("ribbon.connect.text_off"),
             assemblyLocation, "RevitCortex.Plugin.Commands.ToggleConnection");
         connectBtnData.ToolTip = Localization.T("ribbon.connect.tooltip_off");
         connectBtnData.Image = IconFactory.CreateConnectionIcon(16, false);
@@ -655,6 +754,7 @@ public class RevitCortexApp : IExternalApplication
             if (!doc.IsModified) return;
 
             doc.Save();
+            _activity.RecordSaved(Localization.T("pill.ev_saved"), DateTime.Now);
             UI.UnattendedLog.Write(Localization.T("log.saved", doc.Title, tools));
             SetWindowStatus(Localization.T("win.status_saved", DateTime.Now.ToString("HH:mm")));
         }
@@ -673,8 +773,7 @@ public class RevitCortexApp : IExternalApplication
         // If Revit isn't idle yet, OnIdling will handle it.
         if (_uiApplication == null) return;
 
-        System.Windows.Application.Current?.Dispatcher.BeginInvoke(
-            (System.Action)ShowUpdateNotification);
+        UiDispatcher?.BeginInvoke((System.Action)ShowUpdateNotification);
     }
 
     private void ShowUpdateNotification()

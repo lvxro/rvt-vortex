@@ -9,49 +9,73 @@ namespace RevitCortex.Plugin.UI;
 /// <summary>
 /// Generates ribbon icons programmatically with vector symbols.
 ///
-/// One palette for the whole panel:
+/// One palette for the whole panel, shared with the plugin's windows
+/// (UI/Theme.xaml):
 /// <list type="bullet">
-/// <item>Slate (#3F4A55) for plain command buttons (settings, export, support, license).</item>
-/// <item>Toggle buttons (server, Autopilot) are light gray (#9AA0A6) when off and
-/// Claude orange (#D97757) when on, so state is readable at a glance.</item>
+/// <item>Every icon sits on a dark tile (#171B20), so it reads on both of
+/// Revit's themes, light and dark.</item>
+/// <item>Toggle buttons (server, Autopilot) show a muted glyph on the dark tile
+/// when off, and a dark glyph on a Claude-orange tile (#D97757) when on, so
+/// state is readable at a glance.</item>
 /// </list>
 /// </summary>
 public static class IconFactory
 {
     /// <summary>Accent used for every "on" state (Claude orange).</summary>
     public static readonly Color ClaudeOrange = Color.FromRgb(217, 119, 87);  // #D97757
-    private static readonly Color Slate = Color.FromRgb(63, 74, 85);           // #3F4A55
-    private static readonly Color OffGray = Color.FromRgb(154, 160, 166);      // #9AA0A6
+    private static readonly Color Slate = Color.FromRgb(23, 27, 32);           // #171B20 tile
+    private static readonly Color OffGlyph = Color.FromRgb(152, 161, 172);     // #98A1AC muted
+    private static readonly Color OnGlyph = Color.FromRgb(27, 31, 36);         // #1B1F24 ink on orange
     private static readonly Color InactiveGray = Color.FromRgb(97, 97, 97);   // #616161
     private static readonly Color TealDark = Slate;
     private static readonly Color IndigoAccent = Slate;
 
-    /// <summary>Connection icon: lightning bolt. Orange when running, gray when stopped.</summary>
+    /// <summary>
+    /// Connection icon (Vortex Switch): the RVT Vortex mark, three arms of a
+    /// vortex. Same geometry as Vx.Icon.Vortex in Theme.xaml, drawn on a 16-unit
+    /// grid. Orange tile when the server is running, dark tile when stopped.
+    /// </summary>
     public static BitmapSource CreateConnectionIcon(int size, bool isActive = false)
     {
-        var bg = isActive ? ClaudeOrange : OffGray;
+        var bg = isActive ? ClaudeOrange : Slate;
         return CreateIconWithDrawing(size, bg, (dc, s) =>
         {
-            // Lightning bolt
-            double m = s * 0.2; // margin
-            var pen = new Pen(Brushes.White, s * 0.08) { LineJoin = PenLineJoin.Round };
-            pen.Freeze();
-            var bolt = new StreamGeometry();
-            using (var ctx = bolt.Open())
-            {
-                ctx.BeginFigure(new Point(s * 0.55, m), false, false);
-                ctx.LineTo(new Point(s * 0.35, s * 0.48), true, true);
-                ctx.LineTo(new Point(s * 0.55, s * 0.48), true, true);
-                ctx.LineTo(new Point(s * 0.40, s - m), true, true);
-            }
-            bolt.Freeze();
-            dc.DrawGeometry(null, pen, bolt);
-
-            // Small dot at bottom-right corner (status indicator)
-            double dotR = s * 0.1;
-            dc.DrawEllipse(Brushes.White, null,
-                new Point(s * 0.75, s * 0.75), dotR, dotR);
+            DrawVortexMark(dc, s, isActive ? OnGlyph : OffGlyph);
         });
+    }
+
+    /// <summary>
+    /// Draws the vortex mark centered in an s-by-s square, with a small inset
+    /// so the round caps do not touch the tile's edge.
+    /// </summary>
+    private static void DrawVortexMark(DrawingContext dc, double s, Color color)
+    {
+        var brush = new SolidColorBrush(color);
+        brush.Freeze();
+        var pen = new Pen(brush, s * 0.105)
+        {
+            StartLineCap = PenLineCap.Round,
+            EndLineCap = PenLineCap.Round,
+        };
+        pen.Freeze();
+
+        // Scale the 16-unit design to 76% of the tile, centered.
+        double k = s * 0.76 / 16.0;
+        double o = s * 0.12;
+        Point P(double x, double y) => new Point(o + x * k, o + y * k);
+
+        var mark = new StreamGeometry();
+        using (var ctx = mark.Open())
+        {
+            ctx.BeginFigure(P(8, 8), false, false);
+            ctx.BezierTo(P(8, 5.2), P(9.6, 3), P(12.6, 2.6), true, true);
+            ctx.BeginFigure(P(8, 8), false, false);
+            ctx.BezierTo(P(10.425, 9.4), P(11.53, 11.886), P(10.376, 14.684), true, true);
+            ctx.BeginFigure(P(8, 8), false, false);
+            ctx.BezierTo(P(5.575, 9.4), P(2.87, 9.114), P(1.024, 6.716), true, true);
+        }
+        mark.Freeze();
+        dc.DrawGeometry(null, pen, mark);
     }
 
     /// <summary>Panel icon: chat bubble on indigo background</summary>
@@ -252,35 +276,27 @@ public static class IconFactory
     }
 
     /// <summary>
-    /// Autopilot icon: a ring with a "play" triangle (work keeps going) and a
-    /// small status dot. Light gray when off, Claude orange when on.
+    /// Autopilot icon: a "play" triangle (work keeps going) on a round tile.
+    /// Muted glyph on a dark tile when off, dark glyph on Claude orange when on.
     /// </summary>
     public static BitmapSource CreateAutopilotIcon(int size, bool isActive = false)
     {
-        var bg = isActive ? ClaudeOrange : OffGray;
+        var bg = isActive ? ClaudeOrange : Slate;
         return CreateIconWithDrawing(size, bg, (dc, s) =>
         {
-            var center = new Point(s / 2.0, s / 2.0);
-            var ring = new Pen(Brushes.White, s * 0.07);
-            ring.Freeze();
-            dc.DrawEllipse(null, ring, center, s * 0.32, s * 0.32);
+            var glyph = new SolidColorBrush(isActive ? OnGlyph : OffGlyph);
+            glyph.Freeze();
 
             var play = new StreamGeometry();
             using (var ctx = play.Open())
             {
-                ctx.BeginFigure(new Point(s * 0.42, s * 0.34), true, true);
-                ctx.LineTo(new Point(s * 0.66, s * 0.50), true, true);
-                ctx.LineTo(new Point(s * 0.42, s * 0.66), true, true);
+                ctx.BeginFigure(new Point(s * 0.39, s * 0.28), true, true);
+                ctx.LineTo(new Point(s * 0.72, s * 0.50), true, true);
+                ctx.LineTo(new Point(s * 0.39, s * 0.72), true, true);
             }
             play.Freeze();
-            dc.DrawGeometry(Brushes.White, null, play);
-
-            if (isActive)
-            {
-                // "Live" dot in the corner, like a recording indicator.
-                dc.DrawEllipse(Brushes.White, null, new Point(s * 0.82, s * 0.18), s * 0.09, s * 0.09);
-            }
-        });
+            dc.DrawGeometry(glyph, null, play);
+        }, round: true);
     }
 
     private static Point PointOnCircle(Point center, double radius, double angle)
@@ -291,7 +307,7 @@ public static class IconFactory
     }
 
     private static BitmapSource CreateIconWithDrawing(int size, Color background,
-        Action<DrawingContext, double> drawAction)
+        Action<DrawingContext, double> drawAction, bool round = false)
     {
         var dv = new DrawingVisual();
         using (var dc = dv.RenderOpen())
@@ -299,7 +315,8 @@ public static class IconFactory
             var brush = new SolidColorBrush(background);
             brush.Freeze();
 
-            double radius = size * 0.2;
+            // Rounded square by default; a full circle for the Autopilot toggle.
+            double radius = round ? size * 0.5 : size * 0.24;
             dc.DrawRoundedRectangle(brush, null,
                 new Rect(0, 0, size, size), radius, radius);
 

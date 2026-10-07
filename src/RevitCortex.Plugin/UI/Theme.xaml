@@ -1,0 +1,538 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      RVT Vortex dark theme: one palette and one set of control styles for every
+      plugin window (Settings, update notice, Autopilot pill, Power BI export).
+
+      Semantics, kept on purpose:
+        * Accent (clay orange)  = something is ON, or the primary action.
+        * Ink on dark (inverse) = the selected option in a tab or segment.
+        * Caution (amber)       = needs the user's attention.
+
+      Each window merges this file by relative path (Source="Theme.xaml") so it
+      also resolves in the dev build, whose assembly has a different name.
+      Pages hosted in a Frame do not inherit the window's resources, so pages
+      merge it too.
+    -->
+
+    <!-- ── Palette ─────────────────────────────────────────────────────── -->
+    <SolidColorBrush x:Key="Vx.Ground" Color="#171B20"/>
+    <SolidColorBrush x:Key="Vx.Well" Color="#111418"/>
+    <SolidColorBrush x:Key="Vx.Surface" Color="#1D2229"/>
+    <SolidColorBrush x:Key="Vx.Raised" Color="#252B33"/>
+    <SolidColorBrush x:Key="Vx.RaisedStrong" Color="#2F3640"/>
+    <SolidColorBrush x:Key="Vx.Hairline" Color="#2A3038"/>
+    <SolidColorBrush x:Key="Vx.Stroke" Color="#3A424D"/>
+    <SolidColorBrush x:Key="Vx.StrokeStrong" Color="#5A6472"/>
+    <SolidColorBrush x:Key="Vx.Ink" Color="#ECEEF1"/>
+    <SolidColorBrush x:Key="Vx.InkSoft" Color="#C5CBD3"/>
+    <SolidColorBrush x:Key="Vx.Muted" Color="#98A1AC"/>
+    <SolidColorBrush x:Key="Vx.Disabled" Color="#6E7885"/>
+    <SolidColorBrush x:Key="Vx.Accent" Color="#D97757"/>
+    <SolidColorBrush x:Key="Vx.AccentInk" Color="#1B1F24"/>
+    <SolidColorBrush x:Key="Vx.AccentText" Color="#F0A58D"/>
+    <SolidColorBrush x:Key="Vx.AccentSoft" Color="#1FD97757"/>
+    <SolidColorBrush x:Key="Vx.AccentStroke" Color="#A6D97757"/>
+    <SolidColorBrush x:Key="Vx.Caution" Color="#E3B341"/>
+    <SolidColorBrush x:Key="Vx.CautionSoft" Color="#14E3B341"/>
+    <SolidColorBrush x:Key="Vx.CautionStroke" Color="#66E3B341"/>
+    <SolidColorBrush x:Key="Vx.Hover" Color="#FFFFFF"/>
+
+    <FontFamily x:Key="Vx.Font">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="Vx.Mono">Cascadia Mono, Consolas</FontFamily>
+
+    <!-- ── Icons (stroke geometries; the box size is in the comment) ──── -->
+    <!-- 16x16: the RVT Vortex mark, three arms of a vortex. -->
+    <Geometry x:Key="Vx.Icon.Vortex">M8,8 C8,5.2 9.6,3 12.6,2.6 M8,8 C10.425,9.4 11.53,11.886 10.376,14.684 M8,8 C5.575,9.4 2.87,9.114 1.024,6.716</Geometry>
+    <!-- 12x12 -->
+    <Geometry x:Key="Vx.Icon.Check">M2.5,6.2 L5,8.7 L9.5,3.5</Geometry>
+    <Geometry x:Key="Vx.Icon.Cross">M3,3 L9,9 M9,3 L3,9</Geometry>
+    <Geometry x:Key="Vx.Icon.ChevronDown">M3,4.5 L6,7.5 L9,4.5</Geometry>
+    <Geometry x:Key="Vx.Icon.ChevronUp">M3,7.5 L6,4.5 L9,7.5</Geometry>
+    <Geometry x:Key="Vx.Icon.ChevronRight">M4.5,3 L7.5,6 L4.5,9</Geometry>
+    <!-- 14x14 -->
+    <Geometry x:Key="Vx.Icon.Search">M10,6 A4,4 0 1 1 2,6 A4,4 0 1 1 10,6 M9.2,9.2 L12.5,12.5</Geometry>
+    <Geometry x:Key="Vx.Icon.Disk">M2.5,2.5 L9.5,2.5 L11.5,4.5 L11.5,11.5 L2.5,11.5 Z M4.5,2.5 L4.5,5.5 L8.5,5.5 L8.5,2.5 M4.5,11.5 L4.5,8.5 L9.5,8.5 L9.5,11.5</Geometry>
+    <Geometry x:Key="Vx.Icon.Dialog">M2,3 L12,3 L12,11 L2,11 Z M5,5.5 L9,8.5 M9,5.5 L5,8.5</Geometry>
+    <Geometry x:Key="Vx.Icon.Arrow">M1,7 L12,7 M8.5,3.5 L12,7 L8.5,10.5</Geometry>
+    <!-- 18x18 -->
+    <Geometry x:Key="Vx.Icon.Warning">M9,2.5 L16,15 L2,15 Z M9,7.5 L9,11 M9,13 L9,13.2</Geometry>
+
+    <!-- ── Text ─────────────────────────────────────────────────────────── -->
+    <Style x:Key="Vx.Text.Title" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="24"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+    </Style>
+    <Style x:Key="Vx.Text.Section" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style x:Key="Vx.Text.Help" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.Muted}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style x:Key="Vx.Text.Label" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Vx.InkSoft}"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="Vx.Text.Strong" TargetType="TextBlock">
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style x:Key="Vx.Text.Caption" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.Muted}"/>
+    </Style>
+
+    <!-- ── Containers ───────────────────────────────────────────────────── -->
+    <Style x:Key="Vx.Card" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Vx.Surface}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Vx.Hairline}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="12"/>
+    </Style>
+    <Style x:Key="Vx.Well" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Vx.Well}"/>
+        <Setter Property="CornerRadius" Value="10"/>
+    </Style>
+    <Style x:Key="Vx.SegmentHost" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Vx.Well}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Vx.Hairline}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="3"/>
+    </Style>
+    <Style x:Key="Vx.Divider" TargetType="Border">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Background" Value="{StaticResource Vx.Hairline}"/>
+    </Style>
+
+    <!-- ── Buttons ──────────────────────────────────────────────────────── -->
+    <!-- One template for every variant. The corner radius travels in Tag so
+         variants only differ by setters; hover is a translucent overlay, so it
+         works on any background. -->
+    <Style x:Key="Vx.Button" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="Background" Value="{StaticResource Vx.Raised}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Vx.Stroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="14,0"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>8</CornerRadius>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"/>
+                        <Border x:Name="Ov" Background="{StaticResource Vx.Hover}" Opacity="0"
+                                CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"/>
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          RecognizesAccessKey="True"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Ov" Property="Opacity" Value="0.08"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Ov" Property="Opacity" Value="0.02"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Vx.Accent}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Vx.Button.Primary" TargetType="Button" BasedOn="{StaticResource Vx.Button}">
+        <Setter Property="Background" Value="{StaticResource Vx.Accent}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Vx.Accent}"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.AccentInk}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Padding" Value="22,0"/>
+    </Style>
+
+    <Style x:Key="Vx.Button.Ghost" TargetType="Button" BasedOn="{StaticResource Vx.Button}">
+        <Setter Property="Background" Value="Transparent"/>
+    </Style>
+
+    <Style x:Key="Vx.Button.Link" TargetType="Button" BasedOn="{StaticResource Vx.Button}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.AccentText}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontSize" Value="12.5"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>6</CornerRadius>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Vx.Button.Icon" TargetType="Button" BasedOn="{StaticResource Vx.Button}">
+        <Setter Property="Width" Value="30"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+    </Style>
+
+    <!-- Borderless row that behaves like a button (tool category headers). -->
+    <Style x:Key="Vx.Button.Row" TargetType="Button" BasedOn="{StaticResource Vx.Button}">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>0</CornerRadius>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Round buttons used on the floating Autopilot pill. -->
+    <Style x:Key="Vx.Button.Pill" TargetType="Button" BasedOn="{StaticResource Vx.Button}">
+        <Setter Property="Background" Value="{StaticResource Vx.RaisedStrong}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>13</CornerRadius>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Vx.Button.PillPrimary" TargetType="Button" BasedOn="{StaticResource Vx.Button.Pill}">
+        <Setter Property="Background" Value="{StaticResource Vx.Accent}"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.AccentInk}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style x:Key="Vx.Button.PillIcon" TargetType="Button" BasedOn="{StaticResource Vx.Button.Pill}">
+        <Setter Property="Width" Value="26"/>
+        <Setter Property="Padding" Value="0"/>
+    </Style>
+    <Style x:Key="Vx.Button.PillPrimaryIcon" TargetType="Button" BasedOn="{StaticResource Vx.Button.PillIcon}">
+        <Setter Property="Background" Value="{StaticResource Vx.Accent}"/>
+        <Setter Property="Foreground" Value="{StaticResource Vx.AccentInk}"/>
+    </Style>
+
+    <!-- ── Text input ───────────────────────────────────────────────────── -->
+    <Style x:Key="Vx.TextBox" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="Background" Value="{StaticResource Vx.Well}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource Vx.Stroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CaretBrush" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource Vx.Accent}"/>
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="8">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Vx.StrokeStrong}"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Vx.Accent}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Text box with no frame of its own: the parent draws it (a search
+         field with an icon inside). -->
+    <Style x:Key="Vx.TextBox.Bare" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="CaretBrush" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="SelectionBrush" Value="{StaticResource Vx.Accent}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <ScrollViewer x:Name="PART_ContentHost"
+                                  Background="Transparent"
+                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  Focusable="False"
+                                  HorizontalScrollBarVisibility="Hidden"
+                                  VerticalScrollBarVisibility="Hidden"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── Switch (a CheckBox drawn as a toggle) ────────────────────────── -->
+    <Style x:Key="Vx.Switch" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="VerticalAlignment" Value="Top"/>
+        <Setter Property="Padding" Value="14,0,0,0"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Grid Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="Track" Grid.Column="0" Width="38" Height="22" CornerRadius="11"
+                                Background="{StaticResource Vx.Stroke}" VerticalAlignment="Top"
+                                BorderThickness="1" BorderBrush="Transparent">
+                            <Ellipse x:Name="Knob" Width="16" Height="16" Margin="2,0"
+                                     Fill="{StaticResource Vx.Ink}"
+                                     HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                        <ContentPresenter Grid.Column="1" Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Top" RecognizesAccessKey="True"/>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Track" Property="Background" Value="{StaticResource Vx.Accent}"/>
+                            <Setter TargetName="Knob" Property="Fill" Value="{StaticResource Vx.AccentInk}"/>
+                            <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource Vx.Ink}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A switch with no label next to it (rows of the tools list). -->
+    <Style x:Key="Vx.Switch.Bare" TargetType="CheckBox" BasedOn="{StaticResource Vx.Switch}">
+        <Setter Property="Padding" Value="0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+
+    <!-- ── Segments and tab pills (RadioButtons) ────────────────────────── -->
+    <Style x:Key="Vx.Segment" TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{StaticResource Vx.Muted}"/>
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>7</CornerRadius>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RadioButton">
+                    <Border x:Name="Bd" Background="Transparent"
+                            CornerRadius="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Vx.Ink}"/>
+                            <Setter Property="Foreground" Value="{StaticResource Vx.Ground}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Vx.Segment.Small" TargetType="RadioButton" BasedOn="{StaticResource Vx.Segment}">
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="FontSize" Value="12.5"/>
+    </Style>
+
+    <Style x:Key="Vx.TabPill" TargetType="RadioButton" BasedOn="{StaticResource Vx.Segment}">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Tag">
+            <Setter.Value>
+                <CornerRadius>16</CornerRadius>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── Progress ─────────────────────────────────────────────────────── -->
+    <Style x:Key="Vx.Progress" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6"/>
+        <Setter Property="Minimum" Value="0"/>
+        <Setter Property="Maximum" Value="100"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid>
+                        <Border x:Name="PART_Track" Background="{StaticResource Vx.Well}" CornerRadius="3"/>
+                        <Border x:Name="PART_Indicator" Background="{StaticResource Vx.Accent}" CornerRadius="3"
+                                HorizontalAlignment="Left"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ── Scroll bars (implicit: apply to every ScrollViewer) ──────────── -->
+    <Style x:Key="Vx.ScrollThumb" TargetType="Thumb">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="Bd" Background="{StaticResource Vx.Stroke}" CornerRadius="3" Margin="2"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Vx.StrokeStrong}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="Vx.ScrollPage" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False"/>
+        <Setter Property="IsTabStop" Value="False"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <ControlTemplate x:Key="Vx.ScrollBarVertical" TargetType="ScrollBar">
+        <Grid Background="Transparent">
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource Vx.ScrollPage}" Command="ScrollBar.PageUpCommand"/>
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Style="{StaticResource Vx.ScrollThumb}"/>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource Vx.ScrollPage}" Command="ScrollBar.PageDownCommand"/>
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Grid>
+    </ControlTemplate>
+    <ControlTemplate x:Key="Vx.ScrollBarHorizontal" TargetType="ScrollBar">
+        <Grid Background="Transparent">
+            <Track x:Name="PART_Track">
+                <Track.DecreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource Vx.ScrollPage}" Command="ScrollBar.PageLeftCommand"/>
+                </Track.DecreaseRepeatButton>
+                <Track.Thumb>
+                    <Thumb Style="{StaticResource Vx.ScrollThumb}"/>
+                </Track.Thumb>
+                <Track.IncreaseRepeatButton>
+                    <RepeatButton Style="{StaticResource Vx.ScrollPage}" Command="ScrollBar.PageRightCommand"/>
+                </Track.IncreaseRepeatButton>
+            </Track>
+        </Grid>
+    </ControlTemplate>
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="MinWidth" Value="10"/>
+        <Setter Property="Template" Value="{StaticResource Vx.ScrollBarVertical}"/>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="Height" Value="10"/>
+                <Setter Property="MinHeight" Value="10"/>
+                <Setter Property="Template" Value="{StaticResource Vx.ScrollBarHorizontal}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ── Tooltips (implicit) ──────────────────────────────────────────── -->
+    <Style TargetType="ToolTip">
+        <Setter Property="Foreground" Value="{StaticResource Vx.Ink}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="MaxWidth" Value="360"/>
+        <Setter Property="HasDropShadow" Value="True"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+                    <Border Background="{StaticResource Vx.Well}" BorderBrush="{StaticResource Vx.Stroke}"
+                            BorderThickness="1" CornerRadius="6" Padding="9,6">
+                        <ContentPresenter>
+                            <ContentPresenter.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="TextWrapping" Value="Wrap"/>
+                                </Style>
+                            </ContentPresenter.Resources>
+                        </ContentPresenter>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

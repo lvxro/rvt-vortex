@@ -525,9 +525,9 @@ internal static class Localization
         },
         ["ribbon.support.long"] = new()
         {
-            ["en"] = "Packs recent audit logs, the token-usage log, settings and the latest Revit journal into a ZIP, shows it in Explorer and opens a new issue on the RVT Vortex GitHub page. Issues are public: check the ZIP before attaching it.",
-            ["es"] = "Reúne los registros de auditoría recientes, el registro de uso de tokens, la configuración y el último journal de Revit en un ZIP, lo muestra en el Explorador y abre un reporte nuevo en la página de GitHub de RVT Vortex. Los reportes son públicos: revise el ZIP antes de adjuntarlo.",
-            ["it"] = "Raccoglie i log di audit recenti, il log di utilizzo token, le impostazioni e il journal di Revit più recente in uno ZIP, lo mostra in Esplora risorse e apre una nuova segnalazione sulla pagina GitHub di RVT Vortex. Le segnalazioni sono pubbliche: controlla lo ZIP prima di allegarlo.",
+            ["en"] = "Packs a redacted copy of the recent audit log and the settings into a ZIP (no user or machine name, model names, paths, tool inputs or Revit journal), shows it in Explorer and opens a new issue on the RVT Vortex GitHub page. Issues are public: check the ZIP before attaching it.",
+            ["es"] = "Reúne en un ZIP una copia depurada del registro de auditoría reciente y de la configuración (sin usuario ni equipo, nombres de modelos, rutas, datos enviados a las herramientas ni el journal de Revit), lo muestra en el Explorador y abre un reporte nuevo en la página de GitHub de RVT Vortex. Los reportes son públicos: revise el ZIP antes de adjuntarlo.",
+            ["it"] = "Raccoglie in uno ZIP una copia ripulita del log di audit recente e delle impostazioni (senza utente né computer, nomi dei modelli, percorsi, dati passati agli strumenti o journal di Revit), lo mostra in Esplora risorse e apre una nuova segnalazione sulla pagina GitHub di RVT Vortex. Le segnalazioni sono pubbliche: controlla lo ZIP prima di allegarlo.",
         },
         ["ribbon.license.text"] = new()
         {
@@ -991,6 +991,596 @@ internal static class Localization
             ["en"] = "Installation started — closing…",
             ["es"] = "Instalación iniciada — cerrando…",
             ["it"] = "Installazione avviata — chiusura in corso…",
+        },
+
+        // ── Redesigned ribbon: Vortex Switch label ──────────────────────
+        ["ribbon.connect.text_off"] = new()
+        {
+            ["en"] = "Vortex\r\nSwitch",
+            ["es"] = "Vortex\r\nSwitch",
+            ["it"] = "Vortex\r\nSwitch",
+        },
+        ["ribbon.connect.text_on"] = new()
+        {
+            ["en"] = "Vortex\r\nON",
+            ["es"] = "Vortex\r\nACTIVO",
+            ["it"] = "Vortex\r\nATTIVO",
+        },
+
+        // ── Autopilot pill ──────────────────────────────────────────────
+        ["pill.start_server"] = new()
+        {
+            ["en"] = "Start",
+            ["es"] = "Iniciar",
+            ["it"] = "Avvia",
+        },
+        ["pill.expand_tip"] = new()
+        {
+            ["en"] = "Show activity",
+            ["es"] = "Ver la actividad",
+            ["it"] = "Mostra l'attività",
+        },
+        ["pill.collapse_tip"] = new()
+        {
+            ["en"] = "Hide activity",
+            ["es"] = "Ocultar la actividad",
+            ["it"] = "Nascondi l'attività",
+        },
+        ["pill.scripts_tip"] = new()
+        {
+            ["en"] = "C# scripts are allowed in this session",
+            ["es"] = "Los scripts C# están permitidos en esta sesión",
+            ["it"] = "Gli script C# sono consentiti in questa sessione",
+        },
+        ["pill.approved_tip"] = new()
+        {
+            ["en"] = "Edits approved automatically",
+            ["es"] = "Modificaciones aprobadas automáticamente",
+            ["it"] = "Modifiche approvate automaticamente",
+        },
+        ["pill.declined_tip"] = new()
+        {
+            ["en"] = "Steps declined: they need your confirmation",
+            ["es"] = "Pasos rechazados: necesitan su confirmación",
+            ["it"] = "Passaggi rifiutati: richiedono la tua conferma",
+        },
+        ["pill.warn_server"] = new()
+        {
+            ["en"] = "Server off: the AI cannot connect",
+            ["es"] = "Servidor apagado: la IA no puede conectarse",
+            ["it"] = "Server spento: l'IA non può connettersi",
+        },
+        ["pill.warn_paused"] = new()
+        {
+            ["en"] = "Another document is active: approvals paused",
+            ["es"] = "Otro documento activo: aprobaciones en pausa",
+            ["it"] = "Altro documento attivo: approvazioni in pausa",
+        },
+        ["pill.unsaved"] = new()
+        {
+            ["en"] = "Unsaved",
+            ["es"] = "Sin guardar",
+            ["it"] = "Non salvato",
+        },
+        ["pill.saved"] = new()
+        {
+            ["en"] = "Saved {0}",
+            ["es"] = "Guardado {0}",
+            ["it"] = "Salvato {0}",
+        },
+        ["pill.ev_approved"] = new()
+        {
+            ["en"] = "Approved: {0} ({1})",
+            ["es"] = "Aprobado: {0} ({1})",
+            ["it"] = "Approvato: {0} ({1})",
+        },
+        ["pill.ev_declined"] = new()
+        {
+            ["en"] = "Declined: {0} ({1})",
+            ["es"] = "Rechazado: {0} ({1})",
+            ["it"] = "Rifiutato: {0} ({1})",
+        },
+        ["pill.ev_dialog"] = new()
+        {
+            ["en"] = "Revit dialog closed with {0}",
+            ["es"] = "Aviso de Revit cerrado con {0}",
+            ["it"] = "Avviso di Revit chiuso con {0}",
+        },
+        ["pill.ev_saved"] = new()
+        {
+            ["en"] = "Model saved",
+            ["es"] = "Modelo guardado",
+            ["it"] = "Modello salvato",
+        },
+
+        // ── Autopilot activity panel ────────────────────────────────────
+        ["panel.open_log"] = new()
+        {
+            ["en"] = "Open the full log",
+            ["es"] = "Abrir el registro completo",
+            ["it"] = "Apri il registro completo",
+        },
+        ["panel.stat_approved"] = new()
+        {
+            ["en"] = "Approved",
+            ["es"] = "Aprobadas",
+            ["it"] = "Approvate",
+        },
+        ["panel.stat_declined"] = new()
+        {
+            ["en"] = "Declined",
+            ["es"] = "Rechazadas",
+            ["it"] = "Rifiutate",
+        },
+        ["panel.stat_dialogs"] = new()
+        {
+            ["en"] = "Dialogs closed",
+            ["es"] = "Avisos cerrados",
+            ["it"] = "Avvisi chiusi",
+        },
+        ["panel.stat_saved"] = new()
+        {
+            ["en"] = "Saved",
+            ["es"] = "Guardado",
+            ["it"] = "Salvato",
+        },
+        ["panel.events"] = new()
+        {
+            ["en"] = "Latest events",
+            ["es"] = "Últimos eventos",
+            ["it"] = "Ultimi eventi",
+        },
+        ["panel.uptime"] = new()
+        {
+            ["en"] = "On for {0}",
+            ["es"] = "Encendido hace {0}",
+            ["it"] = "Attivo da {0}",
+        },
+        ["panel.last_activity"] = new()
+        {
+            ["en"] = "Last activity {0} ago",
+            ["es"] = "Última actividad hace {0}",
+            ["it"] = "Ultima attività {0} fa",
+        },
+        ["panel.no_activity"] = new()
+        {
+            ["en"] = "No activity yet",
+            ["es"] = "Sin actividad todavía",
+            ["it"] = "Nessuna attività finora",
+        },
+        ["panel.no_events"] = new()
+        {
+            ["en"] = "Nothing has happened yet. Approvals, closed dialogs and saves will show up here.",
+            ["es"] = "Todavía no pasó nada. Aquí van a aparecer las aprobaciones, los avisos cerrados y los guardados.",
+            ["it"] = "Non è ancora successo nulla. Qui compariranno approvazioni, avvisi chiusi e salvataggi.",
+        },
+        ["time.less_minute"] = new()
+        {
+            ["en"] = "under 1 min",
+            ["es"] = "menos de 1 min",
+            ["it"] = "meno di 1 min",
+        },
+        ["time.minutes"] = new()
+        {
+            ["en"] = "{0} min",
+            ["es"] = "{0} min",
+            ["it"] = "{0} min",
+        },
+        ["time.hours"] = new()
+        {
+            ["en"] = "{0} h {1} min",
+            ["es"] = "{0} h {1} min",
+            ["it"] = "{0} h {1} min",
+        },
+
+        // ── Autopilot summary (shown when it stops) ─────────────────────
+        ["summary.title"] = new()
+        {
+            ["en"] = "Autopilot stopped",
+            ["es"] = "Piloto automático detenido",
+            ["it"] = "Pilota automatico fermato",
+        },
+        ["summary.duration"] = new()
+        {
+            ["en"] = "It was on for {0}, from {1} to {2}.",
+            ["es"] = "Estuvo encendido {0}, de {1} a {2}.",
+            ["it"] = "È rimasto attivo {0}, dalle {1} alle {2}.",
+        },
+        ["summary.pending"] = new()
+        {
+            ["en"] = "Left for you to confirm",
+            ["es"] = "Quedó pendiente de su confirmación",
+            ["it"] = "In attesa della tua conferma",
+        },
+        ["summary.pending_note"] = new()
+        {
+            ["en"] = "The AI carried on with the rest of the task and noted these steps.",
+            ["es"] = "La IA siguió con el resto de la tarea y dejó estos pasos anotados.",
+            ["it"] = "L'IA ha proseguito con il resto dell'attività e ha annotato questi passaggi.",
+        },
+        ["summary.nothing_pending"] = new()
+        {
+            ["en"] = "Nothing was left pending.",
+            ["es"] = "No quedó nada pendiente.",
+            ["it"] = "Non è rimasto nulla in sospeso.",
+        },
+        ["summary.open_log"] = new()
+        {
+            ["en"] = "Open the log",
+            ["es"] = "Abrir el registro",
+            ["it"] = "Apri il registro",
+        },
+        ["summary.done"] = new()
+        {
+            ["en"] = "Done",
+            ["es"] = "Listo",
+            ["it"] = "Fatto",
+        },
+
+        // ── Update notice (redesign) ────────────────────────────────────
+        ["upd.notes_heading"] = new()
+        {
+            ["en"] = "What's new",
+            ["es"] = "Novedades",
+            ["it"] = "Novità",
+        },
+        ["upd.downloading_title"] = new()
+        {
+            ["en"] = "Downloading RVT Vortex {0}",
+            ["es"] = "Descargando RVT Vortex {0}",
+            ["it"] = "Download di RVT Vortex {0}",
+        },
+        ["upd.downloading_detail"] = new()
+        {
+            ["en"] = "You can keep working in Revit.",
+            ["es"] = "Puede seguir trabajando en Revit.",
+            ["it"] = "Puoi continuare a lavorare in Revit.",
+        },
+        ["upd.downloaded_detail"] = new()
+        {
+            ["en"] = "RVT Vortex {0} is downloaded.",
+            ["es"] = "RVT Vortex {0} ya está descargado.",
+            ["it"] = "RVT Vortex {0} è stato scaricato.",
+        },
+        ["upd.manual_download"] = new()
+        {
+            ["en"] = "Download manually",
+            ["es"] = "Descargar manualmente",
+            ["it"] = "Scarica manualmente",
+        },
+
+        // ── Settings window ─────────────────────────────────────────────
+        ["settings.window_title"] = new()
+        {
+            ["en"] = "RVT Vortex Settings",
+            ["es"] = "Configuración de RVT Vortex",
+            ["it"] = "Impostazioni di RVT Vortex",
+        },
+        ["settings.title"] = new()
+        {
+            ["en"] = "Settings",
+            ["es"] = "Configuración",
+            ["it"] = "Impostazioni",
+        },
+        ["settings.tab_general"] = new()
+        {
+            ["en"] = "General",
+            ["es"] = "General",
+            ["it"] = "Generale",
+        },
+        ["settings.tab_tools"] = new()
+        {
+            ["en"] = "Tools",
+            ["es"] = "Herramientas",
+            ["it"] = "Strumenti",
+        },
+        ["settings.subtitle"] = new()
+        {
+            ["en"] = "RVT Vortex {0} · Revit {1}",
+            ["es"] = "RVT Vortex {0} · Revit {1}",
+            ["it"] = "RVT Vortex {0} · Revit {1}",
+        },
+        ["settings.subtitle_no_revit"] = new()
+        {
+            ["en"] = "RVT Vortex {0}",
+            ["es"] = "RVT Vortex {0}",
+            ["it"] = "RVT Vortex {0}",
+        },
+        ["settings.sec_server"] = new()
+        {
+            ["en"] = "Server",
+            ["es"] = "Servidor",
+            ["it"] = "Server",
+        },
+        ["settings.sec_server_help"] = new()
+        {
+            ["en"] = "The connection between Revit and the AI.",
+            ["es"] = "La conexión entre Revit y la IA.",
+            ["it"] = "La connessione tra Revit e l'IA.",
+        },
+        ["settings.server_on"] = new()
+        {
+            ["en"] = "Running",
+            ["es"] = "Activo",
+            ["it"] = "Attivo",
+        },
+        ["settings.server_on_detail"] = new()
+        {
+            ["en"] = "The AI can work in this model. Port {0}.",
+            ["es"] = "La IA puede trabajar en este modelo. Puerto {0}.",
+            ["it"] = "L'IA può lavorare su questo modello. Porta {0}.",
+        },
+        ["settings.server_off"] = new()
+        {
+            ["en"] = "Stopped",
+            ["es"] = "Apagado",
+            ["it"] = "Spento",
+        },
+        ["settings.server_off_detail"] = new()
+        {
+            ["en"] = "The AI cannot connect until you start it.",
+            ["es"] = "La IA no puede conectarse hasta que lo inicie.",
+            ["it"] = "L'IA non può connettersi finché non lo avvii.",
+        },
+        ["settings.server_start"] = new()
+        {
+            ["en"] = "Start",
+            ["es"] = "Iniciar",
+            ["it"] = "Avvia",
+        },
+        ["settings.server_stop"] = new()
+        {
+            ["en"] = "Stop",
+            ["es"] = "Detener",
+            ["it"] = "Ferma",
+        },
+        ["settings.server_start_failed"] = new()
+        {
+            ["en"] = "The server did not start. Check that the port is free and try again.",
+            ["es"] = "El servidor no se inició. Verifique que el puerto esté libre y vuelva a intentar.",
+            ["it"] = "Il server non si è avviato. Verifica che la porta sia libera e riprova.",
+        },
+        ["settings.port"] = new()
+        {
+            ["en"] = "Port",
+            ["es"] = "Puerto",
+            ["it"] = "Porta",
+        },
+        ["settings.port_hint"] = new()
+        {
+            ["en"] = "Applies after restarting Revit.",
+            ["es"] = "Se aplica al reiniciar Revit.",
+            ["it"] = "Si applica al riavvio di Revit.",
+        },
+        ["settings.sec_log"] = new()
+        {
+            ["en"] = "Logging",
+            ["es"] = "Registro",
+            ["it"] = "Registro",
+        },
+        ["settings.sec_log_help"] = new()
+        {
+            ["en"] = "How much detail the plugin writes to its logs.",
+            ["es"] = "Cuánto detalle escribe el plugin en sus registros.",
+            ["it"] = "Quanto dettaglio scrive il plugin nei suoi registri.",
+        },
+        ["settings.sec_protect"] = new()
+        {
+            ["en"] = "Protection",
+            ["es"] = "Protección",
+            ["it"] = "Protezione",
+        },
+        ["settings.sec_protect_help"] = new()
+        {
+            ["en"] = "Prevents accidental changes to the model.",
+            ["es"] = "Evita cambios accidentales en el modelo.",
+            ["it"] = "Evita modifiche accidentali al modello.",
+        },
+        ["settings.readonly"] = new()
+        {
+            ["en"] = "Read-only mode",
+            ["es"] = "Modo solo lectura",
+            ["it"] = "Modalità sola lettura",
+        },
+        ["settings.readonly_help"] = new()
+        {
+            ["en"] = "Blocks every tool that modifies the model.",
+            ["es"] = "Bloquea todas las herramientas que modifican el modelo.",
+            ["it"] = "Blocca tutti gli strumenti che modificano il modello.",
+        },
+        ["settings.sec_reports"] = new()
+        {
+            ["en"] = "Error reports",
+            ["es"] = "Reportes de error",
+            ["it"] = "Report degli errori",
+        },
+        ["settings.sec_reports_help"] = new()
+        {
+            ["en"] = "Diagnostic packages saved on this computer.",
+            ["es"] = "Paquetes de diagnóstico guardados en este equipo.",
+            ["it"] = "Pacchetti diagnostici salvati su questo computer.",
+        },
+        ["settings.keep_label"] = new()
+        {
+            ["en"] = "Keep the last",
+            ["es"] = "Conservar los últimos",
+            ["it"] = "Conserva gli ultimi",
+        },
+        ["settings.keep_suffix"] = new()
+        {
+            ["en"] = "reports",
+            ["es"] = "reportes",
+            ["it"] = "report",
+        },
+        ["settings.delete_reports"] = new()
+        {
+            ["en"] = "Delete all",
+            ["es"] = "Borrar todos",
+            ["it"] = "Elimina tutti",
+        },
+        ["settings.reset"] = new()
+        {
+            ["en"] = "Reset",
+            ["es"] = "Restablecer",
+            ["it"] = "Ripristina",
+        },
+        ["settings.save"] = new()
+        {
+            ["en"] = "Save",
+            ["es"] = "Guardar",
+            ["it"] = "Salva",
+        },
+        ["settings.footer_hint"] = new()
+        {
+            ["en"] = "Changes apply when you save.",
+            ["es"] = "Los cambios se aplican al guardar.",
+            ["it"] = "Le modifiche si applicano al salvataggio.",
+        },
+        ["settings.saved"] = new()
+        {
+            ["en"] = "Saved ✓",
+            ["es"] = "Guardado ✓",
+            ["it"] = "Salvato ✓",
+        },
+        ["settings.saved_restart"] = new()
+        {
+            ["en"] = "Saved ✓  Restart Revit to use the new port.",
+            ["es"] = "Guardado ✓  Reinicie Revit para usar el puerto nuevo.",
+            ["it"] = "Salvato ✓  Riavvia Revit per usare la nuova porta.",
+        },
+        ["settings.save_failed"] = new()
+        {
+            ["en"] = "Could not save: {0}",
+            ["es"] = "No se pudo guardar: {0}",
+            ["it"] = "Impossibile salvare: {0}",
+        },
+        ["settings.invalid_port"] = new()
+        {
+            ["en"] = "The port must be a number between 1 and 65535.",
+            ["es"] = "El puerto debe ser un número entre 1 y 65535.",
+            ["it"] = "La porta deve essere un numero tra 1 e 65535.",
+        },
+
+        // ── Settings: tools tab ─────────────────────────────────────────
+        ["tools.sec_scripts"] = new()
+        {
+            ["en"] = "C# scripts",
+            ["es"] = "Scripts C#",
+            ["it"] = "Script C#",
+        },
+        ["tools.scripts_toggle"] = new()
+        {
+            ["en"] = "Let the AI run scripts",
+            ["es"] = "Permitir que la IA ejecute scripts",
+            ["it"] = "Consenti all'IA di eseguire script",
+        },
+        ["tools.scripts_help"] = new()
+        {
+            ["en"] = "Last resort. A script runs inside Revit with your Windows permissions: the filter rejects common file and network calls, but it does not isolate the script.",
+            ["es"] = "Último recurso. Un script corre dentro de Revit con sus permisos de Windows: el filtro rechaza llamadas comunes a archivos y red, pero no lo aísla.",
+            ["it"] = "Ultima risorsa. Uno script viene eseguito dentro Revit con i tuoi permessi di Windows: il filtro rifiuta le chiamate comuni a file e rete, ma non lo isola.",
+        },
+        ["tools.heading"] = new()
+        {
+            ["en"] = "Tools",
+            ["es"] = "Herramientas",
+            ["it"] = "Strumenti",
+        },
+        ["tools.count"] = new()
+        {
+            ["en"] = "{0} of {1} enabled",
+            ["es"] = "{0} de {1} activas",
+            ["it"] = "{0} di {1} attivi",
+        },
+        ["tools.search"] = new()
+        {
+            ["en"] = "Search tools…",
+            ["es"] = "Buscar herramienta…",
+            ["it"] = "Cerca strumento…",
+        },
+        ["tools.filter_all"] = new()
+        {
+            ["en"] = "All",
+            ["es"] = "Todas",
+            ["it"] = "Tutti",
+        },
+        ["tools.filter_on"] = new()
+        {
+            ["en"] = "Enabled",
+            ["es"] = "Activas",
+            ["it"] = "Attivi",
+        },
+        ["tools.filter_off"] = new()
+        {
+            ["en"] = "Disabled",
+            ["es"] = "Desactivadas",
+            ["it"] = "Disattivati",
+        },
+        ["tools.enable_all"] = new()
+        {
+            ["en"] = "Enable all",
+            ["es"] = "Activar todas",
+            ["it"] = "Attiva tutti",
+        },
+        ["tools.disable_all"] = new()
+        {
+            ["en"] = "Disable all",
+            ["es"] = "Desactivar todas",
+            ["it"] = "Disattiva tutti",
+        },
+        ["tools.group_count"] = new()
+        {
+            ["en"] = "{0} of {1}",
+            ["es"] = "{0} de {1}",
+            ["it"] = "{0} di {1}",
+        },
+        ["tools.group_disable"] = new()
+        {
+            ["en"] = "Disable group",
+            ["es"] = "Desactivar grupo",
+            ["it"] = "Disattiva gruppo",
+        },
+        ["tools.group_enable"] = new()
+        {
+            ["en"] = "Enable group",
+            ["es"] = "Activar grupo",
+            ["it"] = "Attiva gruppo",
+        },
+        ["tools.none_loaded"] = new()
+        {
+            ["en"] = "No tools loaded",
+            ["es"] = "No hay herramientas cargadas",
+            ["it"] = "Nessuno strumento caricato",
+        },
+        ["tools.none_loaded_help"] = new()
+        {
+            ["en"] = "RVT Vortex did not finish starting. Restart Revit and open this window again.",
+            ["es"] = "RVT Vortex no terminó de iniciar. Reinicie Revit y vuelva a abrir esta ventana.",
+            ["it"] = "RVT Vortex non ha completato l'avvio. Riavvia Revit e riapri questa finestra.",
+        },
+        ["tools.no_match"] = new()
+        {
+            ["en"] = "No tools match",
+            ["es"] = "Ninguna herramienta coincide",
+            ["it"] = "Nessuno strumento corrisponde",
+        },
+        ["tools.no_match_help"] = new()
+        {
+            ["en"] = "Try another word, or switch the filter back to All.",
+            ["es"] = "Pruebe con otra palabra o vuelva el filtro a Todas.",
+            ["it"] = "Prova con un'altra parola o riporta il filtro su Tutti.",
+        },
+        ["tools.saved"] = new()
+        {
+            ["en"] = "Saved ✓  {0} tools disabled.",
+            ["es"] = "Guardado ✓  {0} herramientas desactivadas.",
+            ["it"] = "Salvato ✓  {0} strumenti disattivati.",
+        },
+        ["tools.saved_scripts_on"] = new()
+        {
+            ["en"] = "Saved ✓  {0} tools disabled · C# scripts allowed.",
+            ["es"] = "Guardado ✓  {0} herramientas desactivadas · scripts C# permitidos.",
+            ["it"] = "Salvato ✓  {0} strumenti disattivati · script C# consentiti.",
         },
     };
 }

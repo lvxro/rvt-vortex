@@ -10,80 +10,212 @@
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         ShowActivated="False"
+        UseLayoutRounding="True"
         Loaded="Window_Loaded">
 
     <!--
-      Compact status pill, styled after Revit 2027's dark UI chrome rather than a
-      chat-app card: one line, one state color, one action. The long explanation
-      lives in the tooltip. Drag anywhere outside the button to move it.
+      Floating Autopilot status: a compact pill (one line, one state, one
+      action) with an activity panel that opens upward on demand. The pill
+      shows what a returning user needs first: is it working, did anything get
+      declined, is the model saved. Detail lives in the panel.
+
+      Shadows sit on a separate layer behind each surface so the text above
+      keeps ClearType rendering.
     -->
     <Window.Resources>
-        <SolidColorBrush x:Key="Surface" Color="#2B323B"/>
-        <SolidColorBrush x:Key="Stroke" Color="#434C58"/>
-        <SolidColorBrush x:Key="Ink" Color="#E8EAED"/>
-        <SolidColorBrush x:Key="Muted" Color="#9AA3AD"/>
-        <SolidColorBrush x:Key="Accent" Color="#D97757"/>
-
-        <Style x:Key="PillButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{StaticResource Ink}"/>
-            <Setter Property="Background" Value="#38414C"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="12,4"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                CornerRadius="11" Padding="{TemplateBinding Padding}"
-                                SnapsToDevicePixels="True">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#D97757"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#C2654A"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Theme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Window.Resources>
 
-    <!-- Outer margin leaves room for the drop shadow. -->
-    <Grid Margin="14">
-        <Border x:Name="Pill"
-                Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Stroke}" BorderThickness="1"
-                CornerRadius="17" Padding="14,6,6,6"
-                MouseLeftButtonDown="Pill_MouseLeftButtonDown">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.35" Color="#000000"/>
-            </Border.Effect>
+    <!-- Outer margin leaves room for the drop shadows. -->
+    <StackPanel Margin="24"
+                TextElement.Foreground="{StaticResource Vx.Ink}"
+                TextElement.FontFamily="{StaticResource Vx.Font}"
+                TextElement.FontSize="12">
 
-            <StackPanel Orientation="Horizontal">
-                <!-- State: steady accent dot, no animation. -->
-                <Ellipse Width="8" Height="8" Fill="{StaticResource Accent}"
-                         VerticalAlignment="Center" Margin="0,0,9,0"/>
+        <!-- ── Activity panel (collapsed by default) ─────────────────── -->
+        <Grid x:Name="ActivityPanel" Width="440" Margin="0,0,0,10"
+              HorizontalAlignment="Center" Visibility="Collapsed">
+            <Border Background="{StaticResource Vx.Surface}" CornerRadius="16">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="22" ShadowDepth="5" Opacity="0.45" Color="#000000"/>
+                </Border.Effect>
+            </Border>
+            <Border Background="{StaticResource Vx.Surface}"
+                    BorderBrush="{StaticResource Vx.Stroke}" BorderThickness="1" CornerRadius="16">
+                <StackPanel>
 
-                <TextBlock x:Name="HeadingText" Text="Autopilot"
-                           FontSize="12" FontWeight="SemiBold"
-                           Foreground="{StaticResource Ink}" VerticalAlignment="Center"/>
+                    <DockPanel Margin="16,14,16,12" LastChildFill="False">
+                        <Path DockPanel.Dock="Left" Width="16" Height="16" VerticalAlignment="Center"
+                              Data="{StaticResource Vx.Icon.Vortex}"
+                              Stroke="{StaticResource Vx.Accent}" StrokeThickness="1.9"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <TextBlock x:Name="PanelHeading" DockPanel.Dock="Left" Margin="10,0,0,0"
+                                   FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        <Border x:Name="PanelScriptsChip" DockPanel.Dock="Left" Margin="10,0,0,0"
+                                BorderBrush="{StaticResource Vx.AccentStroke}" BorderThickness="1"
+                                CornerRadius="5" Padding="5,0" VerticalAlignment="Center" Visibility="Collapsed">
+                            <TextBlock Text="C#" FontFamily="{StaticResource Vx.Mono}" FontSize="10.5"
+                                       FontWeight="Bold" Foreground="{StaticResource Vx.AccentText}"/>
+                        </Border>
+                        <TextBlock x:Name="UptimeText" DockPanel.Dock="Right"
+                                   Foreground="{StaticResource Vx.Muted}" VerticalAlignment="Center"/>
+                    </DockPanel>
 
-                <Rectangle Width="1" Height="14" Fill="{StaticResource Stroke}"
-                           VerticalAlignment="Center" Margin="11,0"/>
+                    <UniformGrid Columns="4" Margin="12,0,12,12">
+                        <Border Style="{StaticResource Vx.Well}" Margin="4,0" Padding="10,9">
+                            <StackPanel>
+                                <TextBlock x:Name="StatApproved" Text="0" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="StatApprovedLabel" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Vx.Well}" Margin="4,0" Padding="10,9">
+                            <StackPanel>
+                                <TextBlock x:Name="StatDeclined" Text="0" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="StatDeclinedLabel" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Vx.Well}" Margin="4,0" Padding="10,9">
+                            <StackPanel>
+                                <TextBlock x:Name="StatDialogs" Text="0" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="StatDialogsLabel" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"/>
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Vx.Well}" Margin="4,0" Padding="10,9">
+                            <StackPanel>
+                                <TextBlock x:Name="StatSaved" Text="–" FontSize="18" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="StatSavedLabel" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"/>
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
 
-                <TextBlock x:Name="StatusText" Text="Idle"
-                           FontSize="12" Foreground="{StaticResource Muted}"
-                           MaxWidth="300" TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Border Style="{StaticResource Vx.Divider}"/>
 
-                <Button x:Name="StopButton" Style="{StaticResource PillButton}" Click="Stop_Click">
-                    <TextBlock x:Name="StopText" Text="Stop"/>
-                </Button>
-            </StackPanel>
-        </Border>
-    </Grid>
+                    <DockPanel Margin="16,10,16,4" LastChildFill="False">
+                        <TextBlock x:Name="EventsHeading" DockPanel.Dock="Left"
+                                   Style="{StaticResource Vx.Text.Caption}" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="LastActivityText" DockPanel.Dock="Right"
+                                   Foreground="{StaticResource Vx.Muted}" VerticalAlignment="Center"/>
+                    </DockPanel>
+
+                    <StackPanel x:Name="EventsPanel" Margin="16,0,16,8"/>
+
+                    <Border Style="{StaticResource Vx.Divider}"/>
+
+                    <DockPanel Margin="8,10,12,12" LastChildFill="False">
+                        <Button x:Name="OpenLogButton" DockPanel.Dock="Left"
+                                Style="{StaticResource Vx.Button.Link}" Click="OpenLog_Click"/>
+                        <Button x:Name="PanelStopButton" DockPanel.Dock="Right"
+                                Style="{StaticResource Vx.Button.Pill}" Click="Stop_Click"/>
+                    </DockPanel>
+
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ── Pill ──────────────────────────────────────────────────── -->
+        <Grid HorizontalAlignment="Center">
+            <Border Background="{StaticResource Vx.Surface}" CornerRadius="18">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.4" Color="#000000"/>
+                </Border.Effect>
+            </Border>
+            <Border x:Name="Pill"
+                    Background="{StaticResource Vx.Surface}"
+                    BorderBrush="{StaticResource Vx.Stroke}" BorderThickness="1"
+                    CornerRadius="18" Padding="12,5,5,5"
+                    MouseLeftButtonDown="Pill_MouseLeftButtonDown">
+                <StackPanel Orientation="Horizontal">
+
+                    <!-- State: the vortex mark (spins while the AI works) or a warning. -->
+                    <Grid Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <Path x:Name="Mark" Width="16" Height="16"
+                              Data="{StaticResource Vx.Icon.Vortex}"
+                              Stroke="{StaticResource Vx.Accent}" StrokeThickness="1.9"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              RenderTransformOrigin="0.5,0.5">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="MarkRotate" Angle="0"/>
+                            </Path.RenderTransform>
+                        </Path>
+                        <Viewbox x:Name="WarnIcon" Visibility="Collapsed">
+                            <Path Width="18" Height="18"
+                                  Data="{StaticResource Vx.Icon.Warning}"
+                                  Stroke="{StaticResource Vx.Caution}" StrokeThickness="1.6"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                        </Viewbox>
+                    </Grid>
+
+                    <TextBlock x:Name="HeadingText" Text="Autopilot"
+                               FontWeight="SemiBold" VerticalAlignment="Center"/>
+
+                    <Border x:Name="ScriptsChip" Margin="9,0,0,0"
+                            BorderBrush="{StaticResource Vx.AccentStroke}" BorderThickness="1"
+                            CornerRadius="5" Padding="5,0" VerticalAlignment="Center" Visibility="Collapsed">
+                        <TextBlock Text="C#" FontFamily="{StaticResource Vx.Mono}" FontSize="10.5"
+                                   FontWeight="Bold" Foreground="{StaticResource Vx.AccentText}"/>
+                    </Border>
+
+                    <Rectangle Width="1" Height="14" Fill="{StaticResource Vx.Stroke}"
+                               VerticalAlignment="Center" Margin="11,0"/>
+
+                    <StackPanel x:Name="ApprovedBox" Orientation="Horizontal" VerticalAlignment="Center"
+                                Margin="0,0,10,0" Visibility="Collapsed">
+                        <Path Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,4,0"
+                              Data="{StaticResource Vx.Icon.Check}"
+                              Stroke="{StaticResource Vx.Muted}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                        <TextBlock x:Name="ApprovedText" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel x:Name="DeclinedBox" Orientation="Horizontal" VerticalAlignment="Center"
+                                Margin="0,0,10,0" Visibility="Collapsed">
+                        <Path Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,4,0"
+                              Data="{StaticResource Vx.Icon.Cross}"
+                              Stroke="{StaticResource Vx.Caution}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        <TextBlock x:Name="DeclinedText" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Vx.Caution}"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="StatusText" Text="Idle"
+                               Foreground="{StaticResource Vx.Muted}"
+                               MaxWidth="260" TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                    <StackPanel x:Name="SaveBox" Orientation="Horizontal" VerticalAlignment="Center"
+                                Margin="0,0,12,0" Visibility="Collapsed">
+                        <Path x:Name="SaveIcon" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0"
+                              Data="{StaticResource Vx.Icon.Disk}"
+                              Stroke="{StaticResource Vx.Muted}" StrokeThickness="1.3"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                        <Ellipse x:Name="UnsavedDot" Width="7" Height="7" VerticalAlignment="Center" Margin="0,0,6,0"
+                                 Fill="{StaticResource Vx.Caution}" Visibility="Collapsed"/>
+                        <TextBlock x:Name="SaveText" VerticalAlignment="Center"
+                                   Foreground="{StaticResource Vx.InkSoft}"/>
+                    </StackPanel>
+
+                    <Button x:Name="StartServerButton" Margin="0,0,4,0" Visibility="Collapsed"
+                            Style="{StaticResource Vx.Button.PillPrimary}" Click="StartServer_Click"/>
+
+                    <Button x:Name="ExpandButton" Margin="0,0,4,0" Visibility="Collapsed"
+                            Style="{StaticResource Vx.Button.PillIcon}" Click="Expand_Click">
+                        <Path x:Name="ExpandIcon" Width="12" Height="12"
+                              Data="{StaticResource Vx.Icon.ChevronUp}"
+                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                              StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Button>
+
+                    <Button x:Name="StopButton" Style="{StaticResource Vx.Button.Pill}" Click="Stop_Click">
+                        <TextBlock x:Name="StopText" Text="Stop"/>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+    </StackPanel>
 </Window>
