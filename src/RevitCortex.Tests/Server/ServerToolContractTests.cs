@@ -59,7 +59,8 @@ namespace RevitCortex.Tests.Server
             Assert.True(GetParameter(method, "categoryFilter").HasDefaultValue);
             Assert.Null(GetParameter(method, "categoryFilter").DefaultValue);
 
-            AssertDescription(method, "List elements visible in the currently active view.");
+            AssertDescription(method,
+                "List elements visible in the currently active view. Filter with modelCategoryList / annotationCategoryList (preferred over the legacy categoryFilter), pick only the fields you need and keep limit low.");
         }
 
         [Fact]
@@ -80,7 +81,8 @@ namespace RevitCortex.Tests.Server
             Assert.True(GetParameter(method, "maxRows").HasDefaultValue);
             Assert.Null(GetParameter(method, "maxRows").DefaultValue);
 
-            AssertDescription(method, "Export schedule data as JSON from an existing schedule view.");
+            AssertDescription(method,
+                "Export schedule data as JSON from an existing schedule view. Always set maxRows when inspecting; pull all rows only when exporting.");
         }
 
         [Fact]
@@ -109,7 +111,8 @@ namespace RevitCortex.Tests.Server
             Assert.True(GetParameter(method, "maxWarnings").HasDefaultValue);
             Assert.Null(GetParameter(method, "maxWarnings").DefaultValue);
 
-            AssertDescription(method, "Run a complete model audit workflow.");
+            AssertDescription(method,
+                "Run a complete model audit (warnings, families, statistics). The most expensive health check: try check_model_health first, and use includeWarnings/includeFamilies/maxWarnings and compact:true to limit the output.");
         }
 
         [Fact]
