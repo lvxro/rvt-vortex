@@ -384,16 +384,21 @@ The ribbon toggle **Autopilot** (`Commands/ToggleAutopilot.cs`, grey when off, o
 
 ## UI Localization
 
-`UI/Localization.cs` picks the language from the **Windows display language** first (`GetUserDefaultUILanguage`), then Revit's language, then `CurrentUICulture`; unsupported languages fall back to English. Add every new user-facing string to its table with at least `en` (new fork strings also carry `es` and `it`). Ribbon toggles use `IconFactory` colors: slate for commands, grey/orange (`ClaudeOrange`, #D97757) for off/on states.
+`UI/Localization.cs` picks the language from the **Windows display language** first (`GetUserDefaultUILanguage`), then Revit's language, then `CurrentUICulture`; unsupported languages fall back to English. Add every new user-facing string to its table with at least `en` (new fork strings also carry `es` and `it`). Ribbon icons come from `IconFactory`: every icon sits on a dark tile (#171B20, readable on Revit's light and dark themes); the two toggles turn Claude orange (`ClaudeOrange`, #D97757) when on.
 
 ## UI Components
 
 The plugin includes a Revit ribbon panel with two large toggles (Vortex Switch, Autopilot — grey off / orange on) and stacked buttons (Settings, Power BI Export, Report a bug), plus a settings window for port, log level, and tool visibility.
 
 - **Commands/** -- IExternalCommand classes: ToggleConnection, ToggleAutopilot, OpenSettings, OpenPowerBiExport, SendSupportReport, StopAutoMode (OpenLicense is kept but not on the ribbon: RVT Vortex has no license gate)
+- **UI/Theme.xaml** -- the dark palette and control styles (`Vx.*` keys) shared by every plugin window. Windows and Pages merge it with `<ResourceDictionary Source="Theme.xaml"/>` (Pages too: a Frame does not pass resources down). Do not hard-code colors in a window. Orange = ON / primary action, light-on-dark = the selected option, amber = needs attention.
+- **UI/PluginHost** -- the only way a window may reach `RevitCortexApp` (touching that type loads RevitAPIUI). It keeps every window constructible without Revit, which the UI preview tests rely on.
 - **UI/SettingsWindow** -- General settings, tools enable/disable
+- **UI/AutoModeWindow** -- the floating Autopilot pill and its activity panel: a pure view of `AutopilotPillState` (counters live in `Core/Session/AutopilotActivity`). **UI/AutopilotSummaryWindow** shows the totals when Autopilot stops.
 - **UI/IconFactory** -- Generates ribbon icons programmatically (no PNG files)
 - **UI/ConfirmationHelper** -- TaskDialog for destructive operations
+
+**UI preview tests** (`src/RevitCortex.Tests/UiPreview/UiPreviewTests.cs`) build every window without Revit, in each state a user can meet. They run with the unit tests, so a missing resource key or a broken template fails there. With `UI_PREVIEW_DIR` set they also save each window as a PNG; the `UI preview` workflow does that on pull requests that touch `UI/` and publishes the pictures to the `ui-previews` branch. When you add a window or a state, add it to that test.
 
 The server is **off by default** -- user must click "Cortex Switch" in the ribbon to start it.
 

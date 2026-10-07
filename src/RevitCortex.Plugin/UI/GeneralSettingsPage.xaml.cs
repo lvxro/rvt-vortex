@@ -5,10 +5,8 @@ using RevitCortex.Plugin.Commands;
 using RevitCortex.Plugin.Updates;
 using System;
 using System.IO;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Threading;
 using TaskDialog = Autodesk.Revit.UI.TaskDialog;
 using TaskDialogCommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons;
@@ -24,6 +22,7 @@ public partial class GeneralSettingsPage : Page
     private DispatcherTimer? _saveFeedbackTimer;
     private int _originalPort;
     private DispatcherTimer? _downloadTimer;
+    private bool _serverRunning;
 
     private static string SettingsFilePath => CortexEnvironment.Current.SettingsFilePath;
 
@@ -32,7 +31,6 @@ public partial class GeneralSettingsPage : Page
         InitializeComponent();
         ApplyLocalizedStrings();
         LoadSettings();
-        LoadVersionInfo();
         RefreshConnectionStatus();
         RefreshUpdateBanner();
         // The update check runs once at plugin startup on a background thread;
@@ -40,32 +38,47 @@ public partial class GeneralSettingsPage : Page
         // Re-check every second for ~10 s to catch the late reply, then stop.
         StartUpdateBannerPolling();
 
-        // Subscribe to real-time server state changes so the status banner
-        // updates immediately when the user clicks Vortex Switch.
-        if (RevitCortexApp.Instance != null)
-            RevitCortexApp.Instance.ServiceStateChanged += OnServiceStateChanged;
-
-        Unloaded += (_, _) =>
-        {
-            if (RevitCortexApp.Instance != null)
-                RevitCortexApp.Instance.ServiceStateChanged -= OnServiceStateChanged;
-        };
+        // Subscribe to real-time server state changes so the status card
+        // updates immediately when the user clicks Vortex Switch. Through
+        // PluginHost, so the page can also be built where Revit is absent.
+        PluginHost.SubscribeServiceState(OnServiceStateChanged);
+        Unloaded += (_, _) => PluginHost.UnsubscribeServiceState(OnServiceStateChanged);
     }
 
     private void OnServiceStateChanged()
     {
         // The event may fire from the Revit main thread or a background thread.
-        // Dispatcher.Invoke ensures we update WPF controls on the UI thread.
-        Dispatcher.Invoke(RefreshConnectionStatus);
+        if (Dispatcher.CheckAccess()) RefreshConnectionStatus();
+        else Dispatcher.BeginInvoke((Action)RefreshConnectionStatus);
     }
 
     private void ApplyLocalizedStrings()
     {
-        SupportReportsTitle.Text = Localization.T("support.settings.title");
-        SupportReportsSubtitle.Text = Localization.T("support.settings.subtitle");
+        SecServerTitle.Text = Localization.T("settings.sec_server");
+        SecServerHelp.Text = Localization.T("settings.sec_server_help");
+        PortLabel.Text = Localization.T("settings.port");
+        PortHint.Text = Localization.T("settings.port_hint");
+
+        SecLogTitle.Text = Localization.T("settings.sec_log");
+        SecLogHelp.Text = Localization.T("settings.sec_log_help");
+
+        SecProtectTitle.Text = Localization.T("settings.sec_protect");
+        SecProtectHelp.Text = Localization.T("settings.sec_protect_help");
+        ReadOnlyTitle.Text = Localization.T("settings.readonly");
+        ReadOnlyHelp.Text = Localization.T("settings.readonly_help");
+
+        SupportReportsTitle.Text = Localization.T("settings.sec_reports");
+        SupportReportsSubtitle.Text = Localization.T("settings.sec_reports_help");
+        KeepLabel.Text = Localization.T("settings.keep_label");
+        KeepSuffix.Text = Localization.T("settings.keep_suffix");
         OpenReportsFolderButton.Content = Localization.T("support.settings.open_folder");
-        DeleteAllReportsButton.Content = Localization.T("support.settings.delete_now");
+        DeleteAllReportsButton.Content = Localization.T("settings.delete_reports");
         EnableTelemetryCheckBox.Content = Localization.T("telemetry.settings_toggle");
+
+        FooterHint.Text = Localization.T("settings.footer_hint");
+        ResetButton.Content = Localization.T("settings.reset");
+        SaveButton.Content = Localization.T("settings.save");
+        UpdateManualButton.Content = Localization.T("upd.manual_download");
 
         // RVT Vortex: telemetry is off (ForkInfo.TelemetryEnabled), so a toggle
         // that changes nothing would only mislead. Hide the whole row.
@@ -92,10 +105,12 @@ public partial class GeneralSettingsPage : Page
         switch (UpdateChecker.State)
         {
             case UpdateChecker.DownloadState.Idle:
-                UpdateTitle.Text = Localization.T("upd.available", info.RemoteVersion);
-                UpdateDetail.Text = Localization.T("upd.current_with_notes", UpdateChecker.CurrentVersion, info.Changelog);
+                UpdateTitle.Text = Localization.T("upd.available",
+                    UpdateNotificationWindow.ShortVersion(info.RemoteVersion));
+                UpdateDetail.Text = Localization.T("upd.current_with_notes",
+                    UpdateNotificationWindow.ShortVersion(UpdateChecker.CurrentVersion), info.Changelog);
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
-                SetActionButton(Localization.T("upd.download_install"), "#FFB300", "#FF8F00", isEnabled: true);
+                SetActionButton(Localization.T("upd.download_install"), accent: true, isEnabled: true);
                 UpdateManualButton.Visibility = Visibility.Collapsed;
                 StopDownloadTimer();
                 break;
@@ -111,7 +126,7 @@ public partial class GeneralSettingsPage : Page
                 UpdateProgress.Value = pct;
                 UpdateProgressText.Text = progress;
                 UpdateProgressGrid.Visibility = Visibility.Visible;
-                SetActionButton(Localization.T("upd.cancel"), "#9E9E9E", "#757575", isEnabled: true);
+                SetActionButton(Localization.T("upd.cancel"), accent: false, isEnabled: true);
                 UpdateManualButton.Visibility = Visibility.Collapsed;
                 StartDownloadTimer();
                 break;
@@ -120,7 +135,7 @@ public partial class GeneralSettingsPage : Page
                 UpdateTitle.Text = Localization.T("upd.ready");
                 UpdateDetail.Text = Localization.T("upd.ready_warning");
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
-                SetActionButton(Localization.T("upd.install_and_close"), "#388E3C", "#2E7D32", isEnabled: true);
+                SetActionButton(Localization.T("upd.install_and_close"), accent: true, isEnabled: true);
                 UpdateManualButton.Visibility = Visibility.Collapsed;
                 StopDownloadTimer();
                 break;
@@ -129,7 +144,7 @@ public partial class GeneralSettingsPage : Page
                 UpdateTitle.Text = Localization.T("upd.installing_closing");
                 UpdateDetail.Text = Localization.T("upd.installing_detail");
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
-                SetActionButton(Localization.T("upd.install_and_close"), "#00796B", "#004D40", isEnabled: false);
+                SetActionButton(Localization.T("upd.install_and_close"), accent: true, isEnabled: false);
                 UpdateManualButton.Visibility = Visibility.Collapsed;
                 StopDownloadTimer();
                 break;
@@ -143,20 +158,18 @@ public partial class GeneralSettingsPage : Page
                 UpdateTitle.Text = Localization.T("upd.failed");
                 UpdateDetail.Text = UpdateChecker.DownloadError ?? Localization.T("upd.unknown_error");
                 UpdateProgressGrid.Visibility = Visibility.Collapsed;
-                SetActionButton(Localization.T("upd.retry"), "#E53935", "#B71C1C", isEnabled: true);
+                SetActionButton(Localization.T("upd.retry"), accent: true, isEnabled: true);
                 UpdateManualButton.Visibility = Visibility.Visible;
                 StopDownloadTimer();
                 break;
         }
     }
 
-    private void SetActionButton(string label, string bg, string border, bool isEnabled)
+    private void SetActionButton(string label, bool accent, bool isEnabled)
     {
         UpdateActionButton.Content = label;
-        UpdateActionButton.Background = new SolidColorBrush(
-            (Color)ColorConverter.ConvertFromString(bg));
-        UpdateActionButton.BorderBrush = new SolidColorBrush(
-            (Color)ColorConverter.ConvertFromString(border));
+        // One accent-colored action per state; "Cancel" is deliberately quiet.
+        UpdateActionButton.Style = (Style)FindResource(accent ? "Vx.Button.Primary" : "Vx.Button");
         UpdateActionButton.IsEnabled = isEnabled;
     }
 
@@ -274,30 +287,43 @@ public partial class GeneralSettingsPage : Page
 
     private void RefreshConnectionStatus()
     {
-        var app = RevitCortexApp.Instance;
-        bool running = app?.IsServiceRunning ?? false;
-        int port = app?.Port ?? DefaultPort;
+        ApplyServerState(PluginHost.IsServiceRunning, PluginHost.Port ?? DefaultPort);
+    }
 
-        if (running)
-        {
-            StatusDot.Fill = new SolidColorBrush(Color.FromRgb(46, 125, 50));   // green
-            StatusBanner.Background = new SolidColorBrush(Color.FromRgb(232, 245, 233));
-            StatusBanner.BorderBrush = new SolidColorBrush(Color.FromRgb(165, 214, 167));
-            StatusTitle.Text = "Server running";
-            StatusDetail.Text = $"Listening on localhost:{port} — ready for AI commands";
-            PortBadgeText.Text = $"Port {port}";
-            PortBadge.Background = new SolidColorBrush(Color.FromRgb(165, 214, 167));
-        }
-        else
-        {
-            StatusDot.Fill = new SolidColorBrush(Color.FromRgb(158, 158, 158)); // gray
-            StatusBanner.Background = new SolidColorBrush(Color.FromRgb(245, 245, 245));
-            StatusBanner.BorderBrush = new SolidColorBrush(Color.FromRgb(224, 224, 224));
-            StatusTitle.Text = "Server stopped";
-            StatusDetail.Text = "Click 'Vortex Switch' in the ribbon to start";
-            PortBadgeText.Text = $"Port {port}";
-            PortBadge.Background = new SolidColorBrush(Color.FromRgb(224, 224, 224));
-        }
+    /// <summary>
+    /// Paints the server card. Separate from the read so the UI preview
+    /// renderer can show the "running" state without a Revit session.
+    /// </summary>
+    public void ApplyServerState(bool running, int port)
+    {
+        _serverRunning = running;
+
+        // Orange = ON: the dot lights up with a halo. Off is plain grey.
+        StatusDot.Fill = (System.Windows.Media.Brush)FindResource(running ? "Vx.Accent" : "Vx.StrokeStrong");
+        StatusHalo.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+
+        StatusTitle.Text = Localization.T(running ? "settings.server_on" : "settings.server_off");
+        StatusDetail.Text = running
+            ? Localization.T("settings.server_on_detail", port)
+            : Localization.T("settings.server_off_detail");
+
+        // The button offers the opposite state; starting is the accented one.
+        ServerToggleButton.Content = Localization.T(running ? "settings.server_stop" : "settings.server_start");
+        ServerToggleButton.Style = (Style)FindResource(running ? "Vx.Button" : "Vx.Button.Primary");
+    }
+
+    private void ServerToggle_Click(object sender, RoutedEventArgs e)
+    {
+        bool starting = !_serverRunning;
+        if (starting) PluginHost.StartService();
+        else PluginHost.StopService();
+
+        // Start/stop raise ServiceStateChanged, which repaints the card. Read
+        // the state again here so a start that did nothing (plugin not fully
+        // initialized, port taken) is reported instead of silently ignored.
+        RefreshConnectionStatus();
+        if (starting && !_serverRunning)
+            ShowSaveFeedback(Localization.T("settings.server_start_failed"), success: false, restartHint: true);
     }
 
     private void LoadSettings()
@@ -312,7 +338,7 @@ public partial class GeneralSettingsPage : Page
                 {
                     _originalPort = settings.Port;
                     PortTextBox.Text = settings.Port.ToString();
-                    SetComboSelection(LogLevelComboBox, settings.LogLevel ?? DefaultLogLevel);
+                    SetLogLevel(settings.LogLevel ?? DefaultLogLevel);
                     ReadOnlyCheckBox.IsChecked = settings.ReadOnlyMode;
                     KeepCountTextBox.Text = ClampKeepCount(settings.SupportReportKeepCount).ToString();
                     EnableTelemetryCheckBox.IsChecked = settings.EnableTelemetry;
@@ -325,67 +351,47 @@ public partial class GeneralSettingsPage : Page
         SetDefaults();
     }
 
-    private void LoadVersionInfo()
-    {
-        try
-        {
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            PluginVersionText.Text = version?.ToString() ?? "Unknown";
-        }
-        catch { PluginVersionText.Text = "Unknown"; }
-
-        try
-        {
-            string assemblyPath = Assembly.GetExecutingAssembly().Location;
-            string[] parts = assemblyPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string revitYear = "Unknown";
-            for (int i = 0; i < parts.Length; i++)
-            {
-                if (parts[i].Equals("Addins", StringComparison.OrdinalIgnoreCase) && i + 1 < parts.Length)
-                {
-                    revitYear = parts[i + 1];
-                    break;
-                }
-            }
-            RevitVersionText.Text = revitYear;
-        }
-        catch { RevitVersionText.Text = "Unknown"; }
-    }
-
     private void SetDefaults()
     {
         _originalPort = DefaultPort;
         PortTextBox.Text = DefaultPort.ToString();
-        SetComboSelection(LogLevelComboBox, DefaultLogLevel);
+        SetLogLevel(DefaultLogLevel);
+        ReadOnlyCheckBox.IsChecked = false;
         KeepCountTextBox.Text = DefaultKeepCount.ToString();
         EnableTelemetryCheckBox.IsChecked = false;
     }
 
     private static int ClampKeepCount(int n) => n < 1 ? 1 : (n > 200 ? 200 : n);
 
-    private static void SetComboSelection(ComboBox combo, string value)
+    // The four level names are the values stored in settings.json.
+    private void SetLogLevel(string value)
     {
-        foreach (ComboBoxItem item in combo.Items)
-        {
-            if (item.Content?.ToString()?.Equals(value, StringComparison.OrdinalIgnoreCase) == true)
-            {
-                combo.SelectedItem = item;
-                return;
-            }
-        }
-        combo.SelectedIndex = 1;
+        if (value.Equals("Debug", StringComparison.OrdinalIgnoreCase)) LogDebug.IsChecked = true;
+        else if (value.Equals("Warning", StringComparison.OrdinalIgnoreCase)) LogWarning.IsChecked = true;
+        else if (value.Equals("Error", StringComparison.OrdinalIgnoreCase)) LogError.IsChecked = true;
+        else LogInfo.IsChecked = true;
+    }
+
+    private string GetLogLevel()
+    {
+        if (LogDebug.IsChecked == true) return "Debug";
+        if (LogWarning.IsChecked == true) return "Warning";
+        if (LogError.IsChecked == true) return "Error";
+        return DefaultLogLevel;
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         if (!int.TryParse(PortTextBox.Text.Trim(), out int port) || port < 1 || port > 65535)
         {
-            MessageBox.Show("Please enter a valid port number (1-65535).", "Invalid Port",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+            // Inline, next to the Save button the user just pressed: no popup.
+            ShowSaveFeedback(Localization.T("settings.invalid_port"), success: false, restartHint: true);
+            PortTextBox.Focus();
+            PortTextBox.SelectAll();
             return;
         }
 
-        string logLevel = (LogLevelComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? DefaultLogLevel;
+        string logLevel = GetLogLevel();
 
         if (!int.TryParse(KeepCountTextBox.Text.Trim(), out int keep)) keep = DefaultKeepCount;
         keep = ClampKeepCount(keep);
@@ -419,35 +425,34 @@ public partial class GeneralSettingsPage : Page
             File.WriteAllText(SettingsFilePath, settings.ToString(Formatting.Indented));
 
             // Apply read-only mode immediately (no restart needed)
-            if (RevitCortexApp.Instance?.Router != null)
-                RevitCortexApp.Instance.Router.ReadOnlyMode = ReadOnlyCheckBox.IsChecked == true;
+            PluginHost.SetReadOnlyMode(ReadOnlyCheckBox.IsChecked == true);
 
             bool portChanged = port != _originalPort;
             if (portChanged)
             {
-                ShowSaveFeedback("Saved \u2713  Restart Revit for port change", success: true, restartHint: true);
+                ShowSaveFeedback(Localization.T("settings.saved_restart"), success: true, restartHint: true);
                 _originalPort = port;
             }
             else
             {
-                ShowSaveFeedback("Saved \u2713", success: true);
+                ShowSaveFeedback(Localization.T("settings.saved"), success: true);
             }
         }
         catch (Exception ex)
         {
-            ShowSaveFeedback($"Save failed: {ex.Message}", success: false);
+            ShowSaveFeedback(Localization.T("settings.save_failed", ex.Message), success: false, restartHint: true);
         }
     }
 
     private void ShowSaveFeedback(string message, bool success, bool restartHint = false)
     {
         SaveFeedbackText.Text = message;
-        SaveFeedbackText.Foreground = new SolidColorBrush(success
-            ? Color.FromRgb(46, 125, 50)        // green
-            : Color.FromRgb(198, 40, 40));      // red
+        // Amber = needs attention; a plain confirmation stays in the ink color.
+        SaveFeedbackText.Foreground = (System.Windows.Media.Brush)FindResource(success ? "Vx.Ink" : "Vx.Caution");
         SaveFeedbackText.Visibility = Visibility.Visible;
+        FooterHint.Visibility = Visibility.Collapsed;
 
-        // Restart hint stays visible longer (4s) so the user can read it.
+        // Longer messages (restart hint, errors) stay 4 s so they can be read.
         var ttl = restartHint ? TimeSpan.FromSeconds(4) : TimeSpan.FromSeconds(2.5);
 
         _saveFeedbackTimer?.Stop();
@@ -457,6 +462,7 @@ public partial class GeneralSettingsPage : Page
             _saveFeedbackTimer?.Stop();
             _saveFeedbackTimer = null;
             SaveFeedbackText.Visibility = Visibility.Collapsed;
+            FooterHint.Visibility = Visibility.Visible;
         };
         _saveFeedbackTimer.Start();
     }

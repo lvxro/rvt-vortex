@@ -31,6 +31,13 @@ public sealed class UnattendedDialogHandler
 
     private readonly Func<CortexSession?> _getSession;
 
+    /// <summary>
+    /// Raised (on the UI thread) after a Revit dialog was dismissed, with the
+    /// localized name of the answer that was chosen ("Cancel", "Close"...).
+    /// Lets the Autopilot pill count dismissed pop-ups.
+    /// </summary>
+    public event Action<string>? DialogDismissed;
+
     public UnattendedDialogHandler(Func<CortexSession?> getSession)
     {
         _getSession = getSession;
@@ -81,8 +88,10 @@ public sealed class UnattendedDialogHandler
             {
                 if (args.OverrideResult(code))
                 {
+                    var answer = Describe(code);
                     UnattendedLog.Write(Localization.T("log.dialog_closed",
-                        kind, args.DialogId, Describe(code), UnattendedLog.Shorten(message)));
+                        kind, args.DialogId, answer, UnattendedLog.Shorten(message)));
+                    try { DialogDismissed?.Invoke(answer); } catch { /* status only */ }
                     return;
                 }
             }

@@ -87,6 +87,13 @@ public class CortexRouter
         public bool Declared { get; }
     }
 
+    /// <summary>
+    /// Raised with the tool name after every routed call that reached a tool,
+    /// on the calling thread (usually a socket worker). A heartbeat for the
+    /// UI ("the AI is working"); handlers must be quick and must not throw.
+    /// </summary>
+    public event Action<string>? ToolRouted;
+
     // Cached license decision gate. Null = no gating (today's behavior, and the
     // best-effort fallback when LicenseBootstrap.Init fails). Evaluated at bootstrap
     // + on explicit refresh, NEVER per Route() call.
@@ -358,6 +365,9 @@ public class CortexRouter
                 responseBytes: responseBytes);
         }
         catch { /* telemetry must never change the returned result */ }
+
+        try { ToolRouted?.Invoke(toolName); }
+        catch { /* a UI heartbeat must never change the returned result */ }
 
         return result;
     }

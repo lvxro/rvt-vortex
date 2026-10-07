@@ -98,11 +98,14 @@ For Revit 2027 and later, both scripts install to the per-user folder (`%APPDATA
 
 ## 3. Interface and localization
 
-- **Ribbon:** the two toggles (Vortex Switch, Autopilot) are large buttons, **grey when off and Claude orange (#D97757) when on**. Autopilot's label also changes to *Autopilot ON*. Settings, Power BI and Report a bug are grouped as small stacked buttons in a single slate color instead of five unrelated colors.
-- **Status pill:** while Auto mode or Autopilot is on, a compact dark pill (matching Revit 2027's UI) sits bottom-center: a steady orange dot, the mode, the latest automatic decision or save, and a Stop button. The explanation is in its tooltip; drag it anywhere.
+- **One dark theme:** Settings, the update notice, the Autopilot pill and its summary share one palette and one set of controls (`UI/Theme.xaml`). Orange means *on* or the main action, a light pill marks the selected option, amber means something needs attention.
+- **Ribbon:** the two toggles (Vortex Switch, Autopilot) are large buttons on a **dark tile when off and Claude orange (#D97757) when on**; their labels change too (*Vortex ON*, *Autopilot ON*). The Vortex Switch icon is the RVT Vortex mark. Settings, Power BI and Report a bug are small stacked buttons on the same dark tile.
+- **Status pill:** while Auto mode or Autopilot is on, a compact dark pill sits bottom-center. Its mark spins while the AI is calling tools; it shows how many edits were approved and declined, the latest event, whether the model is saved, and an amber warning when nothing can happen (another document is active, or the server is off). An arrow opens an activity panel with totals and the last events. Drag it anywhere.
+- **Autopilot summary:** when Autopilot stops, a small window shows how long it ran, the totals and the steps it declined.
+- **Settings:** two tabs (General, Tools). Each setting is a row with its explanation on the left. The server can be started and stopped from here, and the tools list has a search box, an enabled/disabled filter and a per-category switch.
 - **Localization:** UI language now follows the **Windows display language** first (Revit's language and the thread culture are fallbacks). Spanish was added to every existing localized string. The new ribbon labels, confirmation dialogs, Autopilot dialog, floating window and log come in English, Spanish and Italian.
 
-Not localized yet: the Settings window and the Power BI export window keep their original text.
+Not localized yet: the Power BI export window keeps its original text.
 
 ---
 
