@@ -11,14 +11,23 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using RevitCortex.Core.Hosting;
+using RevitCortex.Core.Security;
 using RevitCortex.Plugin.UI;
 
 namespace RevitCortex.Plugin.Commands;
 
 /// <summary>
-/// Collects RevitCortex logs and context into a ZIP on the desktop, then opens a
-/// pre-filled Outlook message addressed to support with the ZIP attached.
-/// Falls back to opening the containing folder if Outlook COM automation is unavailable.
+/// "Report a bug": collects diagnostics into a ZIP, shows it in Explorer and
+/// opens a pre-filled issue on the fork's GitHub repository.
+///
+/// Issues are public, so the ZIP is REDACTED by default (see
+/// <see cref="SupportReportRedactor"/>): no user or machine name, no model
+/// name or path, no tool inputs or script source, no Revit journal. Setting
+/// "SupportReportIncludePrivateData": true in settings.json builds the full
+/// package instead; in that mode no public issue is opened.
+///
+/// The Outlook code further down is the original RevitCortex e-mail flow,
+/// kept for reference and no longer called.
 /// </summary>
 [Transaction(TransactionMode.Manual)]
 public class SendSupportReport : IExternalCommand
@@ -55,16 +64,25 @@ public class SendSupportReport : IExternalCommand
             Directory.CreateDirectory(ReportsFolder);
             RotateOldReports(ReportsFolder, ReadKeepCount());
 
-            var (zipPath, included, skipped) = BuildReportZip(commandData);
+            bool includePrivate = ReadIncludePrivateData();
+            var (zipPath, included, skipped) = BuildReportZip(commandData, includePrivate);
 
             // RVT Vortex: report on the fork's GitHub issues instead of e-mailing
             // the original author. Issues are PUBLIC, so the pre-filled text
-            // carries only versions — no user name, model name or paths.
+            // carries only versions and the ZIP is redacted by default.
             try
             {
                 System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{zipPath}\"");
             }
             catch { /* non critical */ }
+
+            if (includePrivate)
+            {
+                // The user opted into the full package (journal, paths, tool
+                // inputs). Never steer that toward a public issue.
+                TaskDialog.Show(title, Localization.T("support.private_created", zipPath));
+                return Result.Succeeded;
+            }
 
             var issueUrl = BuildIssueUrl(commandData);
             try
@@ -104,6 +122,22 @@ public class SendSupportReport : IExternalCommand
         }
         catch { /* fall through */ }
         return DefaultKeepCount;
+    }
+
+    /// <summary>
+    /// False unless settings.json opts into the full, unredacted package.
+    /// Any read problem means "redact".
+    /// </summary>
+    private static bool ReadIncludePrivateData()
+    {
+        try
+        {
+            string settingsPath = CortexEnvironment.Current.SettingsFilePath;
+            if (!File.Exists(settingsPath)) return false;
+            return SupportReportRedactor.IncludesPrivateData(File.ReadAllText(settingsPath));
+        }
+        catch { /* fall through */ }
+        return false;
     }
 
     private static void RotateOldReports(string folder, int keep)
@@ -179,13 +213,14 @@ public class SendSupportReport : IExternalCommand
     // ── Zip building ────────────────────────────────────────────────────────
 
     private static (string zipPath, List<string> included, List<string> skipped) BuildReportZip(
-        ExternalCommandData commandData)
+        ExternalCommandData commandData, bool includePrivate)
     {
         string rcFolder = CortexEnvironment.Current.RootFolder;
         string reportsDir = ReportsFolder;
         Directory.CreateDirectory(reportsDir);
         string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss-fff");
-        string zipPath = Path.Combine(reportsDir, $"RevitCortex-BugReport-{Environment.UserName}-{stamp}.zip");
+        // No user name in the file name: the ZIP is meant for a public issue.
+        string zipPath = Path.Combine(reportsDir, $"RevitCortex-BugReport-{stamp}.zip");
 
         var included = new List<string>();
         var skipped = new List<string>();
@@ -205,8 +240,19 @@ public class SendSupportReport : IExternalCommand
         using (var fs = new FileStream(zipPath, FileMode.Create))
         using (var zip = new ZipArchive(fs, ZipArchiveMode.Create))
         {
+            if (!includePrivate)
+            {
+                // Default: redacted copies of the audit log and settings, and
+                // nothing else from disk (usage data and the Revit journal
+                // carry user names, paths and model names).
+                AddRedactedAudit(zip, Path.Combine(rcFolder, "audit.jsonl"), included, skipped);
+                AddRedactedSettings(zip, Path.Combine(rcFolder, "settings.json"), included, skipped);
+                skipped.Add("usage data, Revit journal (private data excluded)");
+            }
+
             foreach (var (src, entry, optional) in candidates)
             {
+                if (!includePrivate) break;
                 if (!File.Exists(src))
                 {
                     skipped.Add($"{entry} (non trovato)");
@@ -225,7 +271,7 @@ public class SendSupportReport : IExternalCommand
             }
 
             // Most recent Revit journal (can be large; we cap at 10 MB)
-            var journal = FindLatestJournal();
+            var journal = includePrivate ? FindLatestJournal() : null;
             if (journal != null)
             {
                 try
@@ -250,7 +296,7 @@ public class SendSupportReport : IExternalCommand
             // Context file
             var contextEntry = zip.CreateEntry("context.txt");
             using var writer = new StreamWriter(contextEntry.Open(), Encoding.UTF8);
-            WriteContextFile(writer, commandData);
+            WriteContextFile(writer, commandData, includePrivate);
             included.Add("context.txt");
         }
 
@@ -265,6 +311,62 @@ public class SendSupportReport : IExternalCommand
         using var src = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var dst = entry.Open();
         src.CopyTo(dst);
+    }
+
+    /// <summary>
+    /// Adds audit.jsonl with every entry reduced to tool name, outcome, timing
+    /// and a scrubbed error message (last SupportReportRedactor.MaxAuditLines
+    /// entries). Like the unredacted path, a read failure aborts the report:
+    /// the audit log is the one file a report is useless without.
+    /// </summary>
+    private static void AddRedactedAudit(ZipArchive zip, string source,
+        List<string> included, List<string> skipped)
+    {
+        if (!File.Exists(source))
+        {
+            skipped.Add("audit.jsonl (not found)");
+            return;
+        }
+
+        var entry = zip.CreateEntry("audit.jsonl", CompressionLevel.Optimal);
+        int lines;
+        // FileShare.ReadWrite: the audit logger may be appending concurrently.
+        using (var src = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+        using (var reader = new StreamReader(src, Encoding.UTF8))
+        using (var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false)))
+        {
+            lines = SupportReportRedactor.RedactAudit(reader, writer);
+        }
+        included.Add($"audit.jsonl (redacted, {lines} entries)");
+    }
+
+    /// <summary>Adds settings.json reduced to the allowlisted keys. Optional.</summary>
+    private static void AddRedactedSettings(ZipArchive zip, string source,
+        List<string> included, List<string> skipped)
+    {
+        if (!File.Exists(source))
+        {
+            skipped.Add("settings.json (not found)");
+            return;
+        }
+
+        string redacted;
+        try
+        {
+            redacted = SupportReportRedactor.RedactSettings(File.ReadAllText(source));
+        }
+        catch (Exception ex)
+        {
+            skipped.Add($"settings.json ({ex.GetType().Name})");
+            return;
+        }
+
+        var entry = zip.CreateEntry("settings.json", CompressionLevel.Optimal);
+        using (var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false)))
+        {
+            writer.Write(redacted);
+        }
+        included.Add("settings.json (redacted)");
     }
 
     private static string? FindLatestJournal()
@@ -298,12 +400,21 @@ public class SendSupportReport : IExternalCommand
         }
     }
 
-    private static void WriteContextFile(StreamWriter w, ExternalCommandData commandData)
+    private static void WriteContextFile(StreamWriter w, ExternalCommandData commandData,
+        bool includePrivate)
     {
         w.WriteLine("RVT Vortex diagnostic context");
         w.WriteLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss} (local) / {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC");
-        w.WriteLine($"User:      {Environment.UserName}");
-        w.WriteLine($"Machine:   {Environment.MachineName}");
+        if (includePrivate)
+        {
+            w.WriteLine("Package:   FULL (private data included) - do not post publicly");
+            w.WriteLine($"User:      {Environment.UserName}");
+            w.WriteLine($"Machine:   {Environment.MachineName}");
+        }
+        else
+        {
+            w.WriteLine("Package:   redacted (no user, machine, model name, paths, tool inputs or Revit journal)");
+        }
         w.WriteLine($"OS:        {Environment.OSVersion}");
         w.WriteLine($"Culture:   {System.Globalization.CultureInfo.CurrentUICulture.Name}");
 
@@ -323,8 +434,15 @@ public class SendSupportReport : IExternalCommand
             var doc = commandData.Application.ActiveUIDocument?.Document;
             if (doc != null)
             {
-                w.WriteLine($"Document:  {doc.Title}");
-                w.WriteLine($"Path:      {doc.PathName}");
+                if (includePrivate)
+                {
+                    w.WriteLine($"Document:  {doc.Title}");
+                    w.WriteLine($"Path:      {doc.PathName}");
+                }
+                else
+                {
+                    w.WriteLine("Document:  (open)");
+                }
                 w.WriteLine($"Workshared:{doc.IsWorkshared}");
             }
             else
@@ -341,7 +459,10 @@ public class SendSupportReport : IExternalCommand
         var pluginVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
         // Machine-readable key (used by rclog to match known-issues with reporter_version_max).
         w.WriteLine($"plugin_version: {pluginVersion}");
-        w.WriteLine("Plugin assembly: " + System.Reflection.Assembly.GetExecutingAssembly().Location);
+        // Install and config locations sit under the user's profile, so they
+        // name the Windows account: full package only.
+        if (includePrivate)
+            w.WriteLine("Plugin assembly: " + System.Reflection.Assembly.GetExecutingAssembly().Location);
 
         // MCP / configuration (Phase 0 trust-cleanup acceptance criterion: the
         // support report must identify the active MCP server, plugin version,
@@ -353,8 +474,11 @@ public class SendSupportReport : IExternalCommand
         {
             var env = CortexEnvironment.Current;
             w.WriteLine($"Profile:        {env.ProfileName}{(env.IsDev ? " (DEV build)" : "")}");
-            w.WriteLine($"Config folder:  {env.RootFolder}");
-            w.WriteLine($"Settings file:  {env.SettingsFilePath}");
+            if (includePrivate)
+            {
+                w.WriteLine($"Config folder:  {env.RootFolder}");
+                w.WriteLine($"Settings file:  {env.SettingsFilePath}");
+            }
             w.WriteLine($"Bridge port:    {env.DefaultPort}");
         }
         catch (Exception ex)
@@ -382,8 +506,8 @@ public class SendSupportReport : IExternalCommand
             $"- {ForkInfo.ProductName}: {plugin}\n" +
             $"- Revit: {revit}\n\n" +
             "**Diagnostic ZIP**\nDrag the ZIP that just opened in Explorer into this box. " +
-            "Issues are public: open the ZIP first and remove anything you don't want to share " +
-            "(model names, paths, your user name).";
+            "It leaves out your user name, machine name, model names, file paths, tool inputs " +
+            "and the Revit journal. Issues are public, so still take a look inside before attaching it.";
 
         return ForkInfo.NewIssueUrl +
                "?title=" + Uri.EscapeDataString("Bug report: ") +

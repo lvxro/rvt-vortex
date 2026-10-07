@@ -428,9 +428,15 @@ internal static class Localization
 
         ["support.issue_opened"] = new()
         {
-            ["en"] = "The diagnostic package was created here:\n\n{0}\n\nA new issue page has opened in your browser ({1}). Describe the problem and drag the ZIP into it. Issues are public: check the ZIP first and remove anything you don't want to share.",
-            ["es"] = "El paquete de diagnóstico se creó aquí:\n\n{0}\n\nSe abrió en el navegador la página para crear un reporte ({1}). Describa el problema y arrastre el ZIP. Los reportes son públicos: revise el ZIP antes y quite lo que no quiera compartir.",
-            ["it"] = "Il pacchetto diagnostico è stato creato qui:\n\n{0}\n\nNel browser si è aperta la pagina per segnalare il problema ({1}). Descrivi il problema e trascina lo ZIP. Le segnalazioni sono pubbliche: controlla lo ZIP e rimuovi ciò che non vuoi condividere.",
+            ["en"] = "The diagnostic package was created here:\n\n{0}\n\nA new issue page has opened in your browser ({1}). Describe the problem and drag the ZIP into it.\n\nThe ZIP leaves out your user name, machine name, model names, file paths, tool inputs and the Revit journal. Issues are public, so still take a look inside before attaching it.",
+            ["es"] = "El paquete de diagnóstico se creó aquí:\n\n{0}\n\nSe abrió en el navegador la página para crear un reporte ({1}). Describa el problema y arrastre el ZIP.\n\nEl ZIP no incluye su nombre de usuario, el nombre del equipo, nombres de modelos, rutas de archivos, los datos enviados a las herramientas ni el journal de Revit. Los reportes son públicos, así que igual conviene revisarlo antes de adjuntarlo.",
+            ["it"] = "Il pacchetto diagnostico è stato creato qui:\n\n{0}\n\nNel browser si è aperta la pagina per segnalare il problema ({1}). Descrivi il problema e trascina lo ZIP.\n\nLo ZIP non contiene il tuo nome utente, il nome del computer, i nomi dei modelli, i percorsi dei file, i dati passati agli strumenti né il journal di Revit. Le segnalazioni sono pubbliche: conviene comunque controllarlo prima di allegarlo.",
+        },
+        ["support.private_created"] = new()
+        {
+            ["en"] = "The FULL diagnostic package was created here:\n\n{0}\n\nIt includes private data (user and machine name, model names and paths, tool inputs, the Revit journal) because \"SupportReportIncludePrivateData\" is on in settings.json. Do not attach it to a public issue: send it privately.",
+            ["es"] = "El paquete de diagnóstico COMPLETO se creó aquí:\n\n{0}\n\nIncluye datos privados (usuario y equipo, nombres y rutas de modelos, datos enviados a las herramientas, el journal de Revit) porque \"SupportReportIncludePrivateData\" está activado en settings.json. No lo adjunte a un reporte público: envíelo en privado.",
+            ["it"] = "Il pacchetto diagnostico COMPLETO è stato creato qui:\n\n{0}\n\nContiene dati privati (utente e computer, nomi e percorsi dei modelli, dati passati agli strumenti, il journal di Revit) perché \"SupportReportIncludePrivateData\" è attivo in settings.json. Non allegarlo a una segnalazione pubblica: invialo in privato.",
         },
         // ── Fork: ribbon, dialogs and Autopilot (en / es / it) ─────────
         ["ribbon.connect.tooltip_off"] = new()
