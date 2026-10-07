@@ -31,6 +31,96 @@ public class UiPreviewTests
     private static readonly string? Language = Environment.GetEnvironmentVariable("UI_PREVIEW_LANG");
     private static bool Capturing => !string.IsNullOrWhiteSpace(OutputDir);
 
+    // The sample model and the sample events are written in Spanish. With
+    // UI_PREVIEW_LANG=en they come out in English, so a picture never mixes
+    // two languages. A text that is not listed here stays as it is.
+    private static readonly Dictionary<string, string> SampleEnglish = new()
+    {
+        ["Mediciones"] = "Quantities",
+        ["Tablas para el panel"] = "Schedules for the dashboard",
+        ["Torre Norte.csv"] = "North Tower.csv",
+        ["Torre Norte.rvt"] = "North Tower.rvt",
+        ["Nivel 1"] = "Level 1",
+        ["Nivel 2"] = "Level 2",
+        ["Nivel 3"] = "Level 3",
+        ["Nivel"] = "Level",
+        ["Marca"] = "Mark",
+        ["Área"] = "Area",
+        ["Volumen"] = "Volume",
+        ["Nombre de tipo"] = "Type Name",
+        ["Comentarios"] = "Comments",
+        ["Desfase de base"] = "Base Offset",
+        ["Fase de creación"] = "Phase Created",
+        ["Fase de derribo"] = "Phase Demolished",
+        ["Longitud"] = "Length",
+        ["Restricción de base"] = "Base Constraint",
+        ["Descripción"] = "Description",
+        ["Función"] = "Function",
+        ["Marca de tipo"] = "Type Mark",
+        ["Cotas"] = "Dimensions",
+        ["Datos de identidad"] = "Identity Data",
+        ["Restricciones"] = "Constraints",
+        ["Proceso por fases"] = "Phasing",
+        ["Construcción"] = "Construction",
+        ["18,40 m²"] = "18.40 m²",
+        ["22,75 m²"] = "22.75 m²",
+        ["31,20 m²"] = "31.20 m²",
+        ["12,05 m²"] = "12.05 m²",
+        ["3,68 m³"] = "3.68 m³",
+        ["4,55 m³"] = "4.55 m³",
+        ["2,76 m³"] = "2.76 m³",
+        ["6,24 m³"] = "6.24 m³",
+        ["1,81 m³"] = "1.81 m³",
+        ["Genérico - 200 mm"] = "Generic - 200mm",
+        ["Ladrillo - 150 mm"] = "Brick - 150mm",
+        ["Armazón estructural"] = "Structural Framing",
+        ["Cubiertas"] = "Roofs",
+        ["Escaleras"] = "Stairs",
+        ["Habitaciones"] = "Rooms",
+        ["Mobiliario"] = "Furniture",
+        ["Muros"] = "Walls",
+        ["Pilares estructurales"] = "Structural Columns",
+        ["Puertas"] = "Doors",
+        ["Suelos"] = "Floors",
+        ["Techos"] = "Ceilings",
+        ["Ventanas"] = "Windows",
+        ["Etiquetas de habitación"] = "Room Tags",
+        ["Notas de texto"] = "Text Notes",
+        ["Lista de planos"] = "Sheet List",
+        ["Tabla de planificación de habitaciones"] = "Room Schedule",
+        ["Tabla de planificación de mobiliario"] = "Furniture Schedule",
+        ["Tabla de planificación de muros"] = "Wall Schedule",
+        ["Tabla de planificación de puertas"] = "Door Schedule",
+        ["Tabla de planificación de ventanas"] = "Window Schedule",
+        ["Anchura"] = "Width",
+        ["Altura"] = "Height",
+        ["Recuento"] = "Count",
+        ["Muro básico"] = "Basic Wall",
+        ["Número"] = "Number",
+        ["Nombre"] = "Name",
+        ["Vestíbulo"] = "Lobby",
+        ["Recepción"] = "Reception",
+        ["Sala de reuniones"] = "Meeting Room",
+        ["Oficina abierta"] = "Open Office",
+        ["Archivo"] = "Archive",
+        ["42,10 m²"] = "42.10 m²",
+        ["18,65 m²"] = "18.65 m²",
+        ["24,30 m²"] = "24.30 m²",
+        ["96,80 m²"] = "96.80 m²",
+        ["11,45 m²"] = "11.45 m²",
+        ["Aprobado: modificar parámetros (48)"] = "Approved: modify parameters (48)",
+        ["Aprobado: renombrar (12)"] = "Approved: rename (12)",
+        ["Rechazado: ejecutar script C# (1)"] = "Declined: run C# script (1)",
+        ["Rechazado: eliminar elementos (6)"] = "Declined: delete elements (6)",
+        ["Modelo guardado"] = "Model saved",
+        ["Aviso de Revit cerrado con Cancelar"] = "Revit dialog closed with Cancel",
+        [@"C:\Proyectos\Torre Norte\Power BI"] = @"C:\Projects\North Tower\Power BI",
+    };
+
+    private static string Tr(string spanish)
+        => string.Equals(Language, "en", StringComparison.OrdinalIgnoreCase)
+           && SampleEnglish.TryGetValue(spanish, out var english) ? english : spanish;
+
     // A neutral mid-grey behind the floating (transparent) windows, about what
     // a Revit view looks like behind them, so their shadows are visible.
     private static readonly Color Backdrop = Color.FromRgb(0x6B, 0x72, 0x7C);
@@ -214,9 +304,9 @@ public class UiPreviewTests
     {
         var saved = Now.AddMinutes(-5);
         var approved = new AutopilotEvent(Now.AddMinutes(-2), AutopilotEventKind.Approved,
-            "Aprobado: modificar parámetros (48)");
+            Tr("Aprobado: modificar parámetros (48)"));
         var declined = new AutopilotEvent(Now.AddMinutes(-1), AutopilotEventKind.Declined,
-            "Rechazado: ejecutar script C# (1)");
+            Tr("Rechazado: ejecutar script C# (1)"));
 
         var states = new (bool Autopilot, AutopilotPillState State)[]
         {
@@ -276,11 +366,11 @@ public class UiPreviewTests
     {
         var events = new[]
         {
-            new AutopilotEvent(Now.AddMinutes(-6), AutopilotEventKind.Approved, "Aprobado: renombrar (12)"),
-            new AutopilotEvent(Now.AddMinutes(-5), AutopilotEventKind.Saved, "Modelo guardado"),
-            new AutopilotEvent(Now.AddMinutes(-4), AutopilotEventKind.DialogClosed, "Aviso de Revit cerrado con Cancelar"),
-            new AutopilotEvent(Now.AddMinutes(-2), AutopilotEventKind.Approved, "Aprobado: modificar parámetros (48)"),
-            new AutopilotEvent(Now.AddMinutes(-1), AutopilotEventKind.Declined, "Rechazado: ejecutar script C# (1)"),
+            new AutopilotEvent(Now.AddMinutes(-6), AutopilotEventKind.Approved, Tr("Aprobado: renombrar (12)")),
+            new AutopilotEvent(Now.AddMinutes(-5), AutopilotEventKind.Saved, Tr("Modelo guardado")),
+            new AutopilotEvent(Now.AddMinutes(-4), AutopilotEventKind.DialogClosed, Tr("Aviso de Revit cerrado con Cancelar")),
+            new AutopilotEvent(Now.AddMinutes(-2), AutopilotEventKind.Approved, Tr("Aprobado: modificar parámetros (48)")),
+            new AutopilotEvent(Now.AddMinutes(-1), AutopilotEventKind.Declined, Tr("Rechazado: ejecutar script C# (1)")),
         };
         var state = new AutopilotPillState
         {
@@ -301,8 +391,8 @@ public class UiPreviewTests
     {
         var declined = new[]
         {
-            new AutopilotEvent(Now.AddMinutes(-38), AutopilotEventKind.Declined, "Rechazado: ejecutar script C# (1)"),
-            new AutopilotEvent(Now.AddMinutes(-16), AutopilotEventKind.Declined, "Rechazado: eliminar elementos (6)"),
+            new AutopilotEvent(Now.AddMinutes(-38), AutopilotEventKind.Declined, Tr("Rechazado: ejecutar script C# (1)")),
+            new AutopilotEvent(Now.AddMinutes(-16), AutopilotEventKind.Declined, Tr("Rechazado: eliminar elementos (6)")),
         };
         var withPending = new AutopilotSnapshot(Now.AddMinutes(-72), 31, 2, 3, Now.AddMinutes(-2),
             Now, Now, Array.Empty<AutopilotEvent>(), declined);
@@ -396,70 +486,73 @@ public class UiPreviewTests
 
     private static PowerBiExportProfile SampleExport() => new PowerBiExportProfile
     {
-        Name = "Mediciones",
+        Name = Tr("Mediciones"),
         Categories = { "OST_Walls", "OST_Floors", "OST_Doors", "OST_Rooms" },
-        InstanceParameters = { "Nivel", "Marca", "Área", "Volumen" },
-        TypeParameters = { "Nombre de tipo" },
+        InstanceParameters = { Tr("Nivel"), Tr("Marca"), Tr("Área"), Tr("Volumen") },
+        TypeParameters = { Tr("Nombre de tipo") },
         IncludeTypeParameters = true,
-        OutputFolder = @"C:\Proyectos\Torre Norte\Power BI",
-        FileName = "Torre Norte.csv",
+        OutputFolder = Tr(@"C:\Proyectos\Torre Norte\Power BI"),
+        FileName = Tr("Torre Norte.csv"),
         LastUsed = Now.AddHours(-3).ToUniversalTime(),
     };
 
     private static PowerBiExportProfile SampleScheduleExport() => new PowerBiExportProfile
     {
-        Name = "Tablas para el panel",
+        Name = Tr("Tablas para el panel"),
         UseSchedules = true,
         ScheduleIds = { 502, 505 },
-        OutputFolder = @"C:\Proyectos\Torre Norte\Power BI",
+        OutputFolder = Tr(@"C:\Proyectos\Torre Norte\Power BI"),
     };
 
-    /// <summary>A small model in Spanish, in place of Revit.</summary>
+    /// <summary>A small model in place of Revit, in Spanish or (UI_PREVIEW_LANG=en) in English.</summary>
     private sealed class SamplePowerBiSource : IPowerBiExportSource
     {
-        private static readonly string[] Levels = { "Nivel 1", "Nivel 1", "Nivel 2", "Nivel 2", "Nivel 3" };
+        private static readonly string[] Levels = { Tr("Nivel 1"), Tr("Nivel 1"), Tr("Nivel 2"), Tr("Nivel 2"), Tr("Nivel 3") };
 
         private static readonly Dictionary<string, string[]> Values = new()
         {
-            ["Nivel"] = Levels,
-            ["Marca"] = new[] { "M-101", "M-102", "M-201", "M-202", "M-301" },
-            ["Área"] = new[] { "18,40 m²", "22,75 m²", "18,40 m²", "31,20 m²", "12,05 m²" },
-            ["Volumen"] = new[] { "3,68 m³", "4,55 m³", "2,76 m³", "6,24 m³", "1,81 m³" },
-            ["Nombre de tipo"] = new[]
+            [Tr("Nivel")] = Levels,
+            [Tr("Marca")] = new[] { "M-101", "M-102", "M-201", "M-202", "M-301" },
+            [Tr("Área")] = new[] { Tr("18,40 m²"), Tr("22,75 m²"), Tr("18,40 m²"), Tr("31,20 m²"), Tr("12,05 m²") },
+            [Tr("Volumen")] = new[] { Tr("3,68 m³"), Tr("4,55 m³"), Tr("2,76 m³"), Tr("6,24 m³"), Tr("1,81 m³") },
+            [Tr("Nombre de tipo")] = new[]
             {
-                "Genérico - 200 mm", "Genérico - 200 mm", "Ladrillo - 150 mm", "Genérico - 200 mm", "Ladrillo - 150 mm",
+                Tr("Genérico - 200 mm"), Tr("Genérico - 200 mm"), Tr("Ladrillo - 150 mm"), Tr("Genérico - 200 mm"), Tr("Ladrillo - 150 mm"),
             },
         };
 
-        public string DocumentTitle => "Torre Norte.rvt";
+        // Revit lists names alphabetically, in whichever language they are in.
+        private static readonly StringComparer ByName = StringComparer.InvariantCultureIgnoreCase;
+
+        public string DocumentTitle => Tr("Torre Norte.rvt");
 
         public List<CategoryInfo> DiscoverCategories() => new List<CategoryInfo>
         {
-            Category("OST_StructuralFraming", "Armazón estructural", 210),
-            Category("OST_Roofs", "Cubiertas", 6),
-            Category("OST_Stairs", "Escaleras", 8),
-            Category("OST_Rooms", "Habitaciones", 57),
-            Category("OST_Furniture", "Mobiliario", 233),
-            Category("OST_Walls", "Muros", 412),
-            Category("OST_StructuralColumns", "Pilares estructurales", 64),
-            Category("OST_Doors", "Puertas", 126),
-            Category("OST_Floors", "Suelos", 38),
-            Category("OST_Ceilings", "Techos", 41),
-            Category("OST_Windows", "Ventanas", 94),
-            Category("OST_Dimensions", "Cotas", 1830, "Annotation"),
-            Category("OST_RoomTags", "Etiquetas de habitación", 57, "Annotation"),
-            Category("OST_TextNotes", "Notas de texto", 112, "Annotation"),
-        };
+            Category("OST_StructuralFraming", Tr("Armazón estructural"), 210),
+            Category("OST_Roofs", Tr("Cubiertas"), 6),
+            Category("OST_Stairs", Tr("Escaleras"), 8),
+            Category("OST_Rooms", Tr("Habitaciones"), 57),
+            Category("OST_Furniture", Tr("Mobiliario"), 233),
+            Category("OST_Walls", Tr("Muros"), 412),
+            Category("OST_StructuralColumns", Tr("Pilares estructurales"), 64),
+            Category("OST_Doors", Tr("Puertas"), 126),
+            Category("OST_Floors", Tr("Suelos"), 38),
+            Category("OST_Ceilings", Tr("Techos"), 41),
+            Category("OST_Windows", Tr("Ventanas"), 94),
+            Category("OST_Dimensions", Tr("Cotas"), 1830, "Annotation"),
+            Category("OST_RoomTags", Tr("Etiquetas de habitación"), 57, "Annotation"),
+            Category("OST_TextNotes", Tr("Notas de texto"), 112, "Annotation"),
+        }.OrderBy(c => c.DisplayName, ByName).ToList();
 
         public List<ScheduleInfo> DiscoverSchedules() => new List<ScheduleInfo>
         {
-            Schedule(501, "Lista de planos", "", 24),
-            Schedule(502, "Tabla de planificación de habitaciones", "Habitaciones", 57),
-            Schedule(503, "Tabla de planificación de mobiliario", "Mobiliario", 233),
-            Schedule(504, "Tabla de planificación de muros", "Muros", 38),
-            Schedule(505, "Tabla de planificación de puertas", "Puertas", 126),
-            Schedule(506, "Tabla de planificación de ventanas", "Ventanas", 94),
-        };
+            Schedule(501, Tr("Lista de planos"), "", 24),
+            Schedule(502, Tr("Tabla de planificación de habitaciones"), Tr("Habitaciones"), 57),
+            Schedule(503, Tr("Tabla de planificación de mobiliario"), Tr("Mobiliario"), 233),
+            Schedule(504, Tr("Tabla de planificación de muros"), Tr("Muros"), 38),
+            Schedule(505, Tr("Tabla de planificación de puertas"), Tr("Puertas"), 126),
+            Schedule(506, Tr("Tabla de planificación de ventanas"), Tr("Ventanas"), 94),
+        }.OrderBy(s => s.Name, ByName).ToList();
 
         public PowerBiScopeFilter ReadScope(PowerBiScope scope, IEnumerable<string> categoryOstCodes)
         {
@@ -472,35 +565,35 @@ public class UiPreviewTests
         {
             var parameters = new List<PbiParameterInfo>
             {
-                Parameter("Área", "Cotas", 96, readOnly: true),
-                Parameter("Comentarios", "Datos de identidad", 12),
-                Parameter("Desfase de base", "Restricciones", 65),
-                Parameter("Fase de creación", "Proceso por fases", 100),
-                Parameter("Fase de derribo", "Proceso por fases", 0),
-                Parameter("Longitud", "Cotas", 65, readOnly: true),
-                Parameter("Marca", "Datos de identidad", 71),
-                Parameter("Nivel", "Restricciones", 100),
-                Parameter("Restricción de base", "Restricciones", 65),
-                Parameter("Volumen", "Cotas", 71, readOnly: true),
-            };
+                Parameter(Tr("Área"), Tr("Cotas"), 96, readOnly: true),
+                Parameter(Tr("Comentarios"), Tr("Datos de identidad"), 12),
+                Parameter(Tr("Desfase de base"), Tr("Restricciones"), 65),
+                Parameter(Tr("Fase de creación"), Tr("Proceso por fases"), 100),
+                Parameter(Tr("Fase de derribo"), Tr("Proceso por fases"), 0),
+                Parameter(Tr("Longitud"), Tr("Cotas"), 65, readOnly: true),
+                Parameter(Tr("Marca"), Tr("Datos de identidad"), 71),
+                Parameter(Tr("Nivel"), Tr("Restricciones"), 100),
+                Parameter(Tr("Restricción de base"), Tr("Restricciones"), 65),
+                Parameter(Tr("Volumen"), Tr("Cotas"), 71, readOnly: true),
+            }.OrderBy(p => p.Name, ByName).ToList();
             if (includeTypeParameters)
             {
-                parameters.Add(Parameter("Descripción", "Datos de identidad", 34, type: true));
-                parameters.Add(Parameter("Función", "Construcción", 65, type: true));
-                parameters.Add(Parameter("Marca de tipo", "Datos de identidad", 48, type: true));
-                parameters.Add(Parameter("Nombre de tipo", "Datos de identidad", 100, type: true));
+                parameters.Add(Parameter(Tr("Descripción"), Tr("Datos de identidad"), 34, type: true));
+                parameters.Add(Parameter(Tr("Función"), Tr("Construcción"), 65, type: true));
+                parameters.Add(Parameter(Tr("Marca de tipo"), Tr("Datos de identidad"), 48, type: true));
+                parameters.Add(Parameter(Tr("Nombre de tipo"), Tr("Datos de identidad"), 100, type: true));
             }
             return parameters;
         }
 
         public List<ScheduleFieldInfo>? GetScheduleFields(long scheduleId) => new List<ScheduleFieldInfo>
         {
-            new ScheduleFieldInfo { Header = "Marca" },
-            new ScheduleFieldInfo { Header = "Nivel" },
-            new ScheduleFieldInfo { Header = "Anchura", Scope = "Type" },
-            new ScheduleFieldInfo { Header = "Altura", Scope = "Type" },
-            new ScheduleFieldInfo { Header = "Nombre de tipo", Scope = "Type" },
-            new ScheduleFieldInfo { Header = "Recuento", IsReadOnly = true },
+            new ScheduleFieldInfo { Header = Tr("Marca") },
+            new ScheduleFieldInfo { Header = Tr("Nivel") },
+            new ScheduleFieldInfo { Header = Tr("Anchura"), Scope = "Type" },
+            new ScheduleFieldInfo { Header = Tr("Altura"), Scope = "Type" },
+            new ScheduleFieldInfo { Header = Tr("Nombre de tipo"), Scope = "Type" },
+            new ScheduleFieldInfo { Header = Tr("Recuento"), IsReadOnly = true },
         };
 
         public PowerBiPreview PreviewElements(PowerBiScope scope, IList<string> categoryOstCodes,
@@ -512,7 +605,7 @@ public class UiPreviewTests
             {
                 var row = new List<string>
                 {
-                    (348112 + r * 37).ToString(), "Muros", "Muro básico", Values["Nombre de tipo"][r],
+                    (348112 + r * 37).ToString(), Tr("Muros"), Tr("Muro básico"), Values[Tr("Nombre de tipo")][r],
                 };
                 row.AddRange(names.Select(n => Values.TryGetValue(n, out var cells) ? cells[r] : ""));
                 preview.Rows.Add(row.ToArray());
@@ -522,14 +615,14 @@ public class UiPreviewTests
 
         public PowerBiPreview PreviewSchedule(long scheduleId, int take) => new PowerBiPreview
         {
-            Headers = { "Número", "Nombre", "Nivel", "Área" },
+            Headers = { Tr("Número"), Tr("Nombre"), Tr("Nivel"), Tr("Área") },
             Rows =
             {
-                new[] { "101", "Vestíbulo", "Nivel 1", "42,10 m²" },
-                new[] { "102", "Recepción", "Nivel 1", "18,65 m²" },
-                new[] { "103", "Sala de reuniones", "Nivel 1", "24,30 m²" },
-                new[] { "201", "Oficina abierta", "Nivel 2", "96,80 m²" },
-                new[] { "202", "Archivo", "Nivel 2", "11,45 m²" },
+                new[] { "101", Tr("Vestíbulo"), Tr("Nivel 1"), Tr("42,10 m²") },
+                new[] { "102", Tr("Recepción"), Tr("Nivel 1"), Tr("18,65 m²") },
+                new[] { "103", Tr("Sala de reuniones"), Tr("Nivel 1"), Tr("24,30 m²") },
+                new[] { "201", Tr("Oficina abierta"), Tr("Nivel 2"), Tr("96,80 m²") },
+                new[] { "202", Tr("Archivo"), Tr("Nivel 2"), Tr("11,45 m²") },
             },
             TotalRows = 57,
         };

@@ -6,7 +6,7 @@
 2. **Revit 2027 install fix** — with the original installers the plugin does not load in Revit 2027.
 3. **Interface refresh and localization** — a consistent ribbon with on/off states, and UI text that follows the Windows display language (English, Spanish, Italian).
 4. **AI guidance refresh** — fixes guidance that had drifted from the code and makes the usage rules reach every MCP client.
-5. **No license gate** — fully open source: no Premium license, trial or activation.
+5. **No licensing, no telemetry** — no Premium branding, License window or activation, and nothing is sent to anyone.
 
 License: MIT, same as the original.
 
@@ -125,9 +125,13 @@ Fixed in `CLAUDE.md`, `AGENTS.md`, `WORKFLOWS.md` and the `ai-skills` tool-selec
 
 ---
 
-## 5. No license gate
+## 5. No licensing, no telemetry
 
-Upstream ships a "RevitCortex Premium" license with a trial; without a valid license, every tool that edits the model is blocked, and activation keys come from the original author's service. RVT Vortex is plain open source: the license gate is never initialized (the router treats a missing gate as "allow everything"), the License & Account button is gone from the ribbon, and "Premium" no longer appears in the UI. The licensing code stays in the tree, unused, so upstream's tests keep compiling.
+Upstream is MIT too, but it presents itself as "RevitCortex Premium" (ribbon panel, window titles), has a License & Account window, and carries the code for a paid license: trial, grace and expired states, a lock to one machine (a fingerprint of the Windows machine ID), and a gate in the router that puts every editing tool in read-only mode when the license is expired or invalid.
+
+**That gate is not enforced in upstream's released builds.** `LicenseBootstrap.Init` builds the real gate only in Debug configurations; in Release it leaves the gate null ("real enforcement later"), and the router treats a null gate as "allow everything". So RevitCortex does not block edits today: the plumbing is in place for when its author turns it on.
+
+RVT Vortex takes the plumbing out of the path: `LicenseBootstrap.Init` is never called and the router always gets a null gate, the License & Account button is gone from the ribbon, and "Premium" no longer appears in the interface. The licensing code stays in the tree, unused, so upstream's tests keep compiling.
 
 The update notification (previously Italian-only) now follows the Windows language.
 
@@ -163,7 +167,7 @@ With Revit closed, run **`INSTALL.bat`**. It will:
 3. Back up the current installation to the Desktop.
 4. Build and install with `deploy.ps1`.
 
-The installer's messages follow the Windows language (English or Spanish). To build by hand, see "Building from Source" in the [original README](docs/REVITCORTEX_README.md#building-from-source).
+This is the build-from-source installer; the release ZIP has its own (`distribution/install.bat`, see section 3). Its messages follow the Windows language (English or Spanish). To build by hand, see "Building from Source" in the [original README](docs/REVITCORTEX_README.md#building-from-source).
 
 ## Status
 
