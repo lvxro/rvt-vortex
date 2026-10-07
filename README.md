@@ -290,7 +290,7 @@ In Revit, click **Vortex Switch** (it turns orange), then ask your AI client:
 
 > *Check this model's health and list the five most common warnings.*
 
-**Updating** is one click from the notice inside Revit. **Uninstalling**: right-click `uninstall.ps1` in the unzipped folder and choose *Run with PowerShell*.
+**Updating** takes two clicks from the notice inside Revit. **Uninstalling**: right-click `uninstall.ps1` in the unzipped folder and choose *Run with PowerShell*.
 
 ## What the AI can do
 
