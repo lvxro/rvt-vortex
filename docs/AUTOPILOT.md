@@ -31,7 +31,22 @@ Clicking **Autopilot** asks for confirmation once. Until you turn it off:
 | The document is closed | Autopilot turns off |
 | Another document is opened | Stops auto-approving: from then on anything that needs a confirmation is declined, so a model you didn't pick is never edited |
 
-To turn it off, click **Autopilot** again (it reads *Autopilot ON* while active) or click **Stop** in the small status pill at the bottom of the screen (drag it anywhere). The pill also shows the last automatic decision or save; hover it for a short explanation.
+To turn it off, click **Autopilot** again (it reads *Autopilot ON* while active) or click **Stop** in the small status pill at the bottom of the screen (drag it anywhere).
+
+### The status pill
+
+While Autopilot is on, the pill shows at a glance how things are going:
+
+- The mark on the left **spins while the AI is calling tools** and rests when it is idle.
+- **C#** appears when you allowed scripts for this session.
+- **✓ 12** is how many edits were approved without you. **✕ 1** (amber) is how many steps were declined and are waiting for you.
+- The text is the latest thing that happened, with its time.
+- **Saved 14:32** is the last automatic save. **Unsaved** (amber) means changes are waiting for Revit to be idle.
+- An amber warning replaces all of that when nothing can happen: *Another document is active: approvals paused*, or *Server off: the AI cannot connect* (with a **Start** button).
+
+Click the **arrow** to open the activity panel: how long Autopilot has been on, the totals, the last five events and a link to the full log.
+
+When Autopilot stops, a **summary** shows how long it ran, the totals and the steps it declined, so you know what is left to confirm. It appears only if something happened.
 
 ### Before you tick "Also allow C# scripts"
 
