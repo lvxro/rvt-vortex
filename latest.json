@@ -1,6 +1,6 @@
 {
-  "version": "1.1.3",
-  "downloadUrl": "https://github.com/lvxro/rvt-vortex/releases/download/v1.1.3/RVT-Vortex-v1.1.3.zip",
-  "sha256": "37F1BC09B4CBC73B4C9197640718906012FB5C14D3E66576E584FB473188DF78",
-  "changelog": "  - \"Report a bug\" no longer includes your user name, machine, model names, paths or the Revit journal.\n  - Error telemetry is off: nothing is sent, and Revit no longer asks about it.\n  - The docs no longer describe the C# script filter as a sandbox."
+  "version": "1.2.0",
+  "downloadUrl": "https://github.com/lvxro/rvt-vortex/releases/download/v1.2.0/RVT-Vortex-v1.2.0.zip",
+  "sha256": "F4EB1AA4AB2A1148920BEFFF25013129D96A1E5A74B6183A41BC9FCC1B8FBCE8",
+  "changelog": "  - New dark interface: Settings, the update notice, the Autopilot pill and the Power BI export share one theme.\n  - Power BI export rebuilt in two steps, with a preview and columns in the order you choose.\n  - The Autopilot pill shows what was approved, declined and saved, and a summary appears when it stops.\n  - New installer: a spinning vortex, six checked steps and a summary. Updates close by themselves."
 }
