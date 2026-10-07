@@ -5,6 +5,7 @@
 #              change that breaks any Revit version (2023-2027) or the MCP
 #              server is caught here instead of at release time. The result
 #              is kept as a run artifact: a test installer for that change
+#              The package is also installed and uninstalled on the runner.
 #
 # Nothing is published from this workflow.
 name: CI
@@ -40,6 +41,20 @@ jobs:
         shell: pwsh
         run: dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --nologo
 
+      # The installer's console look and texts, and a syntax check of the
+      # installer scripts, under the engine install.bat and the in-app updater
+      # use: Windows PowerShell 5.1 (not pwsh).
+      - name: Installer script tests
+        shell: powershell
+        run: |
+          $out = powershell -NoProfile -ExecutionPolicy Bypass -File distribution/tests/VortexUi.Tests.ps1 2>&1
+          $code = $LASTEXITCODE
+          $out | ForEach-Object { Write-Host $_ }
+          if ($code -ne 0) {
+            $out | Where-Object { "$_" -match 'FAIL' } | ForEach-Object { Write-Host "::error title=Installer script tests::$_" }
+            exit 1
+          }
+
   package:
     name: Build all Revit versions
     runs-on: windows-latest
@@ -74,6 +89,14 @@ jobs:
       - name: Build release ZIP (not published)
         shell: pwsh
         run: ./build-release.ps1 -Version 0.0.0
+
+      # Installs from that folder the way the in-app updater does, then as a
+      # person would, then uninstalls, and checks what landed where. The
+      # runner has no Revit: see the script for what stands in for it.
+      - name: Install, update and uninstall from the package
+        shell: powershell
+        timeout-minutes: 15
+        run: ./.github/scripts/test-installer.ps1 -Package release
 
       # The same folder a release ZIP contains (install.bat and all), kept for
       # two weeks so a change can be tried in Revit before it is released.
