@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Automation;
 using RevitCortex.Plugin.UI;
+// System.Windows has a Localization class too.
+using Localization = RevitCortex.Plugin.UI.Localization;
 
 namespace RevitCortex.Plugin.PowerBi;
 

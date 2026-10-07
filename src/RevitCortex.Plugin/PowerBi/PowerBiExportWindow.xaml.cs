@@ -12,6 +12,8 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using RevitCortex.Plugin.UI;
+// System.Windows has a Localization class too.
+using Localization = RevitCortex.Plugin.UI.Localization;
 
 namespace RevitCortex.Plugin.PowerBi;
 
