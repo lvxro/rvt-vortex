@@ -1,1029 +1,930 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
-using Autodesk.Revit.DB;
-using Autodesk.Revit.UI;
 using Microsoft.Win32;
-using Newtonsoft.Json.Linq;
+using RevitCortex.Plugin.UI;
+// System.Windows has a Localization class too.
+using Localization = RevitCortex.Plugin.UI.Localization;
 
 namespace RevitCortex.Plugin.PowerBi;
 
 /// <summary>
-/// Three-step wizard for configuring a Power BI export. Inspired by SheetLink's
-/// dual-pane parameter selection but with extra features SheetLink lacks:
-/// per-parameter coverage %, group filter, scope toggle (whole/view/selection)
-/// honoured at export time, profile import from network folder.
+/// Power BI export, in two steps: what to export (step 1), then where it goes
+/// and how it stays up to date (step 2).
+///
+/// The window is a view. Everything it needs from Revit comes through
+/// <see cref="IPowerBiExportSource"/>, so it can be built without Revit: the
+/// UI preview tests give it sample data. Do not reference the Revit API or
+/// RevitCortexApp from this file.
 /// </summary>
 public partial class PowerBiExportWindow : Window
 {
-    private readonly Document _doc;
-    private readonly ParameterDiscoveryService _discovery = new();
-
-    // Step 1
-    private readonly ObservableCollection<CategoryRow> _allCategories = new();
-    private readonly ObservableCollection<CategoryRow> _filteredModelCategories = new();
-    private readonly ObservableCollection<CategoryRow> _filteredAnnotationCategories = new();
-    private readonly ObservableCollection<CategoryRow> _filteredAnalyticalCategories = new();
-    private readonly ObservableCollection<CategoryRow> _filteredOtherCategories = new();
-    private readonly ObservableCollection<ScheduleRow> _allSchedules = new();
-    private readonly ObservableCollection<ScheduleRow> _filteredSchedules = new();
-    private readonly ObservableCollection<ScheduleFieldRow> _scheduleFields = new();
-
-    // Step 2 — dual-pane
-    private readonly List<ParameterRow> _allParameters = new();           // master list
-    private readonly ObservableCollection<ParameterRow> _availableParams = new();
-    private readonly ObservableCollection<ParameterRow> _selectedParams = new();
-
-    private int _currentStep = 1;
-    private CancellationTokenSource? _discoveryCts;
-    private DispatcherTimer? _paramLoadTimer;
-
-    // Schema mapping (Step 3 Advanced section). Bound to ColumnTypesGrid.
-    private readonly ObservableCollection<ColumnTypeMapping> _columnTypes = new();
-
-    private enum SchemaMode { Auto, Suggested, Custom }
-    private SchemaMode _schemaMode = SchemaMode.Auto;
-
     private enum SourceMode { Categories, Schedules }
-    private enum Scope { WholeModel, ActiveView, Selection }
+    private enum SchemaMode { Auto, Suggested, Custom }
+
+    /// <summary>Rows shown in the preview of step 2.</summary>
+    private const int PreviewRowCount = 5;
+
+    private readonly IPowerBiExportSource _source;
+
+    // Step 1: categories (split by Revit's own grouping) and schedules.
+    private readonly List<CategoryRow> _allCategories = new List<CategoryRow>();
+    private readonly ObservableCollection<CategoryRow> _modelCategories = new ObservableCollection<CategoryRow>();
+    private readonly ObservableCollection<CategoryRow> _annotationCategories = new ObservableCollection<CategoryRow>();
+    private readonly ObservableCollection<CategoryRow> _analyticalCategories = new ObservableCollection<CategoryRow>();
+    private readonly ObservableCollection<CategoryRow> _otherCategories = new ObservableCollection<CategoryRow>();
+    private readonly ObservableCollection<ScheduleRow> _schedules = new ObservableCollection<ScheduleRow>();
+    private readonly ObservableCollection<ScheduleFieldRow> _scheduleFields = new ObservableCollection<ScheduleFieldRow>();
+
+    // Step 1: parameters of the chosen categories, and the ones that become columns.
+    private readonly List<ParameterRow> _allParameters = new List<ParameterRow>();
+    private readonly ObservableCollection<ParameterRow> _availableParams = new ObservableCollection<ParameterRow>();
+    private readonly ObservableCollection<ParameterRow> _selectedParams = new ObservableCollection<ParameterRow>();
+
+    // Step 2, advanced: one entry per CSV column.
+    private readonly ObservableCollection<ColumnTypeMapping> _columnTypes = new ObservableCollection<ColumnTypeMapping>();
 
     private SourceMode _mode = SourceMode.Categories;
-    private Scope _scope = Scope.WholeModel;
+    private PowerBiScope _scope = PowerBiScope.WholeModel;
+    private SchemaMode _schemaMode = SchemaMode.Auto;
+    private int _step = 1;
 
-    public PowerBiExportWindow(Document doc)
+    private bool _ready;          // InitializeComponent finished: handlers may run
+    private bool _loaded;         // the model has been read
+    private bool _bulk;           // many rows are being changed at once: react once, afterwards
+    private bool _advancedOpen;
+    private List<string>? _pendingColumns;   // columns of a profile, waiting for the parameters to load
+    private DispatcherTimer? _paramLoadTimer;
+    private string? _status;
+    private bool _statusNeedsAttention;
+
+    public PowerBiExportWindow(IPowerBiExportSource source)
     {
+        _source = source ?? throw new ArgumentNullException(nameof(source));
+
         InitializeComponent();
-        _doc = doc;
-        CategoryDataGrid.ItemsSource = _filteredModelCategories;
-        AnnotationDataGrid.ItemsSource = _filteredAnnotationCategories;
-        AnalyticalDataGrid.ItemsSource = _filteredAnalyticalCategories;
-        OtherDataGrid.ItemsSource = _filteredOtherCategories;
-        ScheduleDataGrid.ItemsSource = _filteredSchedules;
-        ScheduleFieldsGrid.ItemsSource = _scheduleFields;
-        AvailableParamsGrid.ItemsSource = _availableParams;
-        SelectedParamsGrid.ItemsSource = _selectedParams;
-        ColumnTypesGrid.ItemsSource = _columnTypes;
-        Loaded += OnLoaded;
-        Closing += (_, _) => _discoveryCts?.Cancel();
+        DarkTitleBar.Apply(this);
+        ApplyLocalizedStrings();
+
+        CategoryList.ItemsSource = _modelCategories;
+        ScheduleList.ItemsSource = _schedules;
+        ScheduleFieldsList.ItemsSource = _scheduleFields;
+        AvailableList.ItemsSource = _availableParams;
+        SelectedList.ItemsSource = _selectedParams;
+        ColumnTypesList.ItemsSource = _columnTypes;
+
+        _ready = true;
+        ShowStep(1);
+        RefreshScheduleFields(null);
+        ApplyParameterFilter();
+
+        Loaded += (_, _) => LoadFromSource();
+        Closing += (_, _) => _paramLoadTimer?.Stop();
     }
 
-    private static readonly string DebugLogPath = System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".revitcortex", "powerbi_debug.log");
+    // ───────────────────────── Texts ─────────────────────────
 
-    private static void DebugLog(string msg)
+    private static string T(string key) => Localization.T(key);
+    private static string T(string key, params object?[] args) => Localization.T(key, args);
+
+    /// <summary>"1 category" / "4 categories": the key carries _one and _many forms.</summary>
+    private static string Counted(string key, int count)
+        => Localization.T(count == 1 ? key + "_one" : key + "_many", count);
+
+    private void ApplyLocalizedStrings()
     {
-        try
-        {
-            var dir = System.IO.Path.GetDirectoryName(DebugLogPath)!;
-            if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
-            System.IO.File.AppendAllText(DebugLogPath, $"[{DateTime.Now:HH:mm:ss.fff}] {msg}{Environment.NewLine}");
-        }
-        catch { /* never throw from logger */ }
+        Title = T("pbi.window_title");
+        TitleText.Text = T("pbi.title");
+
+        StepDataCurrent.Text = T("pbi.step_data");
+        StepDataDone.Text = T("pbi.step_data");
+        StepOutputPending.Text = T("pbi.step_output");
+        StepOutputCurrent.Text = T("pbi.step_output");
+
+        ProfilesBtnText.Text = T("pbi.profiles");
+        MenuLoadProfile.Content = T("pbi.profiles.load");
+        MenuSaveProfile.Content = T("pbi.profiles.save");
+        MenuImportProfile.Content = T("pbi.profiles.import");
+        MenuOpenProfiles.Content = T("pbi.profiles.open_folder");
+        SaveProfileBtn.Content = T("pbi.profiles.save");
+
+        ScopeWholeTitle.Text = T("pbi.scope.whole");
+        ScopeWholeHelp.Text = T("pbi.scope.whole_help");
+        ScopeViewTitle.Text = T("pbi.scope.view");
+        ScopeViewHelp.Text = T("pbi.scope.view_help");
+        ScopeSelectionTitle.Text = T("pbi.scope.selection");
+        ScopeSelectionHelp.Text = T("pbi.scope.selection_help");
+        ModeSchedulesTitle.Text = T("pbi.scope.schedules");
+        ModeSchedulesHelp.Text = T("pbi.scope.schedules_help");
+        ScopeWholeRadio.ToolTip = ScopeWholeHelp.Text;
+        ScopeViewRadio.ToolTip = ScopeViewHelp.Text;
+        ScopeSelectionRadio.ToolTip = ScopeSelectionHelp.Text;
+        ModeSchedulesRadio.ToolTip = ModeSchedulesHelp.Text;
+
+        CategoriesTitle.Text = T("pbi.categories");
+        TabModel.Content = T("pbi.categories.model");
+        TabAnnotation.Content = T("pbi.categories.annotation");
+        TabAnalytical.Content = T("pbi.categories.analytical");
+        TabOther.Content = T("pbi.categories.other");
+        CategoriesAllBtn.Content = T("pbi.select_all");
+        CategoriesNoneBtn.Content = T("pbi.select_none");
+
+        AvailableTitle.Text = T("pbi.available");
+        ParameterFilterPlaceholder.Text = T("pbi.filter");
+        ParameterFilter.ToolTip = T("pbi.filter_tip");
+        AutomationProperties.SetName(ParameterFilter, T("pbi.filter_tip"));
+        IncludeTypeParametersBox.Content = T("pbi.include_type");
+        IncludeTypeParametersBox.ToolTip = T("pbi.include_type_tip");
+        HideEmptyBox.Content = T("pbi.hide_empty");
+        HideEmptyBox.ToolTip = T("pbi.hide_empty_tip");
+
+        Describe(AddBtn, T("pbi.move.add"));
+        Describe(AddAllBtn, T("pbi.move.add_all"));
+        Describe(RemoveBtn, T("pbi.move.remove"));
+        Describe(RemoveAllBtn, T("pbi.move.remove_all"));
+        Describe(MoveUpBtn, T("pbi.move.up"));
+        Describe(MoveDownBtn, T("pbi.move.down"));
+
+        SelectedTitle.Text = T("pbi.columns");
+        SelectedEmpty.Text = T("pbi.columns.empty");
+
+        SchedulesTitle.Text = T("pbi.schedules");
+        SchedulesEmpty.Text = T("pbi.schedules.empty");
+        SchedulesAllBtn.Content = T("pbi.select_all");
+        SchedulesNoneBtn.Content = T("pbi.select_none");
+
+        SecFileTitle.Text = T("pbi.file");
+        SecFileHelp.Text = T("pbi.file_help");
+        OutputFolderLabel.Text = T("pbi.output_folder");
+        AutomationProperties.SetName(OutputFolderBox, T("pbi.output_folder"));
+        BrowseBtn.Content = T("pbi.browse");
+        BrowseBtn.ToolTip = T("pbi.browse_tip");
+        OpenFolderBtn.Content = T("pbi.open");
+        OpenFolderBtn.ToolTip = T("pbi.open_tip");
+        FileNameLabel.Text = T("pbi.file_name");
+        AutomationProperties.SetName(FileNameBox, T("pbi.file_name"));
+        ScheduleFilesNote.Text = T("pbi.schedule_files_note");
+
+        SecUpdateTitle.Text = T("pbi.update");
+        SecUpdateHelp.Text = T("pbi.update_help");
+        OverwriteTitle.Text = T("pbi.overwrite");
+        OverwriteHelp.Text = T("pbi.overwrite_help");
+        AutoExportTitle.Text = T("pbi.auto_export");
+        AutoExportHelp.Text = T("pbi.auto_export_help");
+
+        SecPowerBiTitle.Text = T("pbi.powerbi");
+        SecPowerBiHelp.Text = T("pbi.powerbi_help");
+        RegisterProtocolTitle.Text = T("pbi.select_in_revit");
+        RegisterProtocolHelp.Text = T("pbi.select_in_revit_help");
+        TriggerRefreshTitle.Text = T("pbi.refresh");
+        TriggerRefreshHelp.Text = T("pbi.refresh_help");
+        RefreshIdsHelp.Text = T("pbi.refresh_ids_help");
+        RefreshWorkspaceIdBox.ToolTip = T("pbi.workspace_tip");
+        RefreshDatasetIdBox.ToolTip = T("pbi.dataset_tip");
+
+        PreviewTitle.Text = T("pbi.preview");
+
+        AdvancedTitle.Text = T("pbi.advanced");
+        AdvancedHelp.Text = T("pbi.advanced_help");
+        SchemaModeAutoRadio.Content = T("pbi.schema.auto");
+        SchemaModeSuggestedRadio.Content = T("pbi.schema.suggested");
+        SchemaModeCustomRadio.Content = T("pbi.schema.custom");
+        AdvancedModeText.Text = T("pbi.schema.auto");
+        ColumnHeaderName.Text = T("pbi.schema.column");
+        ColumnHeaderType.Text = T("pbi.schema.type");
+        ColumnHeaderFormat.Text = T("pbi.schema.format");
+        SuggestTypesBtn.Content = T("pbi.schema.suggest");
+
+        BackBtn.Content = T("pbi.back");
+        NextBtn.Content = T("pbi.next");
+        ExportBtn.Content = T("pbi.export");
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private static void Describe(FrameworkElement element, string text)
     {
-        // Revit DB API must run on the main thread. The wizard is opened from
-        // an IExternalCommand so we ARE on the main thread here — call directly.
-        DebugLog("=== OnLoaded START ===");
-        DebugLog($"Document: title='{_doc?.Title}' isFamily={_doc?.IsFamilyDocument} pathName='{_doc?.PathName}'");
-        SetStatus("Sto analizzando il modello…");
-        int catCount = -1, schCount = -1;
+        element.ToolTip = text;
+        AutomationProperties.SetName(element, text);
+    }
+
+    // ───────────────────────── Loading the model ─────────────────────────
+
+    /// <summary>
+    /// Reads categories and schedules from the source. Runs once, when the
+    /// window is first shown; public so the UI preview renderer can fill the
+    /// window without showing it.
+    /// </summary>
+    public void LoadFromSource()
+    {
+        if (_loaded) return;
+        _loaded = true;
+
+        DebugLog("=== LoadFromSource ===");
+        try { OutputFolderBox.Text = SuggestDefaultOutputFolder(); }
+        catch (Exception ex) { DebugLog($"Default output folder failed: {ex.Message}"); }
+
+        List<CategoryInfo> categories;
         try
         {
-            try { OutputFolderBox.Text = SuggestDefaultOutputFolder(); } catch (Exception ofex) { DebugLog($"OutputFolder set failed: {ofex.Message}"); }
-
-            DebugLog("Calling DiscoverCategories…");
-            List<CategoryInfo> categories = new();
-            try
-            {
-                categories = _discovery.DiscoverCategories(_doc, CancellationToken.None);
-                catCount = categories.Count;
-                DebugLog($"DiscoverCategories OK: count={catCount}");
-                if (catCount > 0)
-                {
-                    var sample = string.Join(", ", categories.Take(5).Select(c => $"{c.OstCode}({c.InstanceCount})"));
-                    DebugLog($"  sample: {sample}");
-                }
-            }
-            catch (Exception ex)
-            {
-                DebugLog($"DiscoverCategories FAILED: {ex.GetType().Name}: {ex.Message}");
-                DebugLog($"  StackTrace: {ex.StackTrace}");
-                SetStatus($"Discovery categorie fallita: {ex.GetType().Name}: {ex.Message}");
-                ShowErrorDialog("Discovery categorie fallita", ex);
-                return;
-            }
-
-            DebugLog("Calling DiscoverSchedules…");
-            List<ScheduleInfo> schedules = new();
-            try
-            {
-                schedules = _discovery.DiscoverSchedules(_doc, CancellationToken.None);
-                schCount = schedules.Count;
-                DebugLog($"DiscoverSchedules OK: count={schCount}");
-            }
-            catch (Exception ex)
-            {
-                DebugLog($"DiscoverSchedules FAILED (non-blocking): {ex.GetType().Name}: {ex.Message}");
-            }
-
-            DebugLog($"Populating ObservableCollections (cat={catCount}, sch={schCount})…");
-            _allCategories.Clear();
-            foreach (var cat in categories) _allCategories.Add(new CategoryRow(cat));
-            _allSchedules.Clear();
-            foreach (var sch in schedules) _allSchedules.Add(new ScheduleRow(sch));
-
-            DebugLog("Calling ApplyCategoryFilter / ApplyScheduleFilter…");
-            ApplyCategoryFilter();
-            ApplyScheduleFilter();
-            DebugLog($"After filter: model={_filteredModelCategories.Count}, anno={_filteredAnnotationCategories.Count}, anal={_filteredAnalyticalCategories.Count}, other={_filteredOtherCategories.Count}, schedules={_filteredSchedules.Count}");
-
-            if (catCount == 0)
-                SetStatus("Nessuna categoria con istanze trovata nel modello attivo.");
-            else
-                SetStatus($"{catCount} categorie · {schCount} schedule · seleziona la sorgente.");
-            DebugLog("=== OnLoaded END (success) ===");
+            categories = _source.DiscoverCategories();
+            DebugLog($"DiscoverCategories: {categories.Count}");
         }
         catch (Exception ex)
         {
-            DebugLog($"OnLoaded OUTER CATCH: {ex.GetType().Name}: {ex.Message}");
-            DebugLog($"  StackTrace: {ex.StackTrace}");
-            SetStatus($"Errore inatteso ({ex.GetType().Name}): {ex.Message}");
-            ShowErrorDialog("Errore inatteso in OnLoaded", ex);
+            DebugLog($"DiscoverCategories FAILED: {ex}");
+            SetStatus(T("pbi.status.categories_failed", ex.Message), attention: true);
+            _source.ShowError(T("pbi.dialog.categories_failed"), $"{ex.GetType().Name}: {ex.Message}", ex.StackTrace);
+            return;
         }
-    }
 
-    private static void ShowErrorDialog(string title, Exception ex)
-    {
+        var schedules = new List<ScheduleInfo>();
         try
         {
-            var td = new Autodesk.Revit.UI.TaskDialog($"Power BI Export — {title}")
-            {
-                MainInstruction = title,
-                MainContent = $"{ex.GetType().Name}: {ex.Message}",
-                ExpandedContent = ex.StackTrace ?? "",
-                CommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons.Close
-            };
-            td.Show();
+            schedules = _source.DiscoverSchedules();
+            DebugLog($"DiscoverSchedules: {schedules.Count}");
         }
-        catch { /* Never let logging swallow the original error path */ }
+        catch (Exception ex)
+        {
+            // Not blocking: the categories still work.
+            DebugLog($"DiscoverSchedules FAILED: {ex.GetType().Name}: {ex.Message}");
+        }
+
+        _allCategories.Clear();
+        foreach (var info in categories)
+        {
+            var row = new CategoryRow(info);
+            row.PropertyChanged += (_, e) => OnCategoryRowChanged(e);
+            _allCategories.Add(row);
+        }
+
+        _schedules.Clear();
+        foreach (var info in schedules)
+        {
+            var row = new ScheduleRow(info, Counted("pbi.rows", info.RowCount));
+            row.PropertyChanged += (_, e) => OnScheduleRowChanged(row, e);
+            _schedules.Add(row);
+        }
+        SchedulesEmpty.Visibility = _schedules.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        ApplyCategoryFilter();
+        RefreshCounts();
+
+        if (categories.Count == 0) SetStatus(T("pbi.status.no_categories"), attention: true);
+        else ClearStatus();
     }
 
-    // ───────────────────────── Source mode + scope ─────────────────────────
+    // ───────────────────────── Source: scope or schedules ─────────────────────────
 
     private void SourceScope_Changed(object sender, RoutedEventArgs e)
     {
-        // Fired during XAML parsing — guard until all referenced fields exist.
-        if (ScopeWholeRadio == null || ScopeViewRadio == null || ScopeSelectionRadio == null) return;
-        if (ModeSchedulesRadio == null) return;
-        if (CategoryTableBorder == null || ScheduleTableBorder == null) return;
-        if (ParamFilterPanel == null) return;
+        // Fires while the XAML is still being read, and for every radio a
+        // profile sets: react once, when things are in place.
+        if (!_ready || _bulk) return;
+        ApplySource();
+    }
 
+    private void ApplySource()
+    {
         if (ModeSchedulesRadio.IsChecked == true)
         {
             _mode = SourceMode.Schedules;
-            _scope = Scope.WholeModel;
-            CategoryTableBorder.Visibility = System.Windows.Visibility.Collapsed;
-            ScheduleTableBorder.Visibility = System.Windows.Visibility.Visible;
-            ParamFilterPanel.Visibility = System.Windows.Visibility.Collapsed;
+            _scope = PowerBiScope.WholeModel;
         }
         else
         {
             _mode = SourceMode.Categories;
-            if (ScopeViewRadio.IsChecked == true) _scope = Scope.ActiveView;
-            else if (ScopeSelectionRadio.IsChecked == true) _scope = Scope.Selection;
-            else _scope = Scope.WholeModel;
-            CategoryTableBorder.Visibility = System.Windows.Visibility.Visible;
-            ScheduleTableBorder.Visibility = System.Windows.Visibility.Collapsed;
-            ParamFilterPanel.Visibility = System.Windows.Visibility.Visible;
-            if (_allCategories.Count > 0 || _allSchedules.Count > 0)
-                RefreshScopeFilter();
+            if (ScopeViewRadio.IsChecked == true) _scope = PowerBiScope.ActiveView;
+            else if (ScopeSelectionRadio.IsChecked == true) _scope = PowerBiScope.Selection;
+            else _scope = PowerBiScope.WholeModel;
         }
+
+        bool schedules = _mode == SourceMode.Schedules;
+        CategoryPanes.Visibility = schedules ? Visibility.Collapsed : Visibility.Visible;
+        SchedulePanes.Visibility = schedules ? Visibility.Visible : Visibility.Collapsed;
+
+        ClearStatus();
+        if (!schedules)
+        {
+            RefreshScopeFilter();
+            // What is in scope changed, so may the chosen categories.
+            if (_loaded) LoadParametersNow();
+        }
+        RefreshCounts();
     }
 
+    /// <summary>Marks which categories have elements in the active view or the selection.</summary>
     private void RefreshScopeFilter()
     {
-        if (_scope == Scope.WholeModel)
+        if (_scope == PowerBiScope.WholeModel)
         {
             foreach (var c in _allCategories) c.InScope = true;
-            foreach (var s in _allSchedules) s.InScope = true;
         }
         else
         {
-            // Single pass: collect all category ElementId integers present in scope.
-            // BuildSelectionCollector now returns null when the user's selection
-            // is empty — in that case we skip iteration entirely so presentIds
-            // stays empty and every category gets InScope=false (correct: there
-            // are zero elements selected, so no category is "in scope").
-            var presentIds = new HashSet<int>();
-            FilteredElementCollector? col = null;
+            PowerBiScopeFilter? filter = null;
             try
             {
-                col = _scope == Scope.ActiveView
-                    ? new FilteredElementCollector(_doc, _doc.ActiveView.Id)
-                    : BuildSelectionCollector();
-                if (col != null)
-                {
-                    foreach (var elem in col.WhereElementIsNotElementType())
-                    {
-                        if (elem.Category?.Id is { } catId)
-#if REVIT2024_OR_GREATER
-                            presentIds.Add((int)catId.Value);
-#else
-                            presentIds.Add(catId.IntegerValue);
-#endif
-                    }
-                }
+                filter = _source.ReadScope(_scope, _allCategories.Select(c => c.OstCode).ToList());
             }
             catch (Exception ex)
             {
-                DebugLog($"RefreshScopeFilter collector failed: {ex.Message}");
+                DebugLog($"ReadScope failed: {ex.Message}");
             }
-
-            // Surface "empty selection" to the user as a status message —
-            // otherwise the list just goes blank with no explanation.
-            if (_scope == Scope.Selection && col == null)
-                SetStatus("Selezione corrente in Revit: nessun elemento selezionato. Seleziona elementi nel modello e ri-clicca 'Selezione corrente'.");
 
             foreach (var c in _allCategories)
-            {
-                c.InScope = Enum.TryParse<BuiltInCategory>(c.OstCode, out var bic)
-                    && presentIds.Contains((int)bic);
-            }
+                c.InScope = filter != null && filter.Categories.Contains(c.OstCode);
 
-            foreach (var s in _allSchedules)
-            {
-                try
-                {
-#if REVIT2024_OR_GREATER
-                    var schId = new ElementId(s.ScheduleId);
-#else
-                    var schId = new ElementId((int)s.ScheduleId);
-#endif
-                    if (_doc.GetElement(schId) is ViewSchedule view)
-                    {
-                        var catId = view.Definition.CategoryId;
-                        s.InScope = catId == null || catId == ElementId.InvalidElementId
-                            || presentIds.Contains(
-#if REVIT2024_OR_GREATER
-                                (int)catId.Value
-#else
-                                catId.IntegerValue
-#endif
-                            );
-                    }
-                    else s.InScope = true;
-                }
-                catch { s.InScope = true; }
-            }
+            // Otherwise the list just goes blank with no explanation.
+            if (_scope == PowerBiScope.Selection && filter != null && filter.SelectionEmpty)
+                SetStatus(T("pbi.status.selection_empty"), attention: true);
         }
 
-        if (_mode == SourceMode.Categories) ApplyCategoryFilter();
-        else ApplyScheduleFilter();
+        ApplyCategoryFilter();
     }
 
     // ───────────────────────── Step navigation ─────────────────────────
 
-    private void Next_Click(object sender, RoutedEventArgs e)
-    {
-        if (_currentStep == 1)
-        {
-            if (_mode == SourceMode.Categories)
-            {
-                var selected = _allCategories.Where(c => c.IsSelected).ToList();
-                if (selected.Count == 0) { SetStatus("Seleziona almeno una categoria."); return; }
-                if (_selectedParams.Count == 0) { SetStatus("Seleziona almeno un parametro prima di procedere."); return; }
-                GoToStep3();
-            }
-            else
-            {
-                var selected = _allSchedules.Where(s => s.IsSelected).ToList();
-                if (selected.Count == 0) { SetStatus("Seleziona almeno una schedule."); return; }
-                _allParameters.Clear();
-                _availableParams.Clear();
-                _selectedParams.Clear();
-                GoToStep3();
-            }
-        }
-        else if (_currentStep == 2)
-        {
-            if (_selectedParams.Count == 0)
-            {
-                SetStatus("Seleziona almeno un parametro prima di procedere.");
-                return;
-            }
-            GoToStep3();
-        }
-    }
+    private void Next_Click(object sender, RoutedEventArgs e) => GoToOutput();
 
     private void Back_Click(object sender, RoutedEventArgs e)
     {
-        if (_currentStep == 3)
-            GoToStep(1);
-        else if (_currentStep == 2)
-            GoToStep(1);
+        ClearStatus();
+        ShowStep(1);
     }
 
-    private void GoToStep(int step)
+    /// <summary>
+    /// Moves to step 2 when something is chosen to export. False (and a
+    /// message in the footer) when there is nothing yet.
+    /// </summary>
+    public bool GoToOutput()
     {
-        _currentStep = step;
-        Step1Panel.Visibility = step == 1 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-        Step2Panel.Visibility = step == 2 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-        Step3Panel.Visibility = step == 3 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-
-        Step1Label.FontWeight = step == 1 ? System.Windows.FontWeights.SemiBold : System.Windows.FontWeights.Normal;
-        Step2Label.FontWeight = step == 2 ? System.Windows.FontWeights.SemiBold : System.Windows.FontWeights.Normal;
-        Step3Label.FontWeight = step == 3 ? System.Windows.FontWeights.SemiBold : System.Windows.FontWeights.Normal;
-        var grey = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9E, 0x9E, 0x9E));
-        Step1Label.Foreground = step == 1 ? System.Windows.Media.Brushes.Black : grey;
-        Step2Label.Foreground = step == 2 ? System.Windows.Media.Brushes.Black : grey;
-        Step3Label.Foreground = step == 3 ? System.Windows.Media.Brushes.Black : grey;
-
-        BackBtn.IsEnabled = step > 1;
-        NextBtn.Visibility = step < 3 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-        ExportBtn.Visibility = step == 3 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-
-        Step2Label.Visibility = System.Windows.Visibility.Collapsed;
-    }
-
-    private void GoToStep2(List<CategoryRow> selectedCategories)
-    {
-        GoToStep(2);
-        SetStatus("Sto analizzando i parametri…");
-
-        var ostCodes = selectedCategories.Select(c => c.OstCode).ToList();
-        bool includeType = IncludeTypeParametersBox.IsChecked == true;
-
-        try
+        if (_mode == SourceMode.Categories)
         {
-            // Revit DB API requires the main thread; call inline.
-            var parameters = _discovery.DiscoverParameters(_doc, ostCodes, includeType, sampleSize: 200);
-
-            // Preserve user's previous "Selected" choices when reloading
-            var previouslySelected = _selectedParams.Select(p => (p.Name, p.Scope)).ToHashSet();
-
-            _allParameters.Clear();
-            foreach (var p in parameters) _allParameters.Add(new ParameterRow(p));
-
-            _selectedParams.Clear();
-            _availableParams.Clear();
-            foreach (var p in _allParameters)
-            {
-                if (previouslySelected.Contains((p.Name, p.Scope)))
-                    _selectedParams.Add(p);
-                else
-                    _availableParams.Add(p);
-            }
-            ApplyParameterFilter();
-            UpdateSelectedOrderIndices();
-            UpdatePaneHeaders();
-
-            SetStatus($"{parameters.Count} parametri scoperti. Sposta a destra quelli da esportare.");
+            if (SelectedCategories().Count == 0) { SetStatus(T("pbi.need_category"), attention: true); return false; }
+            if (_selectedParams.Count == 0) { SetStatus(T("pbi.need_parameter"), attention: true); return false; }
         }
-        catch (Exception ex)
+        else if (SelectedSchedules().Count == 0)
         {
-            SetStatus($"Errore discovery parametri: {ex.GetType().Name}: {ex.Message}");
+            SetStatus(T("pbi.need_schedule"), attention: true);
+            return false;
         }
-    }
 
-    private void GoToStep3()
-    {
-        GoToStep(3);
-        if (_mode == SourceMode.Schedules)
+        ClearStatus();
+        ShowStep(2);
+
+        bool schedules = _mode == SourceMode.Schedules;
+        // The tool writes one schedule_<name>.csv per schedule and ignores a
+        // file name: show the files it will write instead of asking for one.
+        FileNamePanel.Visibility = schedules ? Visibility.Collapsed : Visibility.Visible;
+        OverwriteBox.Visibility = schedules ? Visibility.Collapsed : Visibility.Visible;
+        ScheduleFilesPanel.Visibility = schedules ? Visibility.Visible : Visibility.Collapsed;
+        AdvancedCard.Visibility = schedules ? Visibility.Collapsed : Visibility.Visible;
+
+        if (schedules)
         {
-            // Server writes one schedule_<Name>.csv per selected schedule and ignores
-            // the user-supplied filename. Hide the misleading FileName/Overwrite controls
-            // and show the actual list of files that will be produced.
-            FileNameLabel.Visibility = System.Windows.Visibility.Collapsed;
-            FileNameBox.Visibility = System.Windows.Visibility.Collapsed;
-            OverwriteBox.Visibility = System.Windows.Visibility.Collapsed;
-            ScheduleFilesPanel.Visibility = System.Windows.Visibility.Visible;
-            SchemaMappingExpander.Visibility = System.Windows.Visibility.Collapsed;
-            FileNameBox.Text = "";
+            SetAdvancedOpen(false);
             PopulateScheduleFilesList();
         }
         else
         {
-            FileNameLabel.Visibility = System.Windows.Visibility.Visible;
-            FileNameBox.Visibility = System.Windows.Visibility.Visible;
-            OverwriteBox.Visibility = System.Windows.Visibility.Visible;
-            ScheduleFilesPanel.Visibility = System.Windows.Visibility.Collapsed;
-            SchemaMappingExpander.Visibility = System.Windows.Visibility.Visible;
             if (string.IsNullOrWhiteSpace(FileNameBox.Text))
                 FileNameBox.Text = SuggestFileName();
-            // Auto-populate / sync the schema-mapping grid with the current
-            // column set. Even in Auto mode this gives the user visibility
-            // into what columns the CSV will have; non-auto types entered
-            // previously are preserved for still-existing columns.
+            // Keep the column types in step with the columns just chosen;
+            // types already set on columns that are still there are kept.
             SyncColumnTypesWithSelection();
         }
+
         RefreshPreview();
+        return true;
     }
 
-    // ───────────────────────── Schema mapping (Step 3 Advanced) ─────────────────────────
-
-    private void SchemaMode_Changed(object sender, RoutedEventArgs e)
+    private void ShowStep(int step)
     {
-        if (SchemaModeAutoRadio == null || SchemaModeSuggestedRadio == null || SchemaModeCustomRadio == null) return;
-        if (ColumnTypesGrid == null) return;
+        _step = step;
+        Step1Panel.Visibility = step == 1 ? Visibility.Visible : Visibility.Collapsed;
+        Step2Panel.Visibility = step == 2 ? Visibility.Visible : Visibility.Collapsed;
+        StepperOnData.Visibility = step == 1 ? Visibility.Visible : Visibility.Collapsed;
+        StepperOnOutput.Visibility = step == 2 ? Visibility.Visible : Visibility.Collapsed;
+        SubtitleText.Text = step == 1 ? T("pbi.subtitle_data") : T("pbi.subtitle_output");
 
-        if (SchemaModeSuggestedRadio.IsChecked == true) _schemaMode = SchemaMode.Suggested;
-        else if (SchemaModeCustomRadio.IsChecked == true) _schemaMode = SchemaMode.Custom;
-        else _schemaMode = SchemaMode.Auto;
-
-        // In Auto we lock the grid (nothing to map). In Suggested/Custom we open it for edit.
-        ColumnTypesGrid.IsEnabled = _schemaMode != SchemaMode.Auto;
-
-        // Suggested implicitly auto-populates if the grid is empty.
-        if (_schemaMode == SchemaMode.Suggested && _columnTypes.Count == 0)
-            ApplySuggestedTypes();
+        BackBtn.IsEnabled = step == 2;
+        NextBtn.Visibility = step == 1 ? Visibility.Visible : Visibility.Collapsed;
+        ExportBtn.Visibility = step == 2 ? Visibility.Visible : Visibility.Collapsed;
+        SaveProfileBtn.Visibility = step == 2 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateFooter();
     }
 
-    private void SuggestTypes_Click(object sender, RoutedEventArgs e)
-    {
-        // Force Suggested mode and rebuild from current selection — overwrites
-        // whatever the user had typed in Custom (intentional: it's a Suggest button).
-        SchemaModeSuggestedRadio.IsChecked = true;
-        ApplySuggestedTypes();
-    }
+    // ───────────────────────── Categories ─────────────────────────
 
-    /// <summary>
-    /// Rebuilds <see cref="_columnTypes"/> from the current categories+params
-    /// selection, applying heuristics: built-in fields are typed by convention,
-    /// instance/type params by Revit <see cref="StorageType"/> + name patterns.
-    /// </summary>
-    private void ApplySuggestedTypes()
-    {
-        _columnTypes.Clear();
-        if (_mode != SourceMode.Categories) return;
-
-        // All built-in columns the CSV always writes. Keep the type by convention.
-        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "ElementId",     PbiType = "int"  });
-        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "UniqueId",      PbiType = "text" });
-        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "Category",      PbiType = "text" });
-        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "Family",        PbiType = "text" });
-        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "Type",          PbiType = "text" });
-        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "DocumentTitle", PbiType = "text" });
-        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "DocumentPath",  PbiType = "text" });
-        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "EpisodeId",     PbiType = "text" });
-
-        // Skip params that duplicate built-in column names — they are filtered
-        // server-side at CSV write time (the built-in column already carries
-        // the value), so emitting a mapping entry for them would be a ghost.
-        var builtIns = BuiltInColumnNames();
-        foreach (var p in _selectedParams)
-        {
-            if (string.IsNullOrEmpty(p.Name)) continue;
-            if (builtIns.Contains(p.Name)) continue;
-            var colName = p.Scope == "Type" ? $"[Type] {p.Name}" : p.Name;
-            _columnTypes.Add(new ColumnTypeMapping
-            {
-                ColumnName = colName,
-                PbiType = InferPbiTypeForParam(p.Name, p.GroupName)
-            });
-        }
-
-        ColumnTypesGrid?.Items.Refresh();
-    }
-
-    /// <summary>
-    /// Single source of truth for the built-in column header set. Used by both
-    /// preview dedup logic and schema-mapping generation so they always agree.
-    /// Mirrors the server-side header in <c>PushToPowerBiTool</c> (v2 schema).
-    /// </summary>
-    private static HashSet<string> BuiltInColumnNames() => new HashSet<string>(
-        new[] { "ElementId", "UniqueId", "Category", "Family", "Type", "DocumentTitle", "DocumentPath", "EpisodeId" },
-        StringComparer.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// Returns the full ordered list of CSV column headers that would be
-    /// emitted for the current Categories-mode selection. Same logic as the
-    /// server-side discovery + dedup, so the in-UI Schema Mapping grid stays
-    /// consistent with the real CSV output.
-    /// </summary>
-    private List<string> ComputeCurrentColumnNames()
-    {
-        var cols = new List<string>
-        {
-            "ElementId", "UniqueId", "Category", "Family", "Type", "DocumentTitle", "DocumentPath", "EpisodeId"
-        };
-        if (_mode != SourceMode.Categories) return cols;
-
-        var builtIns = BuiltInColumnNames();
-        foreach (var p in _selectedParams)
-        {
-            if (string.IsNullOrEmpty(p.Name)) continue;
-            if (builtIns.Contains(p.Name)) continue;
-            cols.Add(p.Scope == "Type" ? $"[Type] {p.Name}" : p.Name);
-        }
-        return cols;
-    }
-
-    /// <summary>
-    /// Synchronizes the Schema-Mapping grid with the current column selection
-    /// while PRESERVING any non-auto types the user (or the Suggested heuristic)
-    /// has already set on still-existing columns. This is what makes "Auto"
-    /// mode informative — the grid shows the actual columns of the upcoming
-    /// CSV with <c>auto</c> as the default type — and what lets the user
-    /// freely tweak categories/params without losing their typed columns.
-    /// </summary>
-    private void SyncColumnTypesWithSelection()
-    {
-        var desired = ComputeCurrentColumnNames();
-        var existing = _columnTypes.ToDictionary(c => c.ColumnName, c => c, StringComparer.OrdinalIgnoreCase);
-
-        _columnTypes.Clear();
-        foreach (var col in desired)
-        {
-            if (existing.TryGetValue(col, out var prev))
-            {
-                _columnTypes.Add(prev); // preserve user/Suggested type
-            }
-            else
-            {
-                _columnTypes.Add(new ColumnTypeMapping { ColumnName = col, PbiType = "auto" });
-            }
-        }
-        ColumnTypesGrid?.Items.Refresh();
-    }
-
-    /// <summary>
-    /// Heuristics: parameter name + group → likely Power BI type. Conservative
-    /// (defaults to <c>text</c> when nothing matches) to avoid wrong auto-typing.
-    /// </summary>
-    private static string InferPbiTypeForParam(string name, string? groupName)
-    {
-        var n = name?.ToLowerInvariant() ?? "";
-        var g = groupName?.ToLowerInvariant() ?? "";
-
-        // ElementId-like
-        if (n.EndsWith(" id") || n.EndsWith("_id") || n == "id") return "int";
-
-        // Booleans
-        if (n.StartsWith("is ") || n.StartsWith("has ") || n.StartsWith("can ")) return "bool";
-
-        // Currency / cost
-        if (n.Contains("cost") || n.Contains("price") || n.Contains("importo")
-            || n.Contains("total") || n.Contains("subtotal") || n.Contains("amount"))
-            return "fixed";
-
-        // Percentages
-        if (n.Contains("percent") || n.Contains("%") || g.Contains("percent"))
-            return "percent";
-
-        // Dates (heuristic — only obvious patterns to avoid false positives)
-        if (n.EndsWith(" date") || n.EndsWith("_date") || n.Contains("data") && (n.Contains("creazione") || n.Contains("modifica")))
-            return "date";
-
-        // Numeric dimensions / quantities — group-based hint
-        if (g.Contains("dimension") || g.Contains("constraint") || g.Contains("graphic")
-            || n.Contains("length") || n.Contains("lunghezza")
-            || n.Contains("area") || n.Contains("volume")
-            || n.Contains("width") || n.Contains("height") || n.Contains("depth")
-            || n.Contains("altezza") || n.Contains("larghezza") || n.Contains("profondità")
-            || n.Contains("angle") || n.Contains("angolo")
-            || n.Contains("count") || n.Contains("number") || n.Contains("numero"))
-            return "number";
-
-        return "text";
-    }
-
-    /// <summary>
-    /// Maps the radio-button enum back to the wire string consumed by the server.
-    /// </summary>
-    private string SchemaModeWireValue() => _schemaMode switch
-    {
-        SchemaMode.Suggested => "Suggested",
-        SchemaMode.Custom => "Custom",
-        _ => "Auto"
-    };
-
-    private void PopulateScheduleFilesList()
-    {
-        var selected = _allSchedules.Where(s => s.IsSelected).ToList();
-        var files = selected
-            .Select(s => $"schedule_{SanitizeFileName(s.Name)}.csv")
-            .ToList();
-        ScheduleFilesList.ItemsSource = files;
-        ScheduleFilesHeader.Text = files.Count == 1
-            ? "File CSV che verrà scritto:"
-            : $"File CSV che verranno scritti ({files.Count}, uno per schedule):";
-    }
-
-    private string SuggestFileName()
-    {
-        if (_mode == SourceMode.Schedules)
-        {
-            var sel = _allSchedules.Where(s => s.IsSelected).ToList();
-            if (sel.Count == 1) return SanitizeFileName(sel[0].Name) + ".csv";
-            if (sel.Count > 1) return SanitizeFileName(sel[0].Name) + "_e_altri.csv";
-        }
-        var title = Path.GetFileNameWithoutExtension(_doc?.Title ?? "");
-        return string.IsNullOrWhiteSpace(title) ? "elements.csv" : SanitizeFileName(title) + ".csv";
-    }
-
-    private static string SanitizeFileName(string name)
-    {
-        foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
-        return name.Trim();
-    }
-
-    // ───────────────────────── Filters ─────────────────────────
+    private List<CategoryRow> SelectedCategories()
+        => _allCategories.Where(c => c.IsSelected && c.InScope).ToList();
 
     private void ApplyCategoryFilter()
     {
-        _filteredModelCategories.Clear();
-        _filteredAnnotationCategories.Clear();
-        _filteredAnalyticalCategories.Clear();
-        _filteredOtherCategories.Clear();
+        _modelCategories.Clear();
+        _annotationCategories.Clear();
+        _analyticalCategories.Clear();
+        _otherCategories.Clear();
 
         foreach (var c in _allCategories.Where(c => c.InScope))
         {
             switch (c.CategoryType)
             {
-                case "Model": _filteredModelCategories.Add(c); break;
-                case "Annotation": _filteredAnnotationCategories.Add(c); break;
-                case "Analytical": _filteredAnalyticalCategories.Add(c); break;
-                default: _filteredOtherCategories.Add(c); break;
+                case "Model": _modelCategories.Add(c); break;
+                case "Annotation": _annotationCategories.Add(c); break;
+                case "Analytical": _analyticalCategories.Add(c); break;
+                default: _otherCategories.Add(c); break;
             }
         }
 
-        UpdateCategoryTabHeaders();
+        // "Other" is a safety net for category types Revit may add; it only
+        // shows when it has something in it.
+        bool hasOther = _otherCategories.Count > 0;
+        TabOther.Visibility = hasOther ? Visibility.Visible : Visibility.Collapsed;
+        if (!hasOther && TabOther.IsChecked == true) TabModel.IsChecked = true;
+
+        RefreshCategoryTab();
     }
 
-    private void UpdateCategoryTabHeaders()
+    private void CategoryTab_Changed(object sender, RoutedEventArgs e)
     {
-        try
+        if (!_ready) return;
+        RefreshCategoryTab();
+    }
+
+    private ObservableCollection<CategoryRow> ActiveCategoryTab()
+    {
+        if (TabAnnotation.IsChecked == true) return _annotationCategories;
+        if (TabAnalytical.IsChecked == true) return _analyticalCategories;
+        if (TabOther.IsChecked == true) return _otherCategories;
+        return _modelCategories;
+    }
+
+    private void RefreshCategoryTab()
+    {
+        var rows = ActiveCategoryTab();
+        if (!ReferenceEquals(CategoryList.ItemsSource, rows)) CategoryList.ItemsSource = rows;
+
+        CategoriesEmpty.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        CategoriesEmpty.Text = !_loaded || _allCategories.Count == 0
+            ? T("pbi.categories.none_in_model")
+            : T("pbi.categories.none_here");
+
+        TabModel.ToolTip = TabTip(_modelCategories);
+        TabAnnotation.ToolTip = TabTip(_annotationCategories);
+        TabAnalytical.ToolTip = TabTip(_analyticalCategories);
+        TabOther.ToolTip = TabTip(_otherCategories);
+    }
+
+    private static string TabTip(ObservableCollection<CategoryRow> rows)
+        => Counted("pbi.count.categories", rows.Count) + " · "
+         + Counted("pbi.count.chosen_f", rows.Count(c => c.IsSelected));
+
+    private void OnCategoryRowChanged(PropertyChangedEventArgs e)
+    {
+        if (_bulk || e.PropertyName != nameof(ViewRow.IsSelected)) return;
+        ClearStatus();
+        RefreshCategoryTab();
+        RefreshCounts();
+        ScheduleParamLoad();
+    }
+
+    private void SelectAllCategories_Click(object sender, RoutedEventArgs e) => SetActiveTab(selected: true);
+
+    private void SelectNoneCategories_Click(object sender, RoutedEventArgs e) => SetActiveTab(selected: false);
+
+    private void SetActiveTab(bool selected)
+    {
+        _bulk = true;
+        try { foreach (var c in ActiveCategoryTab()) c.IsSelected = selected; }
+        finally { _bulk = false; }
+
+        ClearStatus();
+        RefreshCategoryTab();
+        RefreshCounts();
+        ScheduleParamLoad();
+    }
+
+    // ───────────────────────── Schedules ─────────────────────────
+
+    private List<ScheduleRow> SelectedSchedules()
+        => _schedules.Where(s => s.IsSelected).ToList();
+
+    private void OnScheduleRowChanged(ScheduleRow row, PropertyChangedEventArgs e)
+    {
+        if (_bulk || e.PropertyName != nameof(ViewRow.IsSelected)) return;
+        ClearStatus();
+        // Show the columns of the one just ticked; when it was unticked, of
+        // the first that still is.
+        RefreshScheduleFields(row.IsSelected ? row : SelectedSchedules().FirstOrDefault());
+        RefreshCounts();
+    }
+
+    private void SelectAllSchedules_Click(object sender, RoutedEventArgs e) => SetAllSchedules(selected: true);
+
+    private void SelectNoneSchedules_Click(object sender, RoutedEventArgs e) => SetAllSchedules(selected: false);
+
+    private void SetAllSchedules(bool selected)
+    {
+        _bulk = true;
+        try { foreach (var s in _schedules) s.IsSelected = selected; }
+        finally { _bulk = false; }
+
+        ClearStatus();
+        RefreshScheduleFields(SelectedSchedules().FirstOrDefault());
+        RefreshCounts();
+    }
+
+    private void RefreshScheduleFields(ScheduleRow? target)
+    {
+        _scheduleFields.Clear();
+        ScheduleFieldsCount.Text = "";
+
+        if (target == null)
         {
-            int totalModelSelected = _allCategories.Count(c => c.IsSelected && c.CategoryType == "Model");
-            int totalAnnoSelected = _allCategories.Count(c => c.IsSelected && c.CategoryType == "Annotation");
-            int totalAnalSelected = _allCategories.Count(c => c.IsSelected && c.CategoryType == "Analytical");
-            int totalOtherSelected = _allCategories.Count(c =>
-                c.IsSelected && c.CategoryType != "Model" && c.CategoryType != "Annotation" && c.CategoryType != "Analytical");
-
-            ModelCategoriesTab.Header = $"Model Categories ({_filteredModelCategories.Count}{(totalModelSelected > 0 ? $" · {totalModelSelected}✓" : "")})";
-            AnnotationCategoriesTab.Header = $"Annotation Categories ({_filteredAnnotationCategories.Count}{(totalAnnoSelected > 0 ? $" · {totalAnnoSelected}✓" : "")})";
-            AnalyticalCategoriesTab.Header = $"Analytical Model Categories ({_filteredAnalyticalCategories.Count}{(totalAnalSelected > 0 ? $" · {totalAnalSelected}✓" : "")})";
-
-            // "Altre" tab: show only when non-empty (should not happen after Internal filtering,
-            // but kept as a safety net for unknown category types).
-            if (_filteredOtherCategories.Count > 0)
-            {
-                OtherCategoriesTab.Visibility = System.Windows.Visibility.Visible;
-                OtherCategoriesTab.Header = $"Altre ({_filteredOtherCategories.Count}{(totalOtherSelected > 0 ? $" · {totalOtherSelected}✓" : "")})";
-            }
-            else
-            {
-                OtherCategoriesTab.Visibility = System.Windows.Visibility.Collapsed;
-            }
+            ScheduleFieldsTitle.Text = T("pbi.schedule_columns");
+            ShowScheduleFieldsMessage(T("pbi.schedule_columns.pick"));
+            return;
         }
-        catch { /* tab elements may be null during initialize */ }
-    }
 
-    private void CategoryTab_Changed(object sender, SelectionChangedEventArgs e) { /* purely informational */ }
+        List<ScheduleFieldInfo>? fields = null;
+        try { fields = _source.GetScheduleFields(target.ScheduleId); }
+        catch (Exception ex) { DebugLog($"GetScheduleFields failed: {ex.Message}"); }
 
-    private void ApplyScheduleFilter()
-    {
-        _filteredSchedules.Clear();
-        foreach (var s in _allSchedules.Where(s => s.InScope)) _filteredSchedules.Add(s);
-
-        if (SchedulesHeader != null)
+        ScheduleFieldsTitle.Text = T("pbi.schedule_columns_of", target.Name);
+        if (fields == null)
         {
-            int sel = _allSchedules.Count(s => s.IsSelected);
-            SchedulesHeader.Text = sel > 0
-                ? $"Schedule ({_filteredSchedules.Count} · {sel}✓)"
-                : $"Schedule ({_filteredSchedules.Count})";
+            ShowScheduleFieldsMessage(T("pbi.schedule_columns.unreadable"));
+            return;
         }
+
+        foreach (var field in fields)
+        {
+            string badge = field.IsReadOnly ? T("pbi.badge.calculated")
+                         : field.Scope == "Type" ? T("pbi.badge.type")
+                         : "";
+            _scheduleFields.Add(new ScheduleFieldRow(field.Header, badge));
+        }
+
+        ScheduleFieldsCount.Text = fields.Count.ToString();
+        if (fields.Count == 0) ShowScheduleFieldsMessage(T("pbi.schedule_columns.none"));
+        else ScheduleFieldsEmpty.Visibility = Visibility.Collapsed;
     }
 
-    private void ParameterFilter_TextChanged(object sender, TextChangedEventArgs e) => ApplyParameterFilter();
-
-    private void ApplyParameterFilter()
+    private void ShowScheduleFieldsMessage(string text)
     {
-        var q = (ParameterFilter?.Text ?? "").Trim();
-        bool hideEmpty = HideEmptyBox?.IsChecked == true;
-        _availableParams.Clear();
-        var selectedKeys = _selectedParams.Select(p => (p.Name, p.Scope)).ToHashSet();
-        IEnumerable<ParameterRow> source = _allParameters.Where(p => !selectedKeys.Contains((p.Name, p.Scope)));
-        if (hideEmpty) source = source.Where(p => p.CoveragePercent > 0);
-        if (!string.IsNullOrEmpty(q))
-            source = source.Where(p =>
-                p.Name.IndexOf(q, StringComparison.CurrentCultureIgnoreCase) >= 0 ||
-                p.GroupName.IndexOf(q, StringComparison.CurrentCultureIgnoreCase) >= 0);
-        foreach (var p in source) _availableParams.Add(p);
-        UpdatePaneHeaders();
+        ScheduleFieldsEmpty.Text = text;
+        ScheduleFieldsEmpty.Visibility = Visibility.Visible;
     }
 
-    private void HideEmpty_Changed(object sender, RoutedEventArgs e) => ApplyParameterFilter();
+    // ───────────────────────── Parameters ─────────────────────────
 
-    private void IncludeTypeParameters_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_mode != SourceMode.Categories) return;
-        var selected = _allCategories.Where(c => c.IsSelected).ToList();
-        if (selected.Count == 0) return;
-        LoadParametersInline(selected);
-    }
-
-    private void UpdatePaneHeaders()
-    {
-        if (AvailableHeader != null)
-            AvailableHeader.Text = $"Disponibili ({_availableParams.Count})";
-        if (SelectedHeader != null)
-            SelectedHeader.Text = $"Selezionati ({_selectedParams.Count})";
-    }
-
-    private void UpdateSelectedOrderIndices()
-    {
-        for (int i = 0; i < _selectedParams.Count; i++)
-            _selectedParams[i].OrderIndex = i + 1;
-        SelectedParamsGrid.Items.Refresh();
-    }
-
-    // ───────────────────────── Inline parameter loading (3-pane mode) ─────────────────────────
-
+    /// <summary>
+    /// Reads the parameters a moment after the last category was ticked, so
+    /// ticking several in a row reads the model once.
+    /// </summary>
     private void ScheduleParamLoad()
     {
         if (_paramLoadTimer == null)
         {
             _paramLoadTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            _paramLoadTimer.Tick += (_, _) =>
-            {
-                _paramLoadTimer.Stop();
-                var selected = _allCategories.Where(c => c.IsSelected).ToList();
-                if (selected.Count > 0)
-                    LoadParametersInline(selected);
-                else
-                {
-                    _allParameters.Clear();
-                    _availableParams.Clear();
-                    _selectedParams.Clear();
-                    UpdatePaneHeaders();
-                    SetStatus("Seleziona una o più categorie per vedere i parametri.");
-                }
-            };
+            _paramLoadTimer.Tick += (_, _) => LoadParametersNow();
         }
         _paramLoadTimer.Stop();
         _paramLoadTimer.Start();
     }
 
-    private void LoadParametersInline(List<CategoryRow> selectedCategories)
+    private void LoadParametersNow()
     {
-        SetStatus("Sto analizzando i parametri…");
-        var ostCodes = selectedCategories.Select(c => c.OstCode).ToList();
-        bool includeType = IncludeTypeParametersBox.IsChecked == true;
-        try
+        _paramLoadTimer?.Stop();
+
+        // Columns to keep, in the user's order: the ones of a profile just
+        // loaded, otherwise the ones already chosen.
+        var keep = _pendingColumns ?? _selectedParams.Select(p => p.Key).ToList();
+        _pendingColumns = null;
+
+        var categories = SelectedCategories();
+        _allParameters.Clear();
+        _selectedParams.Clear();
+
+        if (categories.Count > 0)
         {
-            var parameters = _discovery.DiscoverParameters(_doc, ostCodes, includeType, sampleSize: 200);
-            var previouslySelected = _selectedParams.Select(p => (p.Name, p.Scope)).ToHashSet();
-            _allParameters.Clear();
-            foreach (var p in parameters) _allParameters.Add(new ParameterRow(p));
-            _selectedParams.Clear();
-            _availableParams.Clear();
-            foreach (var p in _allParameters)
+            try
             {
-                if (previouslySelected.Contains((p.Name, p.Scope)))
-                    _selectedParams.Add(p);
-                else
-                    _availableParams.Add(p);
+                var parameters = _source.DiscoverParameters(
+                    categories.Select(c => c.OstCode).ToList(),
+                    IncludeTypeParametersBox.IsChecked == true);
+
+                foreach (var info in parameters)
+                    _allParameters.Add(new ParameterRow(info, T("pbi.badge.type"), DescribeParameter(info)));
+
+                foreach (var key in keep)
+                {
+                    var row = _allParameters.FirstOrDefault(p => p.Key == key);
+                    if (row != null && !_selectedParams.Contains(row)) _selectedParams.Add(row);
+                }
             }
-            ApplyParameterFilter();
-            UpdateSelectedOrderIndices();
-            UpdatePaneHeaders();
-            var catLabel = selectedCategories.Count == 1
-                ? selectedCategories[0].DisplayName
-                : $"{selectedCategories.Count} categorie";
-            SetStatus($"{parameters.Count} parametri per {catLabel}.");
+            catch (Exception ex)
+            {
+                DebugLog($"DiscoverParameters failed: {ex}");
+                SetStatus(T("pbi.status.parameters_failed", ex.Message), attention: true);
+            }
         }
-        catch (Exception ex)
-        {
-            SetStatus($"Errore discovery parametri: {ex.GetType().Name}: {ex.Message}");
-        }
+
+        NormalizeSelectedOrder();
+        ApplyParameterFilter();
     }
 
-    // ───────────────────────── Dual-pane transfer buttons ─────────────────────────
+    /// <summary>The tooltip of a parameter row: what the row itself has no room for.</summary>
+    private static string DescribeParameter(ParameterInfo info)
+    {
+        var parts = new List<string>
+        {
+            info.Scope == "Type" ? T("pbi.param.type") : T("pbi.param.instance"),
+            T("pbi.param.coverage", info.CoveragePercent),
+        };
+        if (info.IsReadOnly) parts.Add(T("pbi.param.read_only"));
+        if (info.IsShared) parts.Add(T("pbi.param.shared"));
+        return info.Name + Environment.NewLine + info.GroupName + Environment.NewLine + string.Join(" · ", parts);
+    }
+
+    private void ParameterFilter_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!_ready) return;
+        ApplyParameterFilter();
+    }
+
+    private void HideEmpty_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        ApplyParameterFilter();
+    }
+
+    private void IncludeTypeParameters_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_ready || _bulk) return;
+        if (_mode == SourceMode.Categories) LoadParametersNow();
+    }
+
+    /// <summary>Fills the "available" list: everything not chosen yet that passes the filters.</summary>
+    private void ApplyParameterFilter()
+    {
+        string query = ParameterFilter.Text.Trim();
+        bool hideEmpty = HideEmptyBox.IsChecked == true;
+        ParameterFilterPlaceholder.Visibility = ParameterFilter.Text.Length == 0
+            ? Visibility.Visible : Visibility.Collapsed;
+
+        var chosen = new HashSet<string>(_selectedParams.Select(p => p.Key));
+        IEnumerable<ParameterRow> rows = _allParameters.Where(p => !chosen.Contains(p.Key));
+        if (hideEmpty) rows = rows.Where(p => p.CoveragePercent > 0);
+        if (query.Length > 0)
+        {
+            rows = rows.Where(p =>
+                p.Name.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0 ||
+                p.GroupName.IndexOf(query, StringComparison.CurrentCultureIgnoreCase) >= 0);
+        }
+
+        _availableParams.Clear();
+        foreach (var p in rows) _availableParams.Add(p);
+
+        if (_availableParams.Count > 0)
+        {
+            AvailableEmpty.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            AvailableEmpty.Visibility = Visibility.Visible;
+            AvailableEmpty.Text = SelectedCategories().Count == 0 ? T("pbi.available.pick_category")
+                : _allParameters.Count == _selectedParams.Count ? T("pbi.available.all_added")
+                : T("pbi.available.no_match");
+        }
+
+        RefreshCounts();
+    }
+
+    // ───────────────────────── Moving parameters into columns ─────────────────────────
 
     private void MoveToSelected_Click(object sender, RoutedEventArgs e)
-    {
-        var rows = AvailableParamsGrid.SelectedItems.Cast<ParameterRow>().ToList();
-        foreach (var r in rows) MoveOneToSelected(r);
-        UpdateSelectedOrderIndices();
-        ApplyParameterFilter();
-    }
+        => AddColumns(AvailableList.SelectedItems.Cast<ParameterRow>().ToList());
 
     private void MoveAllToSelected_Click(object sender, RoutedEventArgs e)
-    {
-        foreach (var r in _availableParams.ToList()) MoveOneToSelected(r);
-        UpdateSelectedOrderIndices();
-        ApplyParameterFilter();
-    }
+        => AddColumns(_availableParams.ToList());
 
     private void MoveToAvailable_Click(object sender, RoutedEventArgs e)
-    {
-        var rows = SelectedParamsGrid.SelectedItems.Cast<ParameterRow>().ToList();
-        foreach (var r in rows) _selectedParams.Remove(r);
-        UpdateSelectedOrderIndices();
-        ApplyParameterFilter();
-    }
+        => RemoveColumns(SelectedList.SelectedItems.Cast<ParameterRow>().ToList());
 
     private void MoveAllToAvailable_Click(object sender, RoutedEventArgs e)
+        => RemoveColumns(_selectedParams.ToList());
+
+    private void AvailableParams_DoubleClick(object sender, MouseButtonEventArgs e)
     {
-        _selectedParams.Clear();
-        UpdateSelectedOrderIndices();
+        if (RowUnder(AvailableList, e) is ParameterRow row) AddColumns(new List<ParameterRow> { row });
+    }
+
+    private void SelectedParams_DoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (RowUnder(SelectedList, e) is ParameterRow row) RemoveColumns(new List<ParameterRow> { row });
+    }
+
+    /// <summary>The row that was double-clicked; null on the scroll bar or on empty space.</summary>
+    private static object? RowUnder(ListBox list, MouseButtonEventArgs e)
+    {
+        if (!(e.OriginalSource is DependencyObject source)) return null;
+        var item = ItemsControl.ContainerFromElement(list, source) as ListBoxItem;
+        return item?.DataContext;
+    }
+
+    private void AddColumns(List<ParameterRow> rows)
+    {
+        if (rows.Count == 0) return;
+        foreach (var row in rows)
+            if (!_selectedParams.Contains(row)) _selectedParams.Add(row);
+
+        ClearStatus();
+        NormalizeSelectedOrder();
         ApplyParameterFilter();
     }
 
-    private void MoveSelectedUp_Click(object sender, RoutedEventArgs e)
+    private void RemoveColumns(List<ParameterRow> rows)
     {
-        var sel = SelectedParamsGrid.SelectedItem as ParameterRow;
-        if (sel == null) return;
-        int idx = _selectedParams.IndexOf(sel);
-        if (idx <= 0) return;
-        _selectedParams.Move(idx, idx - 1);
-        UpdateSelectedOrderIndices();
-        SelectedParamsGrid.SelectedItem = sel;
+        if (rows.Count == 0) return;
+        foreach (var row in rows) _selectedParams.Remove(row);
+
+        ClearStatus();
+        NormalizeSelectedOrder();
+        ApplyParameterFilter();
     }
 
-    private void MoveSelectedDown_Click(object sender, RoutedEventArgs e)
+    private void MoveSelectedUp_Click(object sender, RoutedEventArgs e) => MoveColumn(-1);
+
+    private void MoveSelectedDown_Click(object sender, RoutedEventArgs e) => MoveColumn(+1);
+
+    private void MoveColumn(int offset)
     {
-        var sel = SelectedParamsGrid.SelectedItem as ParameterRow;
-        if (sel == null) return;
-        int idx = _selectedParams.IndexOf(sel);
-        if (idx < 0 || idx >= _selectedParams.Count - 1) return;
-        _selectedParams.Move(idx, idx + 1);
-        UpdateSelectedOrderIndices();
-        SelectedParamsGrid.SelectedItem = sel;
+        if (!(SelectedList.SelectedItem is ParameterRow row)) return;
+        int from = _selectedParams.IndexOf(row);
+        int to = from + offset;
+        if (from < 0 || to < 0 || to >= _selectedParams.Count) return;
+        // The CSV lists instance parameters first and type parameters after
+        // them: a column moves within its own group only.
+        if (_selectedParams[to].IsType != row.IsType) return;
+
+        _selectedParams.Move(from, to);
+        NormalizeSelectedOrder();
+        SelectedList.SelectedItem = row;
+        SelectedList.ScrollIntoView(row);
     }
 
-    private void AvailableParams_DoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    /// <summary>
+    /// Keeps the list in the order the columns have in the file: instance
+    /// parameters in the user's order, then type parameters in the user's
+    /// order. Renumbers the rows.
+    /// </summary>
+    private void NormalizeSelectedOrder()
     {
-        if (AvailableParamsGrid.SelectedItem is ParameterRow row)
+        var ordered = _selectedParams.Where(p => !p.IsType)
+            .Concat(_selectedParams.Where(p => p.IsType))
+            .ToList();
+
+        if (!ordered.SequenceEqual(_selectedParams))
         {
-            MoveOneToSelected(row);
-            UpdateSelectedOrderIndices();
-            ApplyParameterFilter();
+            _selectedParams.Clear();
+            foreach (var p in ordered) _selectedParams.Add(p);
         }
+
+        for (int i = 0; i < _selectedParams.Count; i++)
+            _selectedParams[i].OrderIndex = i + 1;
     }
 
-    private void SelectedParams_DoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    // ───────────────────────── Counts and footer ─────────────────────────
+
+    private void RefreshCounts()
     {
-        if (SelectedParamsGrid.SelectedItem is ParameterRow row)
-        {
-            _selectedParams.Remove(row);
-            UpdateSelectedOrderIndices();
-            ApplyParameterFilter();
-        }
+        int categories = SelectedCategories().Count;
+        int schedules = SelectedSchedules().Count;
+        int columns = _selectedParams.Count;
+
+        CategoriesCount.Text = Counted("pbi.count.chosen_f", categories);
+        SchedulesCount.Text = Counted("pbi.count.schedules_chosen", schedules);
+
+        SelectedCaption.Text = columns == 0
+            ? T("pbi.columns.caption_none")
+            : Counted("pbi.columns.caption", columns);
+        SelectedEmpty.Visibility = columns == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        UpdateFooter();
     }
 
-    private void MoveOneToSelected(ParameterRow row)
+    /// <summary>What is chosen so far, in one line.</summary>
+    private string Summary()
     {
-        if (!_selectedParams.Contains(row))
-            _selectedParams.Add(row);
+        if (_mode == SourceMode.Schedules)
+            return Counted("pbi.count.schedules", SelectedSchedules().Count);
+
+        return Counted("pbi.count.categories", SelectedCategories().Count) + " · "
+             + Counted("pbi.count.columns", _selectedParams.Count);
     }
 
-    // ───────────────────────── Categories/schedules row click ─────────────────────────
-
-    private void SelectAllCategories_Click(object sender, RoutedEventArgs e)
+    private void UpdateFooter()
     {
-        if (_mode == SourceMode.Categories)
-        {
-            var (rows, grid) = GetActiveCategoryView();
-            foreach (var c in rows) c.IsSelected = true;
-            grid?.Items.Refresh();
-            UpdateCategoryTabHeaders();
-            ScheduleParamLoad();
-        }
-        else
-        {
-            foreach (var s in _filteredSchedules) s.IsSelected = true;
-            ApplyScheduleFilter();
-        }
+        bool hasStatus = !string.IsNullOrEmpty(_status);
+        FooterText.Text = hasStatus ? _status : Summary();
+        FooterText.ToolTip = hasStatus ? _status : null;
+        FooterText.Foreground = (Brush)FindResource(
+            hasStatus && _statusNeedsAttention ? "Vx.Caution"
+            : hasStatus ? "Vx.InkSoft"
+            : "Vx.Muted");
     }
 
-    private void SelectNoneCategories_Click(object sender, RoutedEventArgs e)
+    private void ClearStatus()
     {
-        if (_mode == SourceMode.Categories)
-        {
-            var (rows, grid) = GetActiveCategoryView();
-            foreach (var c in rows) c.IsSelected = false;
-            grid?.Items.Refresh();
-            UpdateCategoryTabHeaders();
-            ScheduleParamLoad();
-        }
-        else
-        {
-            foreach (var s in _filteredSchedules) s.IsSelected = false;
-            ApplyScheduleFilter();
-        }
+        _status = null;
+        _statusNeedsAttention = false;
+        UpdateFooter();
     }
 
-    /// <summary>Returns the rows + DataGrid of the currently selected category tab.</summary>
-    private (IEnumerable<CategoryRow> rows, DataGrid? grid) GetActiveCategoryView()
+    // SetStatus can be called after an await whose continuation ran on a
+    // thread-pool thread (the HTTP calls behind the Power BI refresh).
+    // Touching the window off the UI thread throws, so go back through the
+    // Dispatcher.
+    private void SetStatus(string text, bool attention = false)
     {
-        var item = CategoryTabControl?.SelectedItem;
-        if (item == AnnotationCategoriesTab) return (_filteredAnnotationCategories, AnnotationDataGrid);
-        if (item == AnalyticalCategoriesTab) return (_filteredAnalyticalCategories, AnalyticalDataGrid);
-        if (item == OtherCategoriesTab) return (_filteredOtherCategories, OtherDataGrid);
-        return (_filteredModelCategories, CategoryDataGrid);
-    }
-
-    private void CategoryRow_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        if (sender is DataGridRow row && row.DataContext is CategoryRow ctx)
+        if (!Dispatcher.CheckAccess())
         {
-            ctx.IsSelected = !ctx.IsSelected;
-            UpdateCategoryTabHeaders();
-            ScheduleParamLoad();
+            Dispatcher.Invoke(() => SetStatus(text, attention));
+            return;
         }
-    }
 
-    private void ScheduleRow_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        if (sender is DataGridRow row && row.DataContext is ScheduleRow ctx)
-        {
-            ctx.IsSelected = !ctx.IsSelected;
-            ApplyScheduleFilter();
-            RefreshScheduleFields(ctx);
-        }
-    }
-
-    private void CategoryDataGrid_DoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        if (sender is DataGrid grid && grid.SelectedItem is CategoryRow ctx)
-        {
-            ctx.IsSelected = true;
-            UpdateCategoryTabHeaders();
-            var selected = _allCategories.Where(c => c.IsSelected).ToList();
-            if (selected.Count > 0) LoadParametersInline(selected);
-        }
-    }
-
-    private void ScheduleDataGrid_DoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-    {
-        // Double-click should NOT navigate to Step 3. The two single clicks that compose
-        // a double-click already toggle IsSelected twice (net: back to start). We just
-        // force-set IsSelected = true to ensure the row ends up selected, and refresh
-        // the preview pane so the right column list reflects this schedule.
-        if (ScheduleDataGrid.SelectedItem is ScheduleRow ctx)
-        {
-            ctx.IsSelected = true;
-            ApplyScheduleFilter();
-            RefreshScheduleFields(ctx);
-        }
+        _status = text;
+        _statusNeedsAttention = attention;
+        UpdateFooter();
     }
 
     // ───────────────────────── Profiles ─────────────────────────
 
+    private void ProfilesBtn_Click(object sender, RoutedEventArgs e)
+    {
+        // Line the menu's right edge up with the button's.
+        if (ProfilesPopup.Child is FrameworkElement menu && !double.IsNaN(menu.Width))
+            ProfilesPopup.HorizontalOffset = ProfilesBtn.ActualWidth - menu.Width;
+        ProfilesPopup.IsOpen = true;
+    }
+
     private void LoadProfile_Click(object sender, RoutedEventArgs e)
     {
+        ProfilesPopup.IsOpen = false;
+
         var profiles = ProfileStore.LoadAll();
         if (profiles.Count == 0)
         {
-            SetStatus("Nessun profilo salvato. Configura una selezione e salvala con 'Salva profilo'.");
+            SetStatus(T("pbi.status.no_profiles"), attention: true);
             return;
         }
-        var dlg = new ProfilePickerDialog(profiles) { Owner = this };
-        if (dlg.ShowDialog() != true || dlg.SelectedProfile == null) return;
-        ApplyProfile(dlg.SelectedProfile);
+
+        var dialog = new ProfilePickerDialog(profiles) { Owner = this };
+        if (dialog.ShowDialog() != true || dialog.SelectedProfile == null) return;
+        ApplyProfile(dialog.SelectedProfile);
     }
 
-    private void ApplyProfile(PowerBiExportProfile profile)
+    /// <summary>
+    /// Puts a saved profile on the window: source, categories, columns (in
+    /// their saved order), output and column types.
+    /// </summary>
+    public void ApplyProfile(PowerBiExportProfile profile)
     {
-        var catSet = new HashSet<string>(profile.Categories, StringComparer.OrdinalIgnoreCase);
-        foreach (var c in _allCategories) c.IsSelected = catSet.Contains(c.OstCode);
-        CategoryDataGrid.Items.Refresh();
-        AnnotationDataGrid.Items.Refresh();
-        AnalyticalDataGrid.Items.Refresh();
-        OtherDataGrid.Items.Refresh();
-        UpdateCategoryTabHeaders();
+        if (profile == null) throw new ArgumentNullException(nameof(profile));
+        LoadFromSource();
 
-        var schSet = new HashSet<long>(profile.ScheduleIds);
-        foreach (var s in _allSchedules) s.IsSelected = schSet.Contains(s.ScheduleId);
-        ScheduleDataGrid.Items.Refresh();
+        // A hand-edited or imported profile may leave a list out.
+        var categories = new HashSet<string>(profile.Categories ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
+        var schedules = new HashSet<long>(profile.ScheduleIds ?? new List<long>());
 
-        if (profile.UseSchedules)
+        _bulk = true;
+        try
         {
-            ModeSchedulesRadio.IsChecked = true;
+            foreach (var c in _allCategories) c.IsSelected = categories.Contains(c.OstCode);
+            foreach (var s in _schedules) s.IsSelected = schedules.Contains(s.ScheduleId);
+
+            if (profile.UseSchedules) ModeSchedulesRadio.IsChecked = true;
+            else if (profile.ScopeMode == "ActiveView") ScopeViewRadio.IsChecked = true;
+            else if (profile.ScopeMode == "Selection") ScopeSelectionRadio.IsChecked = true;
+            else ScopeWholeRadio.IsChecked = true;
+
+            IncludeTypeParametersBox.IsChecked = profile.IncludeTypeParameters;
         }
-        else
+        finally
         {
-            switch (profile.ScopeMode)
-            {
-                case "ActiveView": ScopeViewRadio.IsChecked = true; break;
-                case "Selection": ScopeSelectionRadio.IsChecked = true; break;
-                default: ScopeWholeRadio.IsChecked = true; break;
-            }
+            _bulk = false;
         }
 
-        IncludeTypeParametersBox.IsChecked = profile.IncludeTypeParameters;
         if (!string.IsNullOrEmpty(profile.OutputFolder)) OutputFolderBox.Text = profile.OutputFolder;
         if (!string.IsNullOrEmpty(profile.FileName)) FileNameBox.Text = profile.FileName;
         OverwriteBox.IsChecked = profile.OverwriteFile;
@@ -1031,71 +932,100 @@ public partial class PowerBiExportWindow : Window
         TriggerRefreshBox.IsChecked = profile.TriggerPbiRefresh;
         RefreshWorkspaceIdBox.Text = profile.RefreshWorkspaceId ?? "";
         RefreshDatasetIdBox.Text = profile.RefreshDatasetId ?? "";
-        RefreshConfigPanel.Visibility = profile.TriggerPbiRefresh
-            ? System.Windows.Visibility.Visible
-            : System.Windows.Visibility.Collapsed;
-        // Restore schema mapping
+
+        // The profile's columns are picked up when the parameters load.
+        _pendingColumns = (profile.InstanceParameters ?? new List<string>()).Select(n => ParameterRow.MakeKey("Instance", n))
+            .Concat((profile.TypeParameters ?? new List<string>()).Select(n => ParameterRow.MakeKey("Type", n)))
+            .ToList();
+        ApplySource();
+        if (_mode == SourceMode.Schedules)
+        {
+            _pendingColumns = null;
+            RefreshScheduleFields(SelectedSchedules().FirstOrDefault());
+        }
+        RefreshCategoryTab();
+        RefreshCounts();
+
+        // Column types last, once the columns are there: the saved types
+        // first, then the mode ("Suggested" fills in a list saved empty).
         _columnTypes.Clear();
         foreach (var ct in profile.ColumnTypes ?? new List<ColumnTypeMapping>())
             _columnTypes.Add(new ColumnTypeMapping { ColumnName = ct.ColumnName, PbiType = ct.PbiType, Format = ct.Format });
-        switch ((profile.SchemaMappingMode ?? "Auto").ToLowerInvariant())
+        _bulk = true;
+        try
         {
-            case "suggested": SchemaModeSuggestedRadio.IsChecked = true; break;
-            case "custom":    SchemaModeCustomRadio.IsChecked = true; break;
-            default:          SchemaModeAutoRadio.IsChecked = true; break;
+            switch ((profile.SchemaMappingMode ?? "Auto").ToLowerInvariant())
+            {
+                case "suggested": SchemaModeSuggestedRadio.IsChecked = true; break;
+                case "custom": SchemaModeCustomRadio.IsChecked = true; break;
+                default: SchemaModeAutoRadio.IsChecked = true; break;
+            }
         }
+        finally
+        {
+            _bulk = false;
+        }
+        ApplySchemaMode();
 
-        // Note: parameters are re-applied when user enters step 2 (preserved via _selectedParams)
-        SetStatus($"Profilo '{profile.Name}' caricato.");
+        // On step 2 already: show the output of what was just loaded, or go
+        // back to step 1 when the profile has nothing this model can export.
+        if (_step == 2 && !GoToOutput()) ShowStep(1);
+        if (string.IsNullOrEmpty(_status)) SetStatus(T("pbi.status.profile_loaded", profile.Name));
     }
 
     private void SaveProfile_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new ProfileNameDialog { Owner = this };
-        if (dlg.ShowDialog() != true || string.IsNullOrWhiteSpace(dlg.ProfileName)) return;
+        ProfilesPopup.IsOpen = false;
 
-        var profile = BuildCurrentProfile(dlg.ProfileName);
+        var dialog = new ProfileNameDialog { Owner = this };
+        if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.ProfileName)) return;
+
+        var profile = BuildCurrentProfile(dialog.ProfileName);
         try
         {
             ProfileStore.Save(profile);
-            SetStatus($"Profilo '{profile.Name}' salvato in {ProfileStore.GetProfilesDirectory()}");
+            SetStatus(T("pbi.status.profile_saved", profile.Name, ProfileStore.GetProfilesDirectory()));
         }
         catch (Exception ex)
         {
-            SetStatus($"Salvataggio fallito: {ex.Message}");
+            SetStatus(T("pbi.status.profile_save_failed", ex.Message), attention: true);
         }
     }
 
     private void ImportProfile_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenFileDialog
+        ProfilesPopup.IsOpen = false;
+
+        var dialog = new OpenFileDialog
         {
-            Title = "Importa profilo da file (.json)",
-            Filter = "Profili RevitCortex (*.json)|*.json",
+            Title = T("pbi.profiles.import_title"),
+            Filter = T("pbi.profiles.import_filter") + " (*.json)|*.json",
             CheckFileExists = true
         };
-        if (dlg.ShowDialog() != true) return;
+        if (dialog.ShowDialog() != true) return;
+
         try
         {
-            var json = File.ReadAllText(dlg.FileName);
+            var json = File.ReadAllText(dialog.FileName);
             var profile = Newtonsoft.Json.JsonConvert.DeserializeObject<PowerBiExportProfile>(json);
             if (profile == null || string.IsNullOrWhiteSpace(profile.Name))
             {
-                SetStatus("File non valido o privo di nome profilo.");
+                SetStatus(T("pbi.status.profile_invalid"), attention: true);
                 return;
             }
             ProfileStore.Save(profile);
             ApplyProfile(profile);
-            SetStatus($"Profilo '{profile.Name}' importato e applicato.");
+            SetStatus(T("pbi.status.profile_imported", profile.Name));
         }
         catch (Exception ex)
         {
-            SetStatus($"Import fallito: {ex.Message}");
+            SetStatus(T("pbi.status.profile_import_failed", ex.Message), attention: true);
         }
     }
 
     private void OpenProfilesFolder_Click(object sender, RoutedEventArgs e)
     {
+        ProfilesPopup.IsOpen = false;
         try
         {
             var dir = ProfileStore.GetProfilesDirectory();
@@ -1104,52 +1034,29 @@ public partial class PowerBiExportWindow : Window
         }
         catch (Exception ex)
         {
-            SetStatus($"Apertura cartella fallita: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Opens the current Output folder in Windows Explorer. Companion to the
-    /// "Sfoglia…" button: Sfoglia changes the selection (folder picker, shows
-    /// folders only by Windows design); this one shows the actual file content
-    /// of whatever is currently in the box — useful for verifying that a
-    /// previous export produced the expected CSVs.
-    /// </summary>
-    private void OpenOutputFolder_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var dir = OutputFolderBox?.Text?.Trim();
-            if (string.IsNullOrEmpty(dir))
-            {
-                SetStatus("Imposta prima una cartella di output.");
-                return;
-            }
-            // Create on demand: the user might have typed a path that doesn't
-            // exist yet (e.g. they're planning ahead before exporting). Avoids
-            // an Explorer error popup and matches "Apri profili" semantics.
-            Directory.CreateDirectory(dir!);
-            System.Diagnostics.Process.Start("explorer.exe", $"\"{dir}\"");
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"Apertura cartella output fallita: {ex.Message}");
+            SetStatus(T("pbi.status.open_folder_failed", ex.Message), attention: true);
         }
     }
 
     private PowerBiExportProfile BuildCurrentProfile(string name)
     {
+        bool schedules = _mode == SourceMode.Schedules;
         return new PowerBiExportProfile
         {
             Name = name,
-            UseSchedules = _mode == SourceMode.Schedules,
-            Categories = _allCategories.Where(c => c.IsSelected).Select(c => c.OstCode).ToList(),
-            ScheduleIds = _allSchedules.Where(s => s.IsSelected).Select(s => s.ScheduleId).ToList(),
-            InstanceParameters = _selectedParams.Where(p => p.Scope == "Instance").Select(p => p.Name).ToList(),
-            TypeParameters = _selectedParams.Where(p => p.Scope == "Type").Select(p => p.Name).ToList(),
+            UseSchedules = schedules,
+            Categories = SelectedCategories().Select(c => c.OstCode).ToList(),
+            ScheduleIds = SelectedSchedules().Select(s => s.ScheduleId).ToList(),
+            // A schedule export has its own columns and file names.
+            InstanceParameters = schedules
+                ? new List<string>()
+                : _selectedParams.Where(p => !p.IsType).Select(p => p.Name).ToList(),
+            TypeParameters = schedules
+                ? new List<string>()
+                : _selectedParams.Where(p => p.IsType).Select(p => p.Name).ToList(),
             IncludeTypeParameters = IncludeTypeParametersBox.IsChecked == true,
             OutputFolder = OutputFolderBox.Text,
-            FileName = FileNameBox.Text,
+            FileName = schedules ? "" : FileNameBox.Text,
             OverwriteFile = OverwriteBox.IsChecked == true,
             AutoExportOnSave = AutoExportBox.IsChecked == true,
             TriggerPbiRefresh = TriggerRefreshBox.IsChecked == true,
@@ -1166,64 +1073,84 @@ public partial class PowerBiExportWindow : Window
         };
     }
 
-    // ───────────────────────── PBI Refresh ─────────────────────────
-
-    private void TriggerRefreshBox_Changed(object sender, RoutedEventArgs e)
-    {
-        if (RefreshConfigPanel == null) return;
-        RefreshConfigPanel.Visibility = TriggerRefreshBox.IsChecked == true
-            ? System.Windows.Visibility.Visible
-            : System.Windows.Visibility.Collapsed;
-    }
-
-    private async System.Threading.Tasks.Task FirePbiRefreshAsync(string workspaceId, string datasetId)
-    {
-        try
-        {
-            SetStatus("Trigger refresh Power BI…");
-            var settings = RevitCortex.Plugin.PowerBiLive.PowerBiSettings.Load();
-            var auth = new RevitCortex.Plugin.PowerBiLive.PowerBiAuthService(settings);
-            var authState = await auth.TryAcquireSilentAsync();
-            if (!authState.IsSignedIn || string.IsNullOrEmpty(authState.AccessToken))
-            {
-                SetStatus("Export completato. Refresh non triggerato: non sei autenticato a Power BI (esegui pbi_check_auth).");
-                return;
-            }
-            using var client = new RevitCortex.Plugin.PowerBiLive.PowerBiServiceClient(authState.AccessToken!);
-            var requestId = await client.TriggerRefreshAsync(workspaceId, datasetId);
-            var tip = string.IsNullOrEmpty(requestId)
-                ? "Refresh in coda (Pro — nessun requestId)."
-                : $"Refresh avviato (requestId: {requestId}).";
-            SetStatus($"Export completato. {tip} La dashboard sarà aggiornata tra ~30s.");
-        }
-        catch (Exception ex)
-        {
-            SetStatus($"Export completato. Refresh fallito: {ex.Message}");
-            DebugLog($"FirePbiRefreshAsync EXCEPTION: {ex}");
-        }
-    }
-
-    // ───────────────────────── Output ─────────────────────────
+    // ───────────────────────── Step 2: file ─────────────────────────
 
     private void BrowseFolder_Click(object sender, RoutedEventArgs e)
     {
-        var dlg = new OpenFileDialog
+        // A file dialog used as a folder picker (WPF has none on .NET
+        // Framework): the user opens the folder and presses "Open".
+        var dialog = new OpenFileDialog
         {
-            Title = "Seleziona la cartella di output (premi Apri sulla cartella)",
+            Title = T("pbi.browse_title"),
             CheckFileExists = false,
             CheckPathExists = true,
-            FileName = "Seleziona-questa-cartella",
-            Filter = "Cartella|*.this-directory"
+            FileName = T("pbi.browse_placeholder"),
+            Filter = T("pbi.browse_filter") + "|*.this-directory"
         };
         if (!string.IsNullOrEmpty(OutputFolderBox.Text) && Directory.Exists(OutputFolderBox.Text))
-            dlg.InitialDirectory = OutputFolderBox.Text;
-        if (dlg.ShowDialog() == true)
+            dialog.InitialDirectory = OutputFolderBox.Text;
+
+        if (dialog.ShowDialog() == true)
         {
-            var folder = Path.GetDirectoryName(dlg.FileName);
+            var folder = Path.GetDirectoryName(dialog.FileName);
             if (!string.IsNullOrEmpty(folder)) OutputFolderBox.Text = folder!;
             RefreshPreview();
         }
     }
+
+    /// <summary>
+    /// Opens the output folder in Explorer, to see what a previous export
+    /// wrote. The folder is created when it does not exist yet.
+    /// </summary>
+    private void OpenOutputFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dir = OutputFolderBox.Text.Trim();
+            if (dir.Length == 0)
+            {
+                SetStatus(T("pbi.status.need_folder"), attention: true);
+                return;
+            }
+            Directory.CreateDirectory(dir);
+            System.Diagnostics.Process.Start("explorer.exe", $"\"{dir}\"");
+        }
+        catch (Exception ex)
+        {
+            SetStatus(T("pbi.status.open_folder_failed", ex.Message), attention: true);
+        }
+    }
+
+    private void PopulateScheduleFilesList()
+    {
+        var files = SelectedSchedules()
+            .Select(s => $"schedule_{SanitizeFileName(s.Name)}.csv")
+            .ToList();
+        ScheduleFilesList.ItemsSource = files;
+        ScheduleFilesLabel.Text = Counted("pbi.schedule_files", files.Count);
+    }
+
+    private string SuggestFileName()
+    {
+        var title = Path.GetFileNameWithoutExtension(_source.DocumentTitle ?? "");
+        return string.IsNullOrWhiteSpace(title) ? "elements.csv" : SanitizeFileName(title) + ".csv";
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
+        return name.Trim();
+    }
+
+    private void TriggerRefreshBox_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_ready) return;
+        RefreshConfigPanel.Visibility = TriggerRefreshBox.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    // ───────────────────────── Step 2: preview ─────────────────────────
 
     private void RefreshPreview()
     {
@@ -1234,292 +1161,362 @@ public partial class PowerBiExportWindow : Window
         }
         catch (Exception ex)
         {
-            SetStatus($"Errore preview: {ex.Message}");
+            DebugLog($"Preview failed: {ex}");
+            ShowPreview(null, null);
+            SummaryText.Text = "";
+            SummaryNote.Text = "";
+            SummaryWarning.Visibility = Visibility.Collapsed;
+            SetStatus(T("pbi.status.preview_failed", ex.Message), attention: true);
         }
     }
 
     private void RefreshCategoryPreview()
     {
-        var instParams = _selectedParams.Where(p => p.Scope == "Instance").Select(p => p.Name).ToList();
-        var typeParams = _selectedParams.Where(p => p.Scope == "Type").Select(p => p.Name).ToList();
-
-        // Built-in columns and well-known sidecar names that the CSV writes
-        // unconditionally. If the user selected a parameter with one of these
-        // names (e.g. "Family" or "Type"), we silently skip it for the preview
-        // and CSV — the built-in column already carries the same / closely
-        // related value, and DataTable would throw on a duplicate column name.
+        // A parameter named like a built-in column ("Family", "Type"...) is
+        // left out, here and in the CSV: the built-in column already carries
+        // that value.
         var builtIns = BuiltInColumnNames();
-
-        var dedupInst = new List<string>();
-        var dedupType = new List<string>();
+        var instance = new List<string>();
+        var type = new List<string>();
         int skipped = 0;
-        foreach (var n in instParams)
+        foreach (var p in _selectedParams)
         {
-            if (string.IsNullOrEmpty(n)) continue;
-            if (builtIns.Contains(n)) { skipped++; continue; }
-            dedupInst.Add(n);
+            if (string.IsNullOrEmpty(p.Name)) continue;
+            if (builtIns.Contains(p.Name)) { skipped++; continue; }
+            if (p.IsType) type.Add(p.Name);
+            else instance.Add(p.Name);
         }
-        foreach (var n in typeParams)
-        {
-            if (string.IsNullOrEmpty(n)) continue;
-            // Type params are prefixed with "[Type] " so collisions with built-ins
-            // are basically impossible, but guard anyway.
-            if (builtIns.Contains(n)) { skipped++; continue; }
-            dedupType.Add(n);
-        }
+
+        var categories = SelectedCategories();
+        var preview = _source.PreviewElements(_scope, categories.Select(c => c.OstCode).ToList(),
+            instance, type, PreviewRowCount);
 
         var headers = new List<string> { "ElementId", "Category", "Family", "Type" };
-        headers.AddRange(dedupInst);
-        if (IncludeTypeParametersBox.IsChecked == true)
-            headers.AddRange(dedupType.Select(n => "[Type] " + n));
+        headers.AddRange(instance);
+        headers.AddRange(type.Select(n => "[Type] " + n));
+        ShowPreview(headers, preview.Rows);
 
-        var rows = new System.Data.DataTable();
-        foreach (var h in headers) rows.Columns.Add(h);
+        PreviewCaption.Text = T("pbi.preview.first_rows", PreviewRowCount);
+        int columns = builtIns.Count + instance.Count + type.Count;
+        SummaryText.Text = T("pbi.preview.summary", preview.TotalRows.ToString("N0"), columns, ScopeLabel());
+        SummaryNote.Text = skipped > 0
+            ? T("pbi.preview.more_columns") + " " + Counted("pbi.preview.skipped", skipped)
+            : T("pbi.preview.more_columns");
 
-        var ostCodes = _allCategories.Where(c => c.IsSelected).Select(c => c.OstCode).ToList();
-        var elements = CollectElementsForScope(ostCodes, take: 5);
-        foreach (var elem in elements)
-        {
-            var row = rows.NewRow();
-            row[0] = GetIdValue(elem.Id);
-            row[1] = elem.Category?.Name ?? "";
-            var typeId = elem.GetTypeId();
-            var typeElem = typeId != ElementId.InvalidElementId ? _doc.GetElement(typeId) : null;
-            row[2] = (typeElem as ElementType)?.FamilyName ?? "";
-            row[3] = (typeElem as ElementType)?.Name ?? "";
-
-            int col = 4;
-            foreach (var pn in dedupInst)
-            {
-                var p = elem.LookupParameter(pn);
-                row[col++] = p != null ? GetParamDisplay(p) : "";
-            }
-            if (IncludeTypeParametersBox.IsChecked == true)
-            {
-                foreach (var pn in dedupType)
-                {
-                    var p = typeElem?.LookupParameter(pn);
-                    row[col++] = p != null ? GetParamDisplay(p) : "";
-                }
-            }
-            rows.Rows.Add(row);
-        }
-
-        PreviewGrid.ItemsSource = rows.DefaultView;
-
-        int totalRows = CountElementsForScope(ostCodes);
-        var totalParams = dedupInst.Count + (IncludeTypeParametersBox.IsChecked == true ? dedupType.Count : 0);
-        var skipNote = skipped > 0
-            ? $" · {skipped} parametr{(skipped == 1 ? "o" : "i")} duplicat{(skipped == 1 ? "o" : "i")} con colonne built-in (saltati)"
-            : "";
-        SummaryText.Text = $"Modalita Categorie · {ostCodes.Count} categorie · {totalParams} parametri · ~{totalRows} elementi · ambito {_scope}{skipNote}";
-    }
-
-    private List<Element> CollectElementsForScope(List<string> ostCodes, int take)
-    {
-        var elems = new List<Element>();
-        foreach (var ost in ostCodes)
-        {
-            if (elems.Count >= take) break;
-            if (!Enum.TryParse<BuiltInCategory>(ost, out var bic)) continue;
-            FilteredElementCollector? col;
-            try
-            {
-                col = _scope switch
-                {
-                    Scope.ActiveView => new FilteredElementCollector(_doc, _doc.ActiveView.Id),
-                    Scope.Selection => BuildSelectionCollector(),
-                    _ => new FilteredElementCollector(_doc)
-                };
-            }
-            catch
-            {
-                col = new FilteredElementCollector(_doc);
-            }
-            if (col == null) continue;  // Selection mode with empty selection — nothing to preview
-            elems.AddRange(col.OfCategory(bic).WhereElementIsNotElementType().Take(take - elems.Count));
-        }
-        return elems;
-    }
-
-    private int CountElementsForScope(List<string> ostCodes)
-    {
-        int total = 0;
-        foreach (var ost in ostCodes)
-        {
-            if (!Enum.TryParse<BuiltInCategory>(ost, out var bic)) continue;
-            FilteredElementCollector? col;
-            try
-            {
-                col = _scope switch
-                {
-                    Scope.ActiveView => new FilteredElementCollector(_doc, _doc.ActiveView.Id),
-                    Scope.Selection => BuildSelectionCollector(),
-                    _ => new FilteredElementCollector(_doc)
-                };
-            }
-            catch
-            {
-                col = new FilteredElementCollector(_doc);
-            }
-            if (col == null) continue;  // Selection mode with empty selection — count stays 0
-            total += col.OfCategory(bic).WhereElementIsNotElementType().GetElementCount();
-        }
-        return total;
-    }
-
-    /// <summary>
-    /// Returns a collector over the user's current Revit selection, or
-    /// <c>null</c> when the selection is empty. Callers must treat null as
-    /// "no elements" — NEVER fall back to whole-model, which was the previous
-    /// bug that made "Selezione corrente" show every category when nothing
-    /// was actually selected.
-    /// </summary>
-    private FilteredElementCollector? BuildSelectionCollector()
-    {
-        var ui = RevitCortexApp.Instance?.UiApplication;
-        var sel = ui?.ActiveUIDocument?.Selection.GetElementIds();
-        if (sel != null && sel.Count > 0)
-            return new FilteredElementCollector(_doc, sel);
-        return null;
-    }
-
-    private void RefreshScheduleFields(ScheduleRow? target = null)
-    {
-        _scheduleFields.Clear();
-        target ??= ScheduleDataGrid?.SelectedItem as ScheduleRow
-                ?? _allSchedules.FirstOrDefault(s => s.IsSelected);
-
-        if (target == null)
-        {
-            if (ScheduleFieldsHeader != null)
-                ScheduleFieldsHeader.Text = "Colonne (clicca una schedule)";
-            return;
-        }
-
-        try
-        {
-#if REVIT2024_OR_GREATER
-            var schId = new ElementId(target.ScheduleId);
-#else
-            var schId = new ElementId((int)target.ScheduleId);
-#endif
-            if (_doc.GetElement(schId) is not ViewSchedule view)
-            {
-                if (ScheduleFieldsHeader != null)
-                    ScheduleFieldsHeader.Text = "Colonne (schedule non trovata)";
-                return;
-            }
-
-            var def = view.Definition;
-            int count = def.GetFieldCount();
-            for (int i = 0; i < count; i++)
-            {
-                var field = def.GetField(i);
-                if (field.IsHidden) continue;
-                var header = string.IsNullOrWhiteSpace(field.ColumnHeading)
-                    ? field.GetName()
-                    : field.ColumnHeading;
-                var scope = field.FieldType == ScheduleFieldType.ElementType ? "Type" : "Instance";
-                bool isRO = field.FieldType != ScheduleFieldType.Instance
-                         && field.FieldType != ScheduleFieldType.ElementType;
-                _scheduleFields.Add(new ScheduleFieldRow(header, scope, isRO));
-            }
-
-            if (ScheduleFieldsHeader != null)
-                ScheduleFieldsHeader.Text = $"Colonne — {target.Name} ({_scheduleFields.Count})";
-        }
-        catch (Exception ex)
-        {
-            DebugLog($"RefreshScheduleFields failed: {ex.Message}");
-            if (ScheduleFieldsHeader != null)
-                ScheduleFieldsHeader.Text = "Colonne (errore lettura)";
-        }
+        // The tool stops at the profile's row limit.
+        int limit = new PowerBiExportProfile().MaxElements;
+        bool capped = preview.TotalRows > limit;
+        SummaryWarning.Visibility = capped ? Visibility.Visible : Visibility.Collapsed;
+        if (capped) SummaryWarning.Text = T("pbi.preview.capped", limit.ToString("N0"));
     }
 
     private void RefreshSchedulePreview()
     {
-        var selected = _allSchedules.Where(s => s.IsSelected).ToList();
+        SummaryWarning.Visibility = Visibility.Collapsed;
+        SummaryNote.Text = "";
+
+        var selected = SelectedSchedules();
         if (selected.Count == 0)
         {
-            PreviewGrid.ItemsSource = null;
-            SummaryText.Text = "Nessuna schedule selezionata.";
+            ShowPreview(null, null);
+            PreviewCaption.Text = "";
+            SummaryText.Text = "";
             return;
         }
 
         var first = selected[0];
-        var rows = new System.Data.DataTable();
+        var preview = _source.PreviewSchedule(first.ScheduleId, PreviewRowCount);
+        ShowPreview(preview.Headers, preview.Rows);
 
-#if REVIT2024_OR_GREATER
-        var schId = new ElementId(first.ScheduleId);
-#else
-        var schId = new ElementId((int)first.ScheduleId);
-#endif
-        if (_doc.GetElement(schId) is ViewSchedule view)
-        {
-            try
-            {
-                // Build columns from the schedule's field definition (authoritative,
-                // and matches the CSV export path). Then read body cells defensively
-                // by trying each (row,col) pair via the body section size.
-                var def = view.Definition;
-                int fieldCount = def?.GetFieldCount() ?? 0;
-                var visibleFieldIndices = new List<int>();
-                for (int i = 0; i < fieldCount; i++)
-                {
-                    try
-                    {
-                        var f = def!.GetField(i);
-                        if (f == null || f.IsHidden) continue;
-                        var heading = string.IsNullOrWhiteSpace(f.ColumnHeading)
-                            ? (f.GetName() ?? $"Col{i + 1}")
-                            : f.ColumnHeading;
-                        rows.Columns.Add(MakeUniqueColumnName(rows, heading));
-                        visibleFieldIndices.Add(i);
-                    }
-                    catch { /* skip malformed field */ }
-                }
-
-                if (rows.Columns.Count == 0)
-                {
-                    SetStatus("Anteprima schedule: nessuna colonna visibile.");
-                }
-                else
-                {
-                    var body = view.GetTableData().GetSectionData(SectionType.Body);
-                    int bodyCols = body?.NumberOfColumns ?? 0;
-                    int rowCount = Math.Min(body?.NumberOfRows ?? 0, 6);
-                    // Body cell indices align with visible-field order (Revit collapses hidden fields).
-                    int previewCols = Math.Min(rows.Columns.Count, bodyCols);
-                    for (int r = 1; r < rowCount; r++)
-                    {
-                        var row = rows.NewRow();
-                        for (int c = 0; c < previewCols; c++)
-                        {
-                            try { row[c] = view.GetCellText(SectionType.Body, r, c); }
-                            catch { row[c] = ""; }
-                        }
-                        rows.Rows.Add(row);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                SetStatus($"Anteprima schedule fallita: {ex.Message}");
-            }
-        }
-
-        PreviewGrid.ItemsSource = rows.DefaultView;
-        var totalRows = selected.Sum(s => s.RowCount);
-        SummaryText.Text = $"Modalita Schedule · {selected.Count} schedule · {totalRows} righe totali (anteprima dalla prima)";
+        PreviewCaption.Text = T("pbi.preview.first_rows_of", PreviewRowCount, first.Name);
+        SummaryText.Text = Counted("pbi.count.schedules", selected.Count) + " · "
+            + Counted("pbi.rows", selected.Sum(s => s.RowCount));
+        if (selected.Count > 1) SummaryNote.Text = T("pbi.preview.first_schedule_only");
     }
 
-    private static string MakeUniqueColumnName(System.Data.DataTable dt, string baseName)
+    private string ScopeLabel()
     {
-        if (!dt.Columns.Contains(baseName)) return baseName;
-        int i = 2;
-        while (dt.Columns.Contains($"{baseName} ({i})")) i++;
-        return $"{baseName} ({i})";
+        switch (_scope)
+        {
+            case PowerBiScope.ActiveView: return T("pbi.scope.view").ToLower();
+            case PowerBiScope.Selection: return T("pbi.scope.selection").ToLower();
+            default: return T("pbi.scope.whole").ToLower();
+        }
+    }
+
+    /// <summary>
+    /// Draws the preview table. A plain grid of text cells: the column names
+    /// come from the model (they may hold dots or brackets, which a bound
+    /// DataGrid column would read as a path) and there are only a few rows.
+    /// </summary>
+    private void ShowPreview(IList<string>? headers, IList<string[]>? rows)
+    {
+        PreviewHost.Children.Clear();
+        PreviewHost.ColumnDefinitions.Clear();
+        PreviewHost.RowDefinitions.Clear();
+
+        if (headers == null || headers.Count == 0)
+        {
+            PreviewEmpty.Text = T("pbi.preview.nothing");
+            PreviewEmpty.Visibility = Visibility.Visible;
+            return;
+        }
+
+        int rowCount = rows?.Count ?? 0;
+        PreviewEmpty.Text = T("pbi.preview.no_rows");
+        PreviewEmpty.Visibility = rowCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        var hairline = (Brush)FindResource("Vx.Hairline");
+        var rowLine = (Brush)FindResource("Vx.Raised");
+        var muted = (Brush)FindResource("Vx.Muted");
+
+        // One column per header, then one that takes the rest of the width so
+        // the lines run to the edge of the card.
+        for (int c = 0; c < headers.Count; c++)
+            PreviewHost.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        PreviewHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (int r = 0; r <= rowCount; r++)
+            PreviewHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        for (int c = 0; c <= headers.Count; c++)
+        {
+            bool filler = c == headers.Count;
+            var padding = new Thickness(c == 0 ? 16 : 12, 0, c == headers.Count - 1 ? 16 : 0, 0);
+
+            var headerCell = new Border
+            {
+                Height = 30,
+                Padding = padding,
+                BorderBrush = hairline,
+                BorderThickness = new Thickness(0, 0, 0, 1),
+            };
+            if (!filler)
+            {
+                headerCell.Child = new TextBlock
+                {
+                    Text = headers[c],
+                    FontSize = 11.5,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = muted,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+            }
+            Grid.SetColumn(headerCell, c);
+            Grid.SetRow(headerCell, 0);
+            PreviewHost.Children.Add(headerCell);
+
+            for (int r = 0; r < rowCount; r++)
+            {
+                var cell = new Border
+                {
+                    Height = 34,
+                    Padding = padding,
+                    BorderBrush = rowLine,
+                    BorderThickness = new Thickness(0, 0, 0, r == rowCount - 1 ? 0 : 1),
+                };
+                if (!filler)
+                {
+                    var row = rows![r];
+                    string text = c < row.Length ? row[c] ?? "" : "";
+                    cell.Child = new TextBlock
+                    {
+                        Text = text,
+                        FontSize = 12.5,
+                        MaxWidth = 200,
+                        TextTrimming = TextTrimming.CharacterEllipsis,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        ToolTip = text.Length > 0 ? text : null,
+                    };
+                }
+                Grid.SetColumn(cell, c);
+                Grid.SetRow(cell, r + 1);
+                PreviewHost.Children.Add(cell);
+            }
+        }
+    }
+
+    // ───────────────────────── Step 2: column types (advanced) ─────────────────────────
+
+    private void AdvancedToggle_Click(object sender, RoutedEventArgs e) => SetAdvancedOpen(!_advancedOpen);
+
+    /// <summary>Opens the column types panel. Used by the UI preview renderer.</summary>
+    public void ExpandAdvanced() => SetAdvancedOpen(true);
+
+    /// <summary>
+    /// The column types take the preview's place while they are open: the
+    /// list needs the height, and the two are not read together.
+    /// </summary>
+    private void SetAdvancedOpen(bool open)
+    {
+        _advancedOpen = open;
+        AdvancedBody.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        PreviewCard.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+        PreviewRow.Height = open ? GridLength.Auto : new GridLength(1, GridUnitType.Star);
+        AdvancedRow.Height = open ? new GridLength(1, GridUnitType.Star) : GridLength.Auto;
+        AdvancedCard.Margin = new Thickness(0, open ? 0 : 12, 0, 0);
+        AdvancedChevron.Data = (Geometry)FindResource(open ? "Vx.Icon.ChevronDown" : "Vx.Icon.ChevronRight");
+    }
+
+    private void SchemaMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_ready || _bulk) return;
+        ApplySchemaMode();
+    }
+
+    private void ApplySchemaMode()
+    {
+        if (SchemaModeSuggestedRadio.IsChecked == true) _schemaMode = SchemaMode.Suggested;
+        else if (SchemaModeCustomRadio.IsChecked == true) _schemaMode = SchemaMode.Custom;
+        else _schemaMode = SchemaMode.Auto;
+
+        // Auto: nothing to edit. Suggested and Custom open the list.
+        ColumnTypesList.IsEnabled = _schemaMode != SchemaMode.Auto;
+        AdvancedModeText.Text = _schemaMode == SchemaMode.Suggested ? T("pbi.schema.suggested")
+            : _schemaMode == SchemaMode.Custom ? T("pbi.schema.custom")
+            : T("pbi.schema.auto");
+
+        if (_schemaMode == SchemaMode.Suggested && _columnTypes.Count == 0)
+            ApplySuggestedTypes();
+    }
+
+    private void SuggestTypes_Click(object sender, RoutedEventArgs e)
+    {
+        // Switches to Suggested and rebuilds from the current columns: this
+        // replaces what was typed under Custom, which is what the button says.
+        SchemaModeSuggestedRadio.IsChecked = true;
+        ApplySuggestedTypes();
+    }
+
+    /// <summary>
+    /// Rebuilds the column types from the chosen columns: built-in columns
+    /// are typed by convention, parameters by their name and group.
+    /// </summary>
+    private void ApplySuggestedTypes()
+    {
+        _columnTypes.Clear();
+        if (_mode != SourceMode.Categories) return;
+
+        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "ElementId", PbiType = "int" });
+        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "UniqueId", PbiType = "text" });
+        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "Category", PbiType = "text" });
+        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "Family", PbiType = "text" });
+        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "Type", PbiType = "text" });
+        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "DocumentTitle", PbiType = "text" });
+        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "DocumentPath", PbiType = "text" });
+        _columnTypes.Add(new ColumnTypeMapping { ColumnName = "EpisodeId", PbiType = "text" });
+
+        // A parameter named like a built-in column is not written (the tool
+        // filters it out), so it gets no entry either.
+        var builtIns = BuiltInColumnNames();
+        foreach (var p in _selectedParams)
+        {
+            if (string.IsNullOrEmpty(p.Name) || builtIns.Contains(p.Name)) continue;
+            _columnTypes.Add(new ColumnTypeMapping
+            {
+                ColumnName = p.IsType ? $"[Type] {p.Name}" : p.Name,
+                PbiType = InferPbiTypeForParam(p.Name, p.GroupName)
+            });
+        }
+    }
+
+    /// <summary>
+    /// The columns the CSV always has. One list for the preview and for the
+    /// column types, so they agree. Mirrors the header written by
+    /// <c>PushToPowerBiTool</c> (schema v2).
+    /// </summary>
+    private static HashSet<string> BuiltInColumnNames() => new HashSet<string>(
+        new[] { "ElementId", "UniqueId", "Category", "Family", "Type", "DocumentTitle", "DocumentPath", "EpisodeId" },
+        StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The headers of the CSV for the current selection, in order.</summary>
+    private List<string> ComputeCurrentColumnNames()
+    {
+        var columns = new List<string>
+        {
+            "ElementId", "UniqueId", "Category", "Family", "Type", "DocumentTitle", "DocumentPath", "EpisodeId"
+        };
+        if (_mode != SourceMode.Categories) return columns;
+
+        var builtIns = BuiltInColumnNames();
+        foreach (var p in _selectedParams)
+        {
+            if (string.IsNullOrEmpty(p.Name) || builtIns.Contains(p.Name)) continue;
+            columns.Add(p.IsType ? $"[Type] {p.Name}" : p.Name);
+        }
+        return columns;
+    }
+
+    /// <summary>
+    /// Brings the column types in line with the columns chosen, keeping the
+    /// type already set (by the user or by "Suggest") on every column that is
+    /// still there. New columns start as <c>auto</c>.
+    /// </summary>
+    private void SyncColumnTypesWithSelection()
+    {
+        var existing = new Dictionary<string, ColumnTypeMapping>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in _columnTypes) existing[c.ColumnName] = c;
+
+        _columnTypes.Clear();
+        foreach (var column in ComputeCurrentColumnNames())
+        {
+            _columnTypes.Add(existing.TryGetValue(column, out var previous)
+                ? previous
+                : new ColumnTypeMapping { ColumnName = column, PbiType = "auto" });
+        }
+    }
+
+    /// <summary>
+    /// Parameter name and group to a likely Power BI type. Conservative:
+    /// <c>text</c> when nothing matches, so a wrong guess does not break a
+    /// refresh.
+    /// </summary>
+    private static string InferPbiTypeForParam(string name, string? groupName)
+    {
+        var n = name?.ToLowerInvariant() ?? "";
+        var g = groupName?.ToLowerInvariant() ?? "";
+
+        // Ids
+        if (n.EndsWith(" id") || n.EndsWith("_id") || n == "id") return "int";
+
+        // Yes / no
+        if (n.StartsWith("is ") || n.StartsWith("has ") || n.StartsWith("can ")) return "bool";
+
+        // Money
+        if (n.Contains("cost") || n.Contains("price") || n.Contains("importo")
+            || n.Contains("total") || n.Contains("subtotal") || n.Contains("amount"))
+            return "fixed";
+
+        // Percentages
+        if (n.Contains("percent") || n.Contains("%") || g.Contains("percent"))
+            return "percent";
+
+        // Dates: only the obvious patterns
+        if (n.EndsWith(" date") || n.EndsWith("_date") || n.Contains("data") && (n.Contains("creazione") || n.Contains("modifica")))
+            return "date";
+
+        // Dimensions and quantities (English, Italian and Spanish names)
+        if (g.Contains("dimension") || g.Contains("constraint") || g.Contains("graphic")
+            || n.Contains("length") || n.Contains("lunghezza") || n.Contains("longitud")
+            || n.Contains("area") || n.Contains("área") || n.Contains("volume")
+            || n.Contains("width") || n.Contains("height") || n.Contains("depth")
+            || n.Contains("altezza") || n.Contains("larghezza") || n.Contains("profondità")
+            || n.Contains("anchura") || n.Contains("altura") || n.Contains("profundidad")
+            || n.Contains("angle") || n.Contains("angolo") || n.Contains("ángulo")
+            || n.Contains("count") || n.Contains("number") || n.Contains("numero") || n.Contains("número"))
+            return "number";
+
+        return "text";
+    }
+
+    /// <summary>The mode as the tool expects it.</summary>
+    private string SchemaModeWireValue()
+    {
+        switch (_schemaMode)
+        {
+            case SchemaMode.Suggested: return "Suggested";
+            case SchemaMode.Custom: return "Custom";
+            default: return "Auto";
+        }
     }
 
     // ───────────────────────── Export ─────────────────────────
@@ -1530,16 +1527,16 @@ public partial class PowerBiExportWindow : Window
 
         if (_mode == SourceMode.Categories && profile.Categories.Count == 0)
         {
-            SetStatus("Devi selezionare almeno una categoria.");
+            SetStatus(T("pbi.need_category"), attention: true);
             return;
         }
         if (_mode == SourceMode.Schedules && profile.ScheduleIds.Count == 0)
         {
-            SetStatus("Devi selezionare almeno una schedule.");
+            SetStatus(T("pbi.need_schedule"), attention: true);
             return;
         }
 
-        SetStatus("Sto eseguendo l'export…");
+        SetStatus(T("pbi.status.exporting"));
         ExportBtn.IsEnabled = false;
         BackBtn.IsEnabled = false;
 
@@ -1547,114 +1544,39 @@ public partial class PowerBiExportWindow : Window
         {
             ProfileStore.Save(profile);
 
-            // Direct router invocation: we are already on the Revit main thread
-            // and the router runs the tool synchronously. Avoids the TCP roundtrip
-            // and the deadlock risk of awaiting a socket call while holding the UI thread.
-            var router = RevitCortexApp.Instance?.Router;
-            if (router == null)
+            var outcome = _source.Export(profile, _scope);
+            if (outcome.Kind == PowerBiExportResultKind.RouterUnavailable)
             {
-                SetStatus("Router RevitCortex non disponibile. Riavvia Revit.");
+                SetStatus(T("pbi.status.no_router"), attention: true);
                 return;
             }
-
-            var input = new JObject
-            {
-                ["maxElements"] = profile.MaxElements,
-                ["scopeMode"] = profile.ScopeMode
-            };
-
-            if (_scope == Scope.Selection)
-            {
-                var ui = RevitCortexApp.Instance?.UiApplication;
-                var ids = ui?.ActiveUIDocument?.Selection.GetElementIds();
-                if (ids != null && ids.Count > 0)
-                    input["selectionIds"] = new JArray(ids.Select(GetIdValue).Cast<object>().ToArray());
-            }
-            else if (_scope == Scope.ActiveView)
-            {
-                input["activeViewId"] = GetIdValue(_doc.ActiveView.Id);
-            }
-
-            if (_mode == SourceMode.Schedules)
-            {
-                input["scheduleIds"] = new JArray(profile.ScheduleIds);
-            }
-            else
-            {
-                input["categories"] = new JArray(profile.Categories);
-                input["includeTypeParameters"] = profile.IncludeTypeParameters;
-                if (profile.InstanceParameters.Count > 0 || profile.TypeParameters.Count > 0)
-                {
-                    var allParams = profile.InstanceParameters.Concat(profile.TypeParameters);
-                    input["parameterNames"] = new JArray(allParams);
-                }
-            }
-            if (!string.IsNullOrEmpty(profile.OutputFolder)) input["outputFolder"] = profile.OutputFolder;
-            if (!string.IsNullOrEmpty(profile.FileName))
-            {
-                var fileName = profile.OverwriteFile
-                    ? profile.FileName
-                    : InsertTimestamp(profile.FileName!);
-                input["fileName"] = fileName;
-            }
-
-            // Schema mapping (opt-in): only forwarded when the user picked something
-            // other than Auto. Server-side, this triggers _Raw companion columns and
-            // a sidecar .pq file with explicit Table.TransformColumnTypes.
-            if (!string.Equals(profile.SchemaMappingMode, "Auto", StringComparison.OrdinalIgnoreCase)
-                && profile.ColumnTypes != null && profile.ColumnTypes.Count > 0)
-            {
-                input["schemaMappingMode"] = profile.SchemaMappingMode;
-                input["columnTypes"] = JArray.FromObject(profile.ColumnTypes);
-            }
-
-            DebugLog($"Export_Click: invoking push_to_powerbi with input keys: {string.Join(",", input.Properties().Select(p => p.Name))}");
-            var result = router.Route("push_to_powerbi", input);
-            DebugLog($"Export_Click: result Success={result?.Success} Error={result?.Error?.Code}");
 
             if (RegisterProtocolBox.IsChecked == true)
             {
                 try { ProtocolHandlerRegistrar.Register(); }
-                catch (Exception regEx) { DebugLog($"ProtocolHandler register failed: {regEx.Message}"); }
+                catch (Exception ex) { DebugLog($"Protocol handler registration failed: {ex.Message}"); }
             }
-            if (AutoExportBox.IsChecked == true) AutoExportHook.Enable(profile, _doc);
-            else AutoExportHook.Disable();
+            try { _source.SetAutoExport(AutoExportBox.IsChecked == true ? profile : null); }
+            catch (Exception ex) { DebugLog($"Auto-export hook failed: {ex.Message}"); }
 
-            if (result == null)
+            if (outcome.Kind == PowerBiExportResultKind.NoResponse)
             {
-                SetStatus("Nessuna risposta dal router.");
+                SetStatus(T("pbi.status.no_response"), attention: true);
+                return;
+            }
+            if (outcome.Kind == PowerBiExportResultKind.Failed)
+            {
+                var code = outcome.ErrorCode ?? "Unknown";
+                var message = outcome.ErrorMessage ?? T("pbi.unknown_error");
+                SetStatus(T("pbi.status.export_failed", code, message), attention: true);
+                _source.ShowError(T("pbi.dialog.export_failed", code), message, null);
                 return;
             }
 
-            if (!result.Success)
-            {
-                var msg = result.Error?.Message ?? "errore sconosciuto";
-                var code = result.Error?.Code.ToString() ?? "Unknown";
-                SetStatus($"Errore export ({code}): {msg}");
-                ShowErrorDialog($"Export fallito ({code})", new Exception(msg));
-                return;
-            }
+            SetStatus(T("pbi.status.exported", outcome.RowCount ?? "?", outcome.Path ?? T("pbi.unknown_path")));
+            ShowExportDone(outcome);
 
-            // Extract file path / row count from the typed payload
-            var data = result.Data;
-            string? path = null;
-            string? count = null;
-            try
-            {
-                var json = JObject.FromObject(data!);
-                path = json["filePath"]?.ToString() ?? json["outputFolder"]?.ToString();
-                count = json["elementCount"]?.ToString() ?? json["rowCount"]?.ToString();
-            }
-            catch { /* fall through */ }
-
-            SetStatus($"Export completato: {count ?? "?"} righe → {path ?? "(percorso sconosciuto)"}");
-
-            // Modal feedback so the user gets a clear "done" signal beyond the
-            // status bar. "Apri cartella" deep-links to Explorer in the output
-            // folder for quick verification.
-            ShowExportSuccessDialog(count, path);
-
-            // Fire PBI refresh in background (non-blocking — doesn't hold Revit main thread).
+            // Not awaited: the refresh must not hold Revit's main thread.
             if (profile.TriggerPbiRefresh
                 && !string.IsNullOrWhiteSpace(profile.RefreshWorkspaceId)
                 && !string.IsNullOrWhiteSpace(profile.RefreshDatasetId))
@@ -1664,9 +1586,9 @@ public partial class PowerBiExportWindow : Window
         }
         catch (Exception ex)
         {
-            DebugLog($"Export_Click EXCEPTION: {ex}");
-            SetStatus($"Errore: {ex.GetType().Name}: {ex.Message}");
-            ShowErrorDialog("Export — eccezione inattesa", ex);
+            DebugLog($"Export failed: {ex}");
+            SetStatus(T("pbi.status.unexpected", ex.GetType().Name, ex.Message), attention: true);
+            _source.ShowError(T("pbi.dialog.unexpected"), $"{ex.GetType().Name}: {ex.Message}", ex.StackTrace);
         }
         finally
         {
@@ -1676,65 +1598,87 @@ public partial class PowerBiExportWindow : Window
     }
 
     /// <summary>
-    /// Modal success TaskDialog shown after a completed export. Tells the user
-    /// what was written and offers a deep-link to the output folder. Falls
-    /// back to a silent no-op if Revit's TaskDialog can't be created (e.g.
-    /// from unit tests). Path may point to a CSV file or, in schedule mode
-    /// with multiple files, the parent folder — both are handled.
+    /// Tells the user what was written and offers to open the folder. The
+    /// path is a CSV, or the folder when several schedules were exported.
     /// </summary>
-    private void ShowExportSuccessDialog(string? count, string? path)
+    private void ShowExportDone(PowerBiExportOutcome outcome)
     {
         try
         {
             string folder = "";
-            if (!string.IsNullOrEmpty(path))
+            if (!string.IsNullOrEmpty(outcome.Path))
             {
-                folder = Directory.Exists(path)
-                    ? path!
-                    : Path.GetDirectoryName(path) ?? "";
+                folder = Directory.Exists(outcome.Path)
+                    ? outcome.Path!
+                    : Path.GetDirectoryName(outcome.Path) ?? "";
             }
-            if (string.IsNullOrEmpty(folder) && !string.IsNullOrEmpty(OutputFolderBox?.Text))
-                folder = OutputFolderBox.Text;
+            if (string.IsNullOrEmpty(folder)) folder = OutputFolderBox.Text;
 
-            string title, instruction, content;
+            string instruction, detail;
             if (_mode == SourceMode.Schedules)
             {
-                var n = _allSchedules.Count(s => s.IsSelected);
-                title = "Export Power BI completato";
-                instruction = $"Esportate {n} schedule";
-                content = $"File generati in: {folder}";
+                instruction = Counted("pbi.dialog.exported_schedules", SelectedSchedules().Count);
+                detail = T("pbi.dialog.files_in", folder);
             }
             else
             {
-                title = "Export Power BI completato";
-                instruction = $"Esportate {count ?? "?"} righe";
-                content = $"File: {path}";
+                instruction = T("pbi.dialog.exported_rows", outcome.RowCount ?? "?");
+                detail = T("pbi.dialog.file", outcome.Path ?? "");
             }
 
-            var td = new Autodesk.Revit.UI.TaskDialog(title)
-            {
-                MainInstruction = instruction,
-                MainContent = content,
-                CommonButtons = Autodesk.Revit.UI.TaskDialogCommonButtons.Close,
-                DefaultButton = Autodesk.Revit.UI.TaskDialogResult.Close
-            };
-            td.AddCommandLink(Autodesk.Revit.UI.TaskDialogCommandLinkId.CommandLink1,
-                "Apri cartella", "Apri Esplora risorse nella cartella di output");
-
-            var r = td.Show();
-            if (r == Autodesk.Revit.UI.TaskDialogResult.CommandLink1 && !string.IsNullOrEmpty(folder) && Directory.Exists(folder))
-            {
-                try { System.Diagnostics.Process.Start("explorer.exe", $"\"{folder}\""); }
-                catch (Exception ex) { DebugLog($"Explorer open failed: {ex.Message}"); }
-            }
+            bool openFolder = _source.ShowExportDone(T("pbi.dialog.done_title"), instruction, detail,
+                T("pbi.dialog.open_folder"), T("pbi.dialog.open_folder_hint"));
+            if (openFolder && !string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                System.Diagnostics.Process.Start("explorer.exe", $"\"{folder}\"");
         }
         catch (Exception ex)
         {
-            DebugLog($"ShowExportSuccessDialog failed (non-fatal): {ex.Message}");
+            DebugLog($"Export-done dialog failed (not fatal): {ex.Message}");
+        }
+    }
+
+    private async System.Threading.Tasks.Task FirePbiRefreshAsync(string workspaceId, string datasetId)
+    {
+        try
+        {
+            SetStatus(T("pbi.status.refresh_starting"));
+            var settings = RevitCortex.Plugin.PowerBiLive.PowerBiSettings.Load();
+            var auth = new RevitCortex.Plugin.PowerBiLive.PowerBiAuthService(settings);
+            var authState = await auth.TryAcquireSilentAsync();
+            if (!authState.IsSignedIn || string.IsNullOrEmpty(authState.AccessToken))
+            {
+                SetStatus(T("pbi.status.refresh_not_signed_in"), attention: true);
+                return;
+            }
+
+            using var client = new RevitCortex.Plugin.PowerBiLive.PowerBiServiceClient(authState.AccessToken!);
+            var requestId = await client.TriggerRefreshAsync(workspaceId, datasetId);
+            SetStatus(string.IsNullOrEmpty(requestId)
+                ? T("pbi.status.refresh_queued")
+                : T("pbi.status.refresh_started", requestId));
+        }
+        catch (Exception ex)
+        {
+            SetStatus(T("pbi.status.refresh_failed", ex.Message), attention: true);
+            DebugLog($"Power BI refresh failed: {ex}");
         }
     }
 
     // ───────────────────────── Helpers ─────────────────────────
+
+    private void Card_SizeChanged(object sender, SizeChangedEventArgs e) => ClipToCorners(sender, 12);
+
+    private void Well_SizeChanged(object sender, SizeChangedEventArgs e) => ClipToCorners(sender, 10);
+
+    /// <summary>Rows are square; clip them to the rounded corners of their card.</summary>
+    private static void ClipToCorners(object sender, double radius)
+    {
+        if (sender is Border border)
+        {
+            border.Clip = new RectangleGeometry(
+                new Rect(0, 0, border.ActualWidth, border.ActualHeight), radius, radius);
+        }
+    }
 
     private static string SuggestDefaultOutputFolder()
     {
@@ -1752,64 +1696,64 @@ public partial class PowerBiExportWindow : Window
         return Path.Combine(userProfile, "Documents", "RevitCortex");
     }
 
-    private static string InsertTimestamp(string fileName)
-    {
-        var ext = Path.GetExtension(fileName);
-        var stem = Path.GetFileNameWithoutExtension(fileName);
-        return $"{stem}_{DateTime.Now:yyyyMMdd_HHmmss}{ext}";
-    }
+    private static readonly string DebugLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".revitcortex", "powerbi_debug.log");
 
-    private static string GetParamDisplay(Parameter p)
+    private static void DebugLog(string message)
     {
-        if (!p.HasValue) return "";
-        return p.StorageType switch
+        try
         {
-            StorageType.String => p.AsString() ?? "",
-            StorageType.Integer => p.AsInteger().ToString(),
-            StorageType.Double => p.AsValueString() ?? p.AsDouble().ToString("F4"),
-            StorageType.ElementId => p.AsValueString() ?? p.AsElementId().ToString(),
-            _ => ""
-        };
+            var dir = Path.GetDirectoryName(DebugLogPath)!;
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+            File.AppendAllText(DebugLogPath, $"[{DateTime.Now:HH:mm:ss.fff}] {message}{Environment.NewLine}");
+        }
+        catch { /* never throw from the logger */ }
     }
 
-    private static long GetIdValue(ElementId id)
+    // ───────────────────────── Rows ─────────────────────────
+
+    // These must be public: WPF binding reads the properties by reflection
+    // and silently shows nothing for a private nested type.
+
+    public abstract class ViewRow : INotifyPropertyChanged
     {
-#if REVIT2024_OR_GREATER
-        return id.Value;
-#else
-        return id.IntegerValue;
-#endif
+        private bool _isSelected;
+
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set
+            {
+                if (_isSelected == value) return;
+                _isSelected = value;
+                Raise(nameof(IsSelected));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected void Raise(string propertyName)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
-    // H15: SetStatus can be called after an await whose continuation ran on a thread-pool
-    // thread (e.g. HttpClient calls in FirePbiRefreshAsync use ConfigureAwait(false)).
-    // Writing StatusText.Text off the UI thread throws; marshal back via the Dispatcher.
-    private void SetStatus(string text)
-    {
-        if (Dispatcher.CheckAccess())
-            StatusText.Text = text;
-        else
-            Dispatcher.Invoke(() => StatusText.Text = text);
-    }
-
-    // ───────────────────────── View-model rows ─────────────────────────
-
-    // NOTE: must be public (or at least non-private) so WPF data-binding can
-    // reflect the property accessors. Private nested types compile fine but
-    // the binding engine silently fails to read DisplayName/OstCode/etc.,
-    // leaving the DataGrid with rows that have no visible content.
     public class CategoryRow : ViewRow
     {
         public string DisplayName { get; }
         public string OstCode { get; }
         public int InstanceCount { get; }
+        public string CountText { get; }
         public string CategoryType { get; }
+
+        /// <summary>Has elements in the active view / the selection (always true for the whole model).</summary>
         public bool InScope { get; set; } = true;
+
         public CategoryRow(CategoryInfo info)
         {
             DisplayName = info.DisplayName;
             OstCode = info.OstCode;
             InstanceCount = info.InstanceCount;
+            CountText = info.InstanceCount.ToString("N0");
             CategoryType = info.CategoryType;
         }
     }
@@ -1819,60 +1763,75 @@ public partial class PowerBiExportWindow : Window
         public long ScheduleId { get; }
         public string Name { get; }
         public string CategoryName { get; }
-        public int ColumnCount { get; }
         public int RowCount { get; }
-        public bool InScope { get; set; } = true;
-        public ScheduleRow(ScheduleInfo info)
+        public string RowsText { get; }
+
+        public ScheduleRow(ScheduleInfo info, string rowsText)
         {
             ScheduleId = info.ScheduleId;
             Name = info.Name;
             CategoryName = info.CategoryName;
-            ColumnCount = info.ColumnCount;
             RowCount = info.RowCount;
+            RowsText = rowsText;
         }
     }
 
     public class ParameterRow : ViewRow
     {
+        private int _orderIndex;
+
         public string Name { get; }
         public string Scope { get; }
+        public bool IsType { get; }
         public string GroupName { get; }
         public int CoveragePercent { get; }
-        public bool IsReadOnly { get; }
-        public bool IsShared { get; }
-        public int OrderIndex { get; set; }
-        public ParameterRow(ParameterInfo info)
+
+        /// <summary>The word shown next to a type parameter.</summary>
+        public string ScopeBadge { get; }
+        public string Tooltip { get; }
+
+        /// <summary>Scope and name: the same name can be an instance and a type parameter.</summary>
+        public string Key { get; }
+
+        /// <summary>Position among the chosen columns, from 1.</summary>
+        public int OrderIndex
+        {
+            get => _orderIndex;
+            set
+            {
+                if (_orderIndex == value) return;
+                _orderIndex = value;
+                Raise(nameof(OrderIndex));
+            }
+        }
+
+        public ParameterRow(ParameterInfo info, string scopeBadge, string tooltip)
         {
             Name = info.Name;
             Scope = info.Scope;
+            IsType = info.Scope == "Type";
             GroupName = info.GroupName;
             CoveragePercent = info.CoveragePercent;
-            IsReadOnly = info.IsReadOnly;
-            IsShared = info.IsShared;
+            ScopeBadge = scopeBadge;
+            Tooltip = tooltip;
+            Key = MakeKey(info.Scope, info.Name);
         }
+
+        public static string MakeKey(string scope, string name)
+            => (scope == "Type" ? "Type" : "Instance") + "\n" + name;
     }
 
     public class ScheduleFieldRow
     {
         public string Header { get; }
-        public string Scope { get; }
-        public bool IsReadOnly { get; }
-        public ScheduleFieldRow(string header, string scope, bool isReadOnly)
+        public string Badge { get; }
+        public bool HasBadge { get; }
+
+        public ScheduleFieldRow(string header, string badge)
         {
             Header = header;
-            Scope = scope;
-            IsReadOnly = isReadOnly;
+            Badge = badge;
+            HasBadge = badge.Length > 0;
         }
-    }
-
-    public abstract class ViewRow : System.ComponentModel.INotifyPropertyChanged
-    {
-        private bool _isSelected;
-        public bool IsSelected
-        {
-            get => _isSelected;
-            set { _isSelected = value; PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsSelected))); }
-        }
-        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     }
 }

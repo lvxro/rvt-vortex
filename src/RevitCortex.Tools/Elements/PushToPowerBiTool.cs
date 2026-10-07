@@ -219,6 +219,16 @@ public class PushToPowerBiTool : ICortexTool
             foreach (var name in instanceParamNames.Items)
                 typeParamNames.Remove(name);
 
+            // When the caller names the parameters, the columns follow that
+            // order (the export window lists them as "CSV columns" and lets
+            // the user reorder them). Without it they came out in whatever
+            // order Revit happened to enumerate each element's parameters.
+            if (parameterNames.Count > 0)
+            {
+                instanceParamNames.SortBy(parameterNames);
+                typeParamNames.SortBy(parameterNames);
+            }
+
             // Write CSV
             var sb = new StringBuilder();
             int columnCount;
@@ -1022,5 +1032,23 @@ in
         public int Count => _items.Count;
         public void Add(string item) { if (_set.Add(item)) _items.Add(item); }
         public void Remove(string item) { if (_set.Remove(item)) _items.Remove(item); }
+
+        /// <summary>
+        /// Reorders the items to follow <paramref name="order"/>. Items it does
+        /// not list keep their relative order, after the listed ones.
+        /// </summary>
+        public void SortBy(IList<string> order)
+        {
+            var rank = new Dictionary<string, int>();
+            for (int i = 0; i < order.Count; i++)
+                if (!rank.ContainsKey(order[i])) rank[order[i]] = i;
+
+            // OrderBy is stable, so ties keep the order they were found in.
+            var sorted = _items
+                .OrderBy(item => rank.TryGetValue(item, out var r) ? r : int.MaxValue)
+                .ToList();
+            _items.Clear();
+            _items.AddRange(sorted);
+        }
     }
 }

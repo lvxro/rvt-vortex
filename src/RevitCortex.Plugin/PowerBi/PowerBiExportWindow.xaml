@@ -2,726 +2,1035 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
-        Title="RVT Vortex — Power BI Export" Height="680" Width="1200"
+        Title="RVT Vortex" Height="720" Width="1200" MinHeight="640" MinWidth="1040"
         WindowStartupLocation="CenterScreen"
-        Background="#FAFAFA">
+        Background="#171B20"
+        UseLayoutRounding="True">
+
+    <!--
+      Power BI export, in two steps.
+
+        1. Data:   where the rows come from (whole model, active view, current
+                   selection, or the schedules that already exist), then which
+                   categories and which parameters become columns.
+        2. Output: where the CSV goes, how it is kept up to date, the link
+                   with Power BI, and a preview of the first rows.
+
+      The window is a view over IPowerBiExportSource: it never calls Revit.
+    -->
     <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-        <Style x:Key="StepHeader" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="18"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#00838F"/>
-            <Setter Property="Margin" Value="0,0,0,4"/>
-        </Style>
-        <Style x:Key="StepSubtitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#616161"/>
-            <Setter Property="Margin" Value="0,0,0,12"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-        </Style>
-        <Style x:Key="PrimaryButton" TargetType="Button">
-            <Setter Property="Background" Value="#00838F"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="20,8"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#006064"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#B0BEC5"/>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style x:Key="SecondaryButton" TargetType="Button">
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="Foreground" Value="#00838F"/>
-            <Setter Property="BorderBrush" Value="#00838F"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="16,6"/>
-            <Setter Property="Cursor" Value="Hand"/>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="../UI/Theme.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+            <x:Array x:Key="PbiColumnTypes" Type="{x:Type sys:String}">
+                <sys:String>auto</sys:String>
+                <sys:String>int</sys:String>
+                <sys:String>number</sys:String>
+                <sys:String>fixed</sys:String>
+                <sys:String>percent</sys:String>
+                <sys:String>bool</sys:String>
+                <sys:String>date</sys:String>
+                <sys:String>datetime</sys:String>
+                <sys:String>text</sys:String>
+                <sys:String>duration</sys:String>
+            </x:Array>
+        </ResourceDictionary>
     </Window.Resources>
 
-    <Grid>
+    <Grid TextElement.Foreground="{StaticResource Vx.Ink}"
+          TextElement.FontFamily="{StaticResource Vx.Font}"
+          TextElement.FontSize="13">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Step indicator -->
-        <Border Grid.Row="0" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1" Padding="20,14">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock x:Name="Step1Label" Text="① Categorie" FontSize="14" FontWeight="SemiBold" Foreground="#00838F" Margin="0,0,32,0"/>
-                <TextBlock x:Name="Step2Label" Text="② Parametri" FontSize="14" Foreground="#9E9E9E" Margin="0,0,32,0" Visibility="Collapsed"/>
-                <TextBlock x:Name="Step3Label" Text="③ Output" FontSize="14" Foreground="#9E9E9E"/>
+        <!-- ── Header: title, where we are, profiles ─────────────────────── -->
+        <Grid Grid.Row="0" Margin="32,22,32,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock x:Name="TitleText" FontSize="22" FontWeight="SemiBold"/>
+                <TextBlock x:Name="SubtitleText" Foreground="{StaticResource Vx.Muted}" Margin="0,1,0,0"
+                           TextTrimming="CharacterEllipsis"/>
             </StackPanel>
-        </Border>
 
-        <!-- Content -->
-        <Grid Grid.Row="1" Margin="20,16,20,12">
-            <!-- STEP 1: Source -->
-            <Grid x:Name="Step1Panel">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-
-                <StackPanel Grid.Row="0">
-                    <TextBlock Style="{StaticResource StepHeader}" Text="Sorgente dati"/>
-                    <TextBlock Style="{StaticResource StepSubtitle}"
-                               Text="Scegli l'ambito e seleziona le categorie: i parametri disponibili appaiono a destra non appena selezioni. Oppure usa Schedule per riusare le tabelle esistenti del modello."/>
-                </StackPanel>
-
-                <!-- Combined scope + source-mode row -->
-                <StackPanel x:Name="ScopePanel" Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,8">
-                    <RadioButton x:Name="ScopeWholeRadio" Content="Tutto il modello" IsChecked="True"
-                                 GroupName="SourceScope" Margin="0,0,16,0" Checked="SourceScope_Changed"/>
-                    <RadioButton x:Name="ScopeViewRadio" Content="Vista attiva"
-                                 GroupName="SourceScope" Margin="0,0,16,0" Checked="SourceScope_Changed"/>
-                    <RadioButton x:Name="ScopeSelectionRadio" Content="Selezione corrente"
-                                 GroupName="SourceScope" Margin="0,0,24,0" Checked="SourceScope_Changed"/>
-                    <Separator Width="1" Background="#E0E0E0" Margin="0,0,16,0"/>
-                    <RadioButton x:Name="ModeSchedulesRadio" Content="Schedule"
-                                 GroupName="SourceScope" Checked="SourceScope_Changed"/>
-                </StackPanel>
-
-                <!-- Filter bar: left = selection buttons, right = param filter (hidden in schedule mode) -->
-                <Grid Grid.Row="2" Margin="0,0,0,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="280"/>
-                        <ColumnDefinition Width="8"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <!-- Selection buttons -->
-                    <StackPanel Grid.Column="0" Orientation="Horizontal">
-                        <Button Content="Tutte" Style="{StaticResource SecondaryButton}"
-                                Click="SelectAllCategories_Click"/>
-                        <Button Content="Nessuna" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
-                                Click="SelectNoneCategories_Click"/>
-                        <Button Content="Profili…" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
-                                Click="LoadProfile_Click"/>
-                    </StackPanel>
-                    <!-- Parameter filter + options (hidden in schedule mode) -->
-                    <Grid x:Name="ParamFilterPanel" Grid.Column="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="ParameterFilter" Grid.Column="0" Padding="6,4"
-                                 ToolTip="Filtra per nome o gruppo (in entrambi i pannelli)"
-                                 TextChanged="ParameterFilter_TextChanged"/>
-                        <CheckBox x:Name="IncludeTypeParametersBox" Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center"
-                                  Content="Includi parametri di tipo" Checked="IncludeTypeParameters_Changed" Unchecked="IncludeTypeParameters_Changed"/>
-                        <CheckBox x:Name="HideEmptyBox" Grid.Column="2" Margin="12,0,0,0" VerticalAlignment="Center"
-                                  Content="Nascondi sempre vuoti" IsChecked="True" Checked="HideEmpty_Changed" Unchecked="HideEmpty_Changed"/>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0,0,0">
+                <!-- Step indicator: the light pill is the current step. -->
+                <Border Background="{StaticResource Vx.Well}" BorderBrush="{StaticResource Vx.Hairline}"
+                        BorderThickness="1" CornerRadius="18" Padding="3" VerticalAlignment="Center">
+                    <Grid>
+                        <!-- On step 1 -->
+                        <StackPanel x:Name="StepperOnData" Orientation="Horizontal">
+                            <Border Height="28" CornerRadius="14" Padding="5,0,14,0"
+                                    Background="{StaticResource Vx.Ink}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Grid Width="20" Height="20" Margin="0,0,8,0">
+                                        <Ellipse Fill="{StaticResource Vx.Ground}"/>
+                                        <TextBlock Text="1" FontSize="11.5" Foreground="{StaticResource Vx.Ink}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <TextBlock x:Name="StepDataCurrent" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Vx.Ground}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Height="28" CornerRadius="14" Padding="5,0,14,0" Margin="4,0,0,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Grid Width="20" Height="20" Margin="0,0,8,0">
+                                        <Ellipse Stroke="{StaticResource Vx.StrokeStrong}" StrokeThickness="1"/>
+                                        <TextBlock Text="2" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <TextBlock x:Name="StepOutputPending" Foreground="{StaticResource Vx.Muted}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <!-- On step 2 -->
+                        <StackPanel x:Name="StepperOnOutput" Orientation="Horizontal" Visibility="Collapsed">
+                            <Border Height="28" CornerRadius="14" Padding="5,0,14,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Grid Width="20" Height="20" Margin="0,0,8,0">
+                                        <Ellipse Fill="{StaticResource Vx.AccentSoft}"/>
+                                        <Viewbox Width="11" Height="11">
+                                            <Path Width="12" Height="12" Data="{StaticResource Vx.Icon.Check}"
+                                                  Stroke="{StaticResource Vx.Accent}" StrokeThickness="2"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                  StrokeLineJoin="Round"/>
+                                        </Viewbox>
+                                    </Grid>
+                                    <TextBlock x:Name="StepDataDone" Foreground="{StaticResource Vx.InkSoft}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Height="28" CornerRadius="14" Padding="5,0,14,0" Margin="4,0,0,0"
+                                    Background="{StaticResource Vx.Ink}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Grid Width="20" Height="20" Margin="0,0,8,0">
+                                        <Ellipse Fill="{StaticResource Vx.Ground}"/>
+                                        <TextBlock Text="2" FontSize="11.5" Foreground="{StaticResource Vx.Ink}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Grid>
+                                    <TextBlock x:Name="StepOutputCurrent" FontWeight="SemiBold"
+                                               Foreground="{StaticResource Vx.Ground}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
                     </Grid>
-                </Grid>
+                </Border>
 
-                <!-- Categories + Parameters 3-pane layout (mode A) -->
-                <Grid x:Name="CategoryTableBorder" Grid.Row="3">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="280"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Col 0: Category tabs -->
-                    <TabControl x:Name="CategoryTabControl" Grid.Column="0"
-                                BorderBrush="#E0E0E0" BorderThickness="1" Background="White"
-                                SelectionChanged="CategoryTab_Changed">
-                        <TabItem x:Name="ModelCategoriesTab" Header="Model Categories">
-                            <DataGrid x:Name="CategoryDataGrid"
-                                      AutoGenerateColumns="False"
-                                      CanUserAddRows="False"
-                                      CanUserDeleteRows="False"
-                                      CanUserSortColumns="True"
-                                      SelectionMode="Extended"
-                                      SelectionUnit="FullRow"
-                                      GridLinesVisibility="Horizontal"
-                                      HeadersVisibility="Column"
-                                      AlternatingRowBackground="#FAFAFA"
-                                      RowHeight="28"
-                                      BorderThickness="0"
-                                      VerticalGridLinesBrush="Transparent"
-                                      IsReadOnly="False"
-                                      MouseDoubleClick="CategoryDataGrid_DoubleClick">
-                                <DataGrid.RowStyle>
-                                    <Style TargetType="DataGridRow">
-                                        <EventSetter Event="MouseLeftButtonUp" Handler="CategoryRow_Click"/>
-                                    </Style>
-                                </DataGrid.RowStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="✓" Width="36" IsReadOnly="True">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsHitTestVisible="False"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Categoria" Width="*" Binding="{Binding DisplayName}" IsReadOnly="True"/>
-                                    <DataGridTextColumn Header="n" Width="48" Binding="{Binding InstanceCount}" IsReadOnly="True"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-                        <TabItem x:Name="AnnotationCategoriesTab" Header="Annotation Categories">
-                            <DataGrid x:Name="AnnotationDataGrid"
-                                      AutoGenerateColumns="False"
-                                      CanUserAddRows="False"
-                                      CanUserDeleteRows="False"
-                                      CanUserSortColumns="True"
-                                      SelectionMode="Extended"
-                                      SelectionUnit="FullRow"
-                                      GridLinesVisibility="Horizontal"
-                                      HeadersVisibility="Column"
-                                      AlternatingRowBackground="#FAFAFA"
-                                      RowHeight="28"
-                                      BorderThickness="0"
-                                      VerticalGridLinesBrush="Transparent"
-                                      IsReadOnly="False"
-                                      MouseDoubleClick="CategoryDataGrid_DoubleClick">
-                                <DataGrid.RowStyle>
-                                    <Style TargetType="DataGridRow">
-                                        <EventSetter Event="MouseLeftButtonUp" Handler="CategoryRow_Click"/>
-                                    </Style>
-                                </DataGrid.RowStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="✓" Width="36" IsReadOnly="True">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsHitTestVisible="False"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Categoria" Width="*" Binding="{Binding DisplayName}" IsReadOnly="True"/>
-                                    <DataGridTextColumn Header="n" Width="48" Binding="{Binding InstanceCount}" IsReadOnly="True"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-                        <TabItem x:Name="AnalyticalCategoriesTab" Header="Analytical Model Categories">
-                            <DataGrid x:Name="AnalyticalDataGrid"
-                                      AutoGenerateColumns="False"
-                                      CanUserAddRows="False"
-                                      CanUserDeleteRows="False"
-                                      CanUserSortColumns="True"
-                                      SelectionMode="Extended"
-                                      SelectionUnit="FullRow"
-                                      GridLinesVisibility="Horizontal"
-                                      HeadersVisibility="Column"
-                                      AlternatingRowBackground="#FAFAFA"
-                                      RowHeight="28"
-                                      BorderThickness="0"
-                                      VerticalGridLinesBrush="Transparent"
-                                      IsReadOnly="False"
-                                      MouseDoubleClick="CategoryDataGrid_DoubleClick">
-                                <DataGrid.RowStyle>
-                                    <Style TargetType="DataGridRow">
-                                        <EventSetter Event="MouseLeftButtonUp" Handler="CategoryRow_Click"/>
-                                    </Style>
-                                </DataGrid.RowStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="✓" Width="36" IsReadOnly="True">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsHitTestVisible="False"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Categoria" Width="*" Binding="{Binding DisplayName}" IsReadOnly="True"/>
-                                    <DataGridTextColumn Header="n" Width="48" Binding="{Binding InstanceCount}" IsReadOnly="True"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-                        <TabItem x:Name="OtherCategoriesTab" Header="Altre" Visibility="Collapsed">
-                            <DataGrid x:Name="OtherDataGrid"
-                                      AutoGenerateColumns="False"
-                                      CanUserAddRows="False"
-                                      CanUserDeleteRows="False"
-                                      CanUserSortColumns="True"
-                                      SelectionMode="Extended"
-                                      SelectionUnit="FullRow"
-                                      GridLinesVisibility="Horizontal"
-                                      HeadersVisibility="Column"
-                                      AlternatingRowBackground="#FAFAFA"
-                                      RowHeight="28"
-                                      BorderThickness="0"
-                                      VerticalGridLinesBrush="Transparent"
-                                      IsReadOnly="False"
-                                      MouseDoubleClick="CategoryDataGrid_DoubleClick">
-                                <DataGrid.RowStyle>
-                                    <Style TargetType="DataGridRow">
-                                        <EventSetter Event="MouseLeftButtonUp" Handler="CategoryRow_Click"/>
-                                    </Style>
-                                </DataGrid.RowStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="✓" Width="36" IsReadOnly="True">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsHitTestVisible="False"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Categoria" Width="*" Binding="{Binding DisplayName}" IsReadOnly="True"/>
-                                    <DataGridTextColumn Header="n" Width="48" Binding="{Binding InstanceCount}" IsReadOnly="True"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </TabItem>
-                    </TabControl>
-
-                    <!-- Col 1: Available parameters -->
-                    <Border Grid.Column="1" Margin="8,0,0,0" BorderBrush="#E0E0E0" BorderThickness="1" Background="White">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F5F5F5" Padding="8,6" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
-                                <TextBlock x:Name="AvailableHeader" Text="Disponibili" FontWeight="SemiBold" Foreground="#424242"/>
-                            </Border>
-                            <DataGrid x:Name="AvailableParamsGrid" Grid.Row="1"
-                                      AutoGenerateColumns="False"
-                                      CanUserAddRows="False"
-                                      CanUserDeleteRows="False"
-                                      CanUserSortColumns="True"
-                                      SelectionMode="Extended"
-                                      SelectionUnit="FullRow"
-                                      GridLinesVisibility="None"
-                                      HeadersVisibility="Column"
-                                      RowHeight="26"
-                                      BorderThickness="0"
-                                      IsReadOnly="True"
-                                      MouseDoubleClick="AvailableParams_DoubleClick">
-                                <DataGrid.RowStyle>
-                                    <Style TargetType="DataGridRow">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsReadOnly}" Value="True">
-                                                <Setter Property="Background" Value="#FFCDD2"/>
-                                            </DataTrigger>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding IsReadOnly}" Value="False"/>
-                                                    <Condition Binding="{Binding Scope}" Value="Instance"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Background" Value="#C8E6C9"/>
-                                            </MultiDataTrigger>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding IsReadOnly}" Value="False"/>
-                                                    <Condition Binding="{Binding Scope}" Value="Type"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Background" Value="#FFF9C4"/>
-                                            </MultiDataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </DataGrid.RowStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="" Width="22">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="◆" FontSize="9" Foreground="#1565C0" HorizontalAlignment="Center"
-                                                           Visibility="{Binding IsShared, Converter={StaticResource BoolToVisibilityConverter}, FallbackValue=Collapsed}"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Parametro" Width="*" Binding="{Binding Name}"/>
-                                    <DataGridTextColumn Header="Gruppo" Width="120" Binding="{Binding GroupName}"/>
-                                    <DataGridTextColumn Header="%" Width="50" Binding="{Binding CoveragePercent, StringFormat={}{0}%}"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-
-                    <!-- Col 2: Transfer + order buttons -->
-                    <StackPanel Grid.Column="2" Orientation="Vertical" VerticalAlignment="Center" Margin="8,0">
-                        <Button Content="▶" Width="36" Height="32" Margin="0,2" ToolTip="Aggiungi i selezionati" Click="MoveToSelected_Click"/>
-                        <Button Content="▶▶" Width="36" Height="32" Margin="0,2" ToolTip="Aggiungi tutti i visibili" Click="MoveAllToSelected_Click"/>
-                        <Border Height="8"/>
-                        <Button Content="◀" Width="36" Height="32" Margin="0,2" ToolTip="Rimuovi i selezionati" Click="MoveToAvailable_Click"/>
-                        <Button Content="◀◀" Width="36" Height="32" Margin="0,2" ToolTip="Rimuovi tutti" Click="MoveAllToAvailable_Click"/>
-                        <Border Height="8"/>
-                        <Button Content="↑" Width="36" Height="32" Margin="0,2" ToolTip="Sposta su" Click="MoveSelectedUp_Click"/>
-                        <Button Content="↓" Width="36" Height="32" Margin="0,2" ToolTip="Sposta giu" Click="MoveSelectedDown_Click"/>
+                <Button x:Name="ProfilesBtn" Height="34" Margin="12,0,0,0" VerticalAlignment="Center"
+                        Style="{StaticResource Vx.Button}" Click="ProfilesBtn_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="ProfilesBtnText" VerticalAlignment="Center"/>
+                        <Path Width="12" Height="12" Margin="8,0,0,0" VerticalAlignment="Center"
+                              Data="{StaticResource Vx.Icon.ChevronDown}"
+                              Stroke="{StaticResource Vx.Muted}" StrokeThickness="1.4"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                     </StackPanel>
+                </Button>
+            </StackPanel>
 
-                    <!-- Col 3: Selected parameters -->
-                    <Border Grid.Column="3" BorderBrush="#E0E0E0" BorderThickness="1" Background="White">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F5F5F5" Padding="8,6" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
-                                <TextBlock x:Name="SelectedHeader" Text="Selezionati" FontWeight="SemiBold" Foreground="#424242"/>
-                            </Border>
-                            <DataGrid x:Name="SelectedParamsGrid" Grid.Row="1"
-                                      AutoGenerateColumns="False"
-                                      CanUserAddRows="False"
-                                      CanUserDeleteRows="False"
-                                      CanUserSortColumns="False"
-                                      SelectionMode="Extended"
-                                      SelectionUnit="FullRow"
-                                      GridLinesVisibility="None"
-                                      HeadersVisibility="Column"
-                                      RowHeight="26"
-                                      BorderThickness="0"
-                                      IsReadOnly="True"
-                                      MouseDoubleClick="SelectedParams_DoubleClick">
-                                <DataGrid.RowStyle>
-                                    <Style TargetType="DataGridRow">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsReadOnly}" Value="True">
-                                                <Setter Property="Background" Value="#FFCDD2"/>
-                                            </DataTrigger>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding IsReadOnly}" Value="False"/>
-                                                    <Condition Binding="{Binding Scope}" Value="Instance"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Background" Value="#C8E6C9"/>
-                                            </MultiDataTrigger>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding IsReadOnly}" Value="False"/>
-                                                    <Condition Binding="{Binding Scope}" Value="Type"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Background" Value="#FFF9C4"/>
-                                            </MultiDataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </DataGrid.RowStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="#" Width="32" Binding="{Binding OrderIndex}"/>
-                                    <DataGridTextColumn Header="Parametro" Width="*" Binding="{Binding Name}"/>
-                                    <DataGridTextColumn Header="Gruppo" Width="100" Binding="{Binding GroupName}"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-                </Grid>
+            <!-- Profiles menu -->
+            <Popup x:Name="ProfilesPopup" PlacementTarget="{Binding ElementName=ProfilesBtn}"
+                   Placement="Bottom" VerticalOffset="6" StaysOpen="False"
+                   AllowsTransparency="True" PopupAnimation="None">
+                <Border Width="250" Padding="4" CornerRadius="10" BorderThickness="1"
+                        Background="{StaticResource Vx.Raised}" BorderBrush="{StaticResource Vx.Stroke}"
+                        TextElement.Foreground="{StaticResource Vx.Ink}"
+                        TextElement.FontFamily="{StaticResource Vx.Font}"
+                        TextElement.FontSize="13">
+                    <StackPanel>
+                        <Button x:Name="MenuLoadProfile" Style="{StaticResource Vx.Button.Menu}"
+                                Click="LoadProfile_Click"/>
+                        <Button x:Name="MenuSaveProfile" Style="{StaticResource Vx.Button.Menu}"
+                                Click="SaveProfile_Click"/>
+                        <Button x:Name="MenuImportProfile" Style="{StaticResource Vx.Button.Menu}"
+                                Click="ImportProfile_Click"/>
+                        <Border Style="{StaticResource Vx.Divider}" Margin="6,4"/>
+                        <Button x:Name="MenuOpenProfiles" Style="{StaticResource Vx.Button.Menu}"
+                                Click="OpenProfilesFolder_Click"/>
+                    </StackPanel>
+                </Border>
+            </Popup>
+        </Grid>
 
-                <!-- Schedules split pane (mode B): left = schedule list, right = column preview -->
-                <Grid x:Name="ScheduleTableBorder" Grid.Row="3" Visibility="Collapsed">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+        <!-- ── Step 1: data ──────────────────────────────────────────────── -->
+        <Grid x:Name="Step1Panel" Grid.Row="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-                    <!-- Left: schedule list -->
-                    <Border Grid.Column="0" BorderBrush="#E0E0E0" BorderThickness="1" Background="White">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F5F5F5" Padding="8,6" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
-                                <TextBlock x:Name="SchedulesHeader" Text="Schedule" FontWeight="SemiBold" Foreground="#424242"/>
-                            </Border>
-                            <DataGrid x:Name="ScheduleDataGrid" Grid.Row="1"
-                                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                                      CanUserSortColumns="True" SelectionMode="Extended" SelectionUnit="FullRow"
-                                      GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                                      AlternatingRowBackground="#FAFAFA" RowHeight="28" BorderThickness="0"
-                                      VerticalGridLinesBrush="Transparent" IsReadOnly="False"
-                                      MouseDoubleClick="ScheduleDataGrid_DoubleClick">
-                                <DataGrid.RowStyle>
-                                    <Style TargetType="DataGridRow">
-                                        <EventSetter Event="MouseLeftButtonUp" Handler="ScheduleRow_Click"/>
-                                    </Style>
-                                </DataGrid.RowStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTemplateColumn Header="✓" Width="36" IsReadOnly="True">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <CheckBox IsChecked="{Binding IsSelected, Mode=OneWay}" IsHitTestVisible="False"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                    <DataGridTextColumn Header="Nome schedule" Width="*" Binding="{Binding Name}" IsReadOnly="True"/>
-                                    <DataGridTextColumn Header="Categoria" Width="160" Binding="{Binding CategoryName}" IsReadOnly="True"/>
-                                    <DataGridTextColumn Header="Righe" Width="60" Binding="{Binding RowCount}" IsReadOnly="True"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-
-                    <!-- Right: column preview (auto-updates when a schedule row is clicked) -->
-                    <Border Grid.Column="1" BorderBrush="#E0E0E0" BorderThickness="0,1,1,1" Background="White">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Background="#F5F5F5" Padding="8,6" BorderBrush="#E0E0E0" BorderThickness="0,0,0,1">
-                                <TextBlock x:Name="ScheduleFieldsHeader" Text="Colonne (clicca una schedule)" FontWeight="SemiBold" Foreground="#424242"/>
-                            </Border>
-                            <DataGrid x:Name="ScheduleFieldsGrid" Grid.Row="1"
-                                      AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                                      CanUserSortColumns="False" SelectionMode="Single" SelectionUnit="FullRow"
-                                      GridLinesVisibility="None" HeadersVisibility="Column"
-                                      RowHeight="26" BorderThickness="0" IsReadOnly="True">
-                                <DataGrid.RowStyle>
-                                    <Style TargetType="DataGridRow">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsReadOnly}" Value="True">
-                                                <Setter Property="Background" Value="#FFCDD2"/>
-                                            </DataTrigger>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding IsReadOnly}" Value="False"/>
-                                                    <Condition Binding="{Binding Scope}" Value="Instance"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Background" Value="#C8E6C9"/>
-                                            </MultiDataTrigger>
-                                            <MultiDataTrigger>
-                                                <MultiDataTrigger.Conditions>
-                                                    <Condition Binding="{Binding IsReadOnly}" Value="False"/>
-                                                    <Condition Binding="{Binding Scope}" Value="Type"/>
-                                                </MultiDataTrigger.Conditions>
-                                                <Setter Property="Background" Value="#FFF9C4"/>
-                                            </MultiDataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </DataGrid.RowStyle>
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Colonna CSV" Width="*" Binding="{Binding Header}"/>
-                                    <DataGridTextColumn Header="Scope" Width="70" Binding="{Binding Scope}"/>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="8,4">
-                                <Border Width="12" Height="12" Background="#C8E6C9" BorderBrush="#2E7D32" BorderThickness="1" VerticalAlignment="Center"/>
-                                <TextBlock Text="Istanza" Margin="4,0,12,0" VerticalAlignment="Center" FontSize="11"/>
-                                <Border Width="12" Height="12" Background="#FFF9C4" BorderBrush="#F9A825" BorderThickness="1" VerticalAlignment="Center"/>
-                                <TextBlock Text="Tipo" Margin="4,0,12,0" VerticalAlignment="Center" FontSize="11"/>
-                                <Border Width="12" Height="12" Background="#FFCDD2" BorderBrush="#C62828" BorderThickness="1" VerticalAlignment="Center"/>
-                                <TextBlock Text="Read-only / calcolato" Margin="4,0,0,0" VerticalAlignment="Center" FontSize="11"/>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-                </Grid>
+            <!-- Where the rows come from -->
+            <Grid Grid.Row="0" Margin="32,18,32,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <RadioButton x:Name="ScopeWholeRadio" Grid.Column="0" GroupName="VxPbiSource" IsChecked="True"
+                             Style="{StaticResource Vx.ChoiceCard}" Tag="{StaticResource Vx.Icon.Model}"
+                             Checked="SourceScope_Changed">
+                    <StackPanel>
+                        <TextBlock x:Name="ScopeWholeTitle" Style="{StaticResource Vx.ChoiceCard.Title}"/>
+                        <TextBlock x:Name="ScopeWholeHelp" Style="{StaticResource Vx.ChoiceCard.Help}"/>
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="ScopeViewRadio" Grid.Column="2" GroupName="VxPbiSource"
+                             Style="{StaticResource Vx.ChoiceCard}" Tag="{StaticResource Vx.Icon.Eye}"
+                             Checked="SourceScope_Changed">
+                    <StackPanel>
+                        <TextBlock x:Name="ScopeViewTitle" Style="{StaticResource Vx.ChoiceCard.Title}"/>
+                        <TextBlock x:Name="ScopeViewHelp" Style="{StaticResource Vx.ChoiceCard.Help}"/>
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="ScopeSelectionRadio" Grid.Column="4" GroupName="VxPbiSource"
+                             Style="{StaticResource Vx.ChoiceCard}" Tag="{StaticResource Vx.Icon.Cursor}"
+                             Checked="SourceScope_Changed">
+                    <StackPanel>
+                        <TextBlock x:Name="ScopeSelectionTitle" Style="{StaticResource Vx.ChoiceCard.Title}"/>
+                        <TextBlock x:Name="ScopeSelectionHelp" Style="{StaticResource Vx.ChoiceCard.Help}"/>
+                    </StackPanel>
+                </RadioButton>
+                <RadioButton x:Name="ModeSchedulesRadio" Grid.Column="6" GroupName="VxPbiSource"
+                             Style="{StaticResource Vx.ChoiceCard}" Tag="{StaticResource Vx.Icon.Table}"
+                             Checked="SourceScope_Changed">
+                    <StackPanel>
+                        <TextBlock x:Name="ModeSchedulesTitle" Style="{StaticResource Vx.ChoiceCard.Title}"/>
+                        <TextBlock x:Name="ModeSchedulesHelp" Style="{StaticResource Vx.ChoiceCard.Help}"/>
+                    </StackPanel>
+                </RadioButton>
             </Grid>
 
-            <!-- STEP 2: Parameters — merged into Step 1 inline view; placeholder kept for GoToStep() -->
-            <Grid x:Name="Step2Panel" Visibility="Collapsed"/>
+            <!-- Categories, their parameters, and the columns chosen -->
+            <Grid x:Name="CategoryPanes" Grid.Row="1" Margin="32,18,32,18">
+                <!-- The categories pane is 290 px wide and gives some of it
+                     back on a small window, where the other two need it more. -->
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="0.77*" MinWidth="256" MaxWidth="290"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="36"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-            <!-- STEP 3: Output -->
-            <Grid x:Name="Step3Panel" Visibility="Collapsed">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto" MaxHeight="340"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+                <!-- 1 · Categories -->
+                <Border Grid.Column="0" Style="{StaticResource Vx.Card}" SizeChanged="Card_SizeChanged">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="16,14,16,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource Vx.NumberDot}">
+                                <TextBlock Text="1" Style="{StaticResource Vx.NumberDot.Text}"/>
+                            </Border>
+                            <TextBlock x:Name="CategoriesTitle" Grid.Column="1" Margin="10,0,0,0"
+                                       Style="{StaticResource Vx.Text.Section}" TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="CategoriesCount" Grid.Column="2" Margin="10,0,0,0" FontSize="12.5"
+                                       Foreground="{StaticResource Vx.Muted}" VerticalAlignment="Center"/>
+                        </Grid>
+                        <!-- Three tabs fit on one line down to the minimum width;
+                             a fourth ("Other", rare) wraps under them. -->
+                        <WrapPanel Grid.Row="1" Margin="16,0,12,6">
+                            <RadioButton x:Name="TabModel" GroupName="VxPbiCategoryTabs" IsChecked="True"
+                                         Style="{StaticResource Vx.TabPill.Small}" Padding="9,0" Margin="0,0,4,4"
+                                         Checked="CategoryTab_Changed"/>
+                            <RadioButton x:Name="TabAnnotation" GroupName="VxPbiCategoryTabs"
+                                         Style="{StaticResource Vx.TabPill.Small}" Padding="9,0" Margin="0,0,4,4"
+                                         Checked="CategoryTab_Changed"/>
+                            <RadioButton x:Name="TabAnalytical" GroupName="VxPbiCategoryTabs"
+                                         Style="{StaticResource Vx.TabPill.Small}" Padding="9,0" Margin="0,0,4,4"
+                                         Checked="CategoryTab_Changed"/>
+                            <RadioButton x:Name="TabOther" GroupName="VxPbiCategoryTabs"
+                                         Style="{StaticResource Vx.TabPill.Small}" Padding="9,0" Margin="0,0,4,4"
+                                         Checked="CategoryTab_Changed" Visibility="Collapsed"/>
+                        </WrapPanel>
+                        <Border Grid.Row="2" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0">
+                            <Grid>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                                    <ItemsControl x:Name="CategoryList" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Style="{StaticResource Vx.CheckRow}"
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          AutomationProperties.Name="{Binding DisplayName}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding DisplayName}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding CountText}"
+                                                                   Margin="10,0,0,0" FontSize="12"
+                                                                   FontFamily="{StaticResource Vx.Mono}"
+                                                                   Foreground="{StaticResource Vx.Muted}"/>
+                                                    </Grid>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <TextBlock x:Name="CategoriesEmpty" Style="{StaticResource Vx.Text.Help}"
+                                           Margin="20" TextAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="3" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0"
+                                Padding="8,5">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="CategoriesAllBtn" Style="{StaticResource Vx.Button.Link}"
+                                        Click="SelectAllCategories_Click"/>
+                                <Button x:Name="CategoriesNoneBtn" Style="{StaticResource Vx.Button.Link}"
+                                        Click="SelectNoneCategories_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
 
-                <StackPanel Grid.Row="0">
-                    <TextBlock Style="{StaticResource StepHeader}" Text="Output e schedulazione"/>
-                    <TextBlock Style="{StaticResource StepSubtitle}"
-                               Text="Il file CSV verra salvato nella cartella selezionata. Per dashboard Power BI con scheduled refresh, imposta una cartella sincronizzata su OneDrive/SharePoint e mantieni un nome file fisso."/>
+                <!-- 2 · Available parameters -->
+                <Border Grid.Column="2" Style="{StaticResource Vx.Card}" SizeChanged="Card_SizeChanged">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="16,14,16,10">
+                            <!-- The filter takes what the title leaves, up to 200 px, and
+                                 stays against the right edge: the spacer column only
+                                 gets width once the filter has reached its maximum. -->
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="1000*" MaxWidth="212"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource Vx.NumberDot}">
+                                <TextBlock Text="2" Style="{StaticResource Vx.NumberDot.Text}"/>
+                            </Border>
+                            <TextBlock x:Name="AvailableTitle" Grid.Column="1" Margin="10,0,0,0"
+                                       Style="{StaticResource Vx.Text.Section}" TextWrapping="NoWrap"
+                                       VerticalAlignment="Center"/>
+                            <Border Grid.Column="3" Height="30" Margin="12,0,0,0"
+                                    CornerRadius="8" BorderThickness="1"
+                                    Background="{StaticResource Vx.Well}" VerticalAlignment="Center">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="BorderBrush" Value="{StaticResource Vx.Stroke}"/>
+                                        <Style.Triggers>
+                                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                <Setter Property="BorderBrush" Value="{StaticResource Vx.Accent}"/>
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Path Grid.Column="0" Width="14" Height="14" Margin="10,0,8,0"
+                                          VerticalAlignment="Center"
+                                          Data="{StaticResource Vx.Icon.Search}"
+                                          Stroke="{StaticResource Vx.Muted}" StrokeThickness="1.4"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                    <TextBlock x:Name="ParameterFilterPlaceholder" Grid.Column="1"
+                                               IsHitTestVisible="False"
+                                               Foreground="{StaticResource Vx.Disabled}" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="ParameterFilter" Grid.Column="1" Margin="0,0,8,0"
+                                             Style="{StaticResource Vx.TextBox.Bare}"
+                                             TextChanged="ParameterFilter_TextChanged"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <WrapPanel Grid.Row="1" Margin="16,0,10,4">
+                            <CheckBox x:Name="IncludeTypeParametersBox" Style="{StaticResource Vx.Chip}"
+                                      Margin="0,0,6,6"
+                                      Checked="IncludeTypeParameters_Changed"
+                                      Unchecked="IncludeTypeParameters_Changed"/>
+                            <CheckBox x:Name="HideEmptyBox" Style="{StaticResource Vx.Chip}" IsChecked="True"
+                                      Margin="0,0,6,6"
+                                      Checked="HideEmpty_Changed" Unchecked="HideEmpty_Changed"/>
+                        </WrapPanel>
+                        <Border Grid.Row="2" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0">
+                            <Grid>
+                                <ListBox x:Name="AvailableList" Style="{StaticResource Vx.List}"
+                                         SelectionMode="Extended"
+                                         MouseDoubleClick="AvailableParams_DoubleClick">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Background="Transparent" ToolTip="{Binding Tooltip}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <DockPanel Grid.Column="0" HorizontalAlignment="Left">
+                                                    <Border DockPanel.Dock="Right" Margin="8,0,0,0"
+                                                            Style="{StaticResource Vx.Badge}"
+                                                            Visibility="{Binding IsType, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="{Binding ScopeBadge}"
+                                                                   Style="{StaticResource Vx.Badge.Text}"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                </DockPanel>
+                                                <TextBlock Grid.Column="1" Text="{Binding GroupName}"
+                                                           Margin="12,0,0,0" MaxWidth="150" FontSize="12.5"
+                                                           Foreground="{StaticResource Vx.Muted}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="AvailableEmpty" Style="{StaticResource Vx.Text.Help}"
+                                           Margin="24" TextAlignment="Center" VerticalAlignment="Center"
+                                           IsHitTestVisible="False"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- Move between the two lists -->
+                <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                    <Button x:Name="AddBtn" Style="{StaticResource Vx.Button.RoundPrimary}"
+                            Click="MoveToSelected_Click">
+                        <Path Width="14" Height="14" Data="{StaticResource Vx.Icon.Add}"
+                              Stroke="{StaticResource Vx.AccentInk}" StrokeThickness="1.8"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Button>
+                    <Button x:Name="AddAllBtn" Style="{StaticResource Vx.Button.Round}" Margin="0,6,0,0"
+                            Click="MoveAllToSelected_Click">
+                        <Path Width="14" Height="14" Data="{StaticResource Vx.Icon.AddAll}"
+                              Stroke="{StaticResource Vx.Ink}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Button>
+                    <Button x:Name="RemoveBtn" Style="{StaticResource Vx.Button.Round}" Margin="0,6,0,0"
+                            Click="MoveToAvailable_Click">
+                        <Path Width="14" Height="14" Data="{StaticResource Vx.Icon.Remove}"
+                              Stroke="{StaticResource Vx.Ink}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Button>
+                    <Button x:Name="RemoveAllBtn" Style="{StaticResource Vx.Button.Round}" Margin="0,6,0,0"
+                            Click="MoveAllToAvailable_Click">
+                        <Path Width="14" Height="14" Data="{StaticResource Vx.Icon.RemoveAll}"
+                              Stroke="{StaticResource Vx.Ink}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    </Button>
                 </StackPanel>
 
-                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,0,0,12">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Cartella output:" VerticalAlignment="Center" Margin="0,4"/>
-                    <TextBox x:Name="OutputFolderBox" Grid.Row="0" Grid.Column="1" Padding="6,4" Margin="0,4"/>
-                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
-                        <Button Content="Sfoglia…" Margin="8,4,0,4" Style="{StaticResource SecondaryButton}"
-                                ToolTip="Cambia la cartella di output (selezione cartella; i file non sono visibili nel dialog Windows per design)"
-                                Click="BrowseFolder_Click"/>
-                        <Button x:Name="OpenOutputFolderBtn" Content="Apri" Margin="4,4,0,4" Style="{StaticResource SecondaryButton}"
-                                ToolTip="Apri questa cartella in Esplora risorse — utile per verificare i CSV già esportati"
-                                Click="OpenOutputFolder_Click"/>
-                    </StackPanel>
-
-                    <TextBlock x:Name="FileNameLabel" Grid.Row="1" Grid.Column="0" Text="Nome file:" VerticalAlignment="Center" Margin="0,4"/>
-                    <TextBox x:Name="FileNameBox" Grid.Row="1" Grid.Column="1" Padding="6,4" Margin="0,4"/>
-
-                    <CheckBox x:Name="OverwriteBox" Grid.Row="2" Grid.Column="1" Margin="0,8" IsChecked="True"
-                              Content="Sovrascrivi file esistente (consigliato per scheduled refresh)"/>
-
-                    <CheckBox x:Name="AutoExportBox" Grid.Row="3" Grid.Column="1" Margin="0,4"
-                              Content="Aggiorna automaticamente al salvataggio del modello"/>
-
-                    <CheckBox x:Name="RegisterProtocolBox" Grid.Row="4" Grid.Column="1" Margin="0,4" IsChecked="True"
-                              Content="Registra il protocol handler revitcortex:// (richiede privilegi utente)"/>
-
-                    <CheckBox x:Name="TriggerRefreshBox" Grid.Row="5" Grid.Column="1" Margin="0,8"
-                              Content="Aggiorna dashboard Power BI Service dopo export"
-                              Checked="TriggerRefreshBox_Changed" Unchecked="TriggerRefreshBox_Changed"/>
-
-                    <!-- Refresh config: shown only when TriggerRefreshBox is checked -->
-                    <Border x:Name="RefreshConfigPanel" Grid.Row="6" Grid.ColumnSpan="3"
-                            Margin="0,2,0,6" Padding="10,8"
-                            BorderBrush="#B0BEC5" BorderThickness="1" Background="#F0F4F7"
-                            Visibility="Collapsed">
-                        <Grid>
+                <!-- 3 · Columns of the CSV -->
+                <Border Grid.Column="6" Style="{StaticResource Vx.Card}" SizeChanged="Card_SizeChanged">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="16,14,12,10">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource Vx.NumberDot}">
+                                <TextBlock Text="3" Style="{StaticResource Vx.NumberDot.Text}"/>
+                            </Border>
+                            <TextBlock x:Name="SelectedTitle" Grid.Column="1" Margin="10,0,0,0"
+                                       Style="{StaticResource Vx.Text.Section}" TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <Button x:Name="MoveUpBtn" Grid.Column="2" Margin="10,0,0,0"
+                                    Style="{StaticResource Vx.Button.IconFramed}"
+                                    Click="MoveSelectedUp_Click">
+                                <Path Width="14" Height="14" Data="{StaticResource Vx.Icon.Up}"
+                                      Stroke="{StaticResource Vx.Ink}" StrokeThickness="1.6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                            </Button>
+                            <Button x:Name="MoveDownBtn" Grid.Column="3" Margin="6,0,0,0"
+                                    Style="{StaticResource Vx.Button.IconFramed}"
+                                    Click="MoveSelectedDown_Click">
+                                <Path Width="14" Height="14" Data="{StaticResource Vx.Icon.Down}"
+                                      Stroke="{StaticResource Vx.Ink}" StrokeThickness="1.6"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                            </Button>
+                        </Grid>
+                        <TextBlock x:Name="SelectedCaption" Grid.Row="1" Margin="16,0,16,10"
+                                   Style="{StaticResource Vx.Text.Help}"/>
+                        <Border Grid.Row="2" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0">
+                            <Grid>
+                                <ListBox x:Name="SelectedList" Style="{StaticResource Vx.List}"
+                                         SelectionMode="Extended"
+                                         MouseDoubleClick="SelectedParams_DoubleClick">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Background="Transparent" ToolTip="{Binding Tooltip}">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding OrderIndex}"
+                                                           MinWidth="16" Margin="0,0,12,0" FontSize="12"
+                                                           FontFamily="{StaticResource Vx.Mono}"
+                                                           Foreground="{StaticResource Vx.Muted}"
+                                                           VerticalAlignment="Center"/>
+                                                <DockPanel Grid.Column="1" HorizontalAlignment="Left">
+                                                    <Border DockPanel.Dock="Right" Margin="8,0,0,0"
+                                                            Style="{StaticResource Vx.Badge}"
+                                                            Visibility="{Binding IsType, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="{Binding ScopeBadge}"
+                                                                   Style="{StaticResource Vx.Badge.Text}"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                </DockPanel>
+                                                <TextBlock Grid.Column="2" Text="{Binding GroupName}"
+                                                           Margin="12,0,0,0" MaxWidth="150" FontSize="12.5"
+                                                           Foreground="{StaticResource Vx.Muted}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                                <TextBlock x:Name="SelectedEmpty" Style="{StaticResource Vx.Text.Help}"
+                                           Margin="24" TextAlignment="Center" VerticalAlignment="Center"
+                                           IsHitTestVisible="False"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Schedules: the tables of the model, and the columns of one of them -->
+            <Grid x:Name="SchedulePanes" Grid.Row="1" Margin="32,18,32,18" Visibility="Collapsed">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 1 · Schedules -->
+                <Border Grid.Column="0" Style="{StaticResource Vx.Card}" SizeChanged="Card_SizeChanged">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="16,14,16,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource Vx.NumberDot}">
+                                <TextBlock Text="1" Style="{StaticResource Vx.NumberDot.Text}"/>
+                            </Border>
+                            <TextBlock x:Name="SchedulesTitle" Grid.Column="1" Margin="10,0,0,0"
+                                       Style="{StaticResource Vx.Text.Section}" TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="SchedulesCount" Grid.Column="2" Margin="10,0,0,0" FontSize="12.5"
+                                       Foreground="{StaticResource Vx.Muted}" VerticalAlignment="Center"/>
+                        </Grid>
+                        <Border Grid.Row="1" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0">
+                            <Grid>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                                    <ItemsControl x:Name="ScheduleList" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Style="{StaticResource Vx.CheckRow}"
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                          AutomationProperties.Name="{Binding Name}">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Name}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding CategoryName}"
+                                                                   Margin="12,0,0,0" MaxWidth="170" FontSize="12.5"
+                                                                   Foreground="{StaticResource Vx.Muted}"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                        <TextBlock Grid.Column="2" Text="{Binding RowsText}"
+                                                                   MinWidth="64" Margin="12,0,0,0" FontSize="12"
+                                                                   TextAlignment="Right"
+                                                                   FontFamily="{StaticResource Vx.Mono}"
+                                                                   Foreground="{StaticResource Vx.Muted}"/>
+                                                    </Grid>
+                                                </CheckBox>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <TextBlock x:Name="SchedulesEmpty" Style="{StaticResource Vx.Text.Help}"
+                                           Margin="24" TextAlignment="Center" VerticalAlignment="Center"
+                                           Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="2" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0"
+                                Padding="8,5">
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="SchedulesAllBtn" Style="{StaticResource Vx.Button.Link}"
+                                        Click="SelectAllSchedules_Click"/>
+                                <Button x:Name="SchedulesNoneBtn" Style="{StaticResource Vx.Button.Link}"
+                                        Click="SelectNoneSchedules_Click"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- 2 · Columns of the schedule last ticked -->
+                <Border Grid.Column="2" Style="{StaticResource Vx.Card}" SizeChanged="Card_SizeChanged">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="16,14,16,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource Vx.NumberDot}">
+                                <TextBlock Text="2" Style="{StaticResource Vx.NumberDot.Text}"/>
+                            </Border>
+                            <TextBlock x:Name="ScheduleFieldsTitle" Grid.Column="1" Margin="10,0,0,0"
+                                       Style="{StaticResource Vx.Text.Section}" TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="ScheduleFieldsCount" Grid.Column="2" Margin="10,0,0,0"
+                                       FontSize="12.5" Foreground="{StaticResource Vx.Muted}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
+                        <Border Grid.Row="1" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0">
+                            <Grid>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                                    <ItemsControl x:Name="ScheduleFieldsList" Focusable="False">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Height="34" Margin="16,0" HorizontalAlignment="Left">
+                                                    <Border DockPanel.Dock="Right" Margin="8,0,0,0"
+                                                            Style="{StaticResource Vx.Badge}"
+                                                            Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
+                                                        <TextBlock Text="{Binding Badge}"
+                                                                   Style="{StaticResource Vx.Badge.Text}"/>
+                                                    </Border>
+                                                    <TextBlock Text="{Binding Header}" VerticalAlignment="Center"
+                                                               TextTrimming="CharacterEllipsis"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <TextBlock x:Name="ScheduleFieldsEmpty" Style="{StaticResource Vx.Text.Help}"
+                                           Margin="24" TextAlignment="Center" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- ── Step 2: output ────────────────────────────────────────────── -->
+        <Grid x:Name="Step2Panel" Grid.Row="1" Visibility="Collapsed">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Style="{StaticResource Vx.Divider}" Margin="0,20,0,0"/>
+
+            <Grid Grid.Row="1" Margin="32,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="32"/>
+                    <ColumnDefinition Width="420"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Settings: what it is on the left, its control on the right -->
+                <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Focusable="False">
+                    <StackPanel>
+
+                        <!-- File -->
+                        <Grid Margin="0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="28"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="SecFileTitle" Style="{StaticResource Vx.Text.Section}"/>
+                                <TextBlock x:Name="SecFileHelp" Style="{StaticResource Vx.Text.Help}"
+                                           Margin="0,3,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock x:Name="OutputFolderLabel" Style="{StaticResource Vx.Text.FieldLabel}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- A path is often longer than the box: the tooltip has all of it. -->
+                                    <TextBox x:Name="OutputFolderBox" Grid.Column="0" Height="34" FontSize="12.5"
+                                             Style="{StaticResource Vx.TextBox}"
+                                             FontFamily="{StaticResource Vx.Mono}"
+                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                    <Button x:Name="BrowseBtn" Grid.Column="1" Height="34" Margin="8,0,0,0"
+                                            Style="{StaticResource Vx.Button}" Click="BrowseFolder_Click"/>
+                                    <Button x:Name="OpenFolderBtn" Grid.Column="2" Height="34" Margin="8,0,0,0"
+                                            Style="{StaticResource Vx.Button.Ghost}"
+                                            Click="OpenOutputFolder_Click"/>
+                                </Grid>
+
+                                <!-- One CSV, named by the user (categories) -->
+                                <StackPanel x:Name="FileNamePanel" Margin="0,12,0,0">
+                                    <TextBlock x:Name="FileNameLabel" Style="{StaticResource Vx.Text.FieldLabel}"/>
+                                    <TextBox x:Name="FileNameBox" Height="34" FontSize="12.5"
+                                             Style="{StaticResource Vx.TextBox}"
+                                             FontFamily="{StaticResource Vx.Mono}"/>
+                                </StackPanel>
+
+                                <!-- One CSV per schedule, named after it (schedules) -->
+                                <StackPanel x:Name="ScheduleFilesPanel" Margin="0,12,0,0" Visibility="Collapsed">
+                                    <TextBlock x:Name="ScheduleFilesLabel" Style="{StaticResource Vx.Text.FieldLabel}"/>
+                                    <Border Style="{StaticResource Vx.WellBox}" Padding="12,9" MaxHeight="132">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                                            <ItemsControl x:Name="ScheduleFilesList" Focusable="False">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding}" FontSize="12" Margin="0,1"
+                                                                   FontFamily="{StaticResource Vx.Mono}"
+                                                                   Foreground="{StaticResource Vx.InkSoft}"
+                                                                   TextWrapping="Wrap"/>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                    <TextBlock x:Name="ScheduleFilesNote" Style="{StaticResource Vx.Text.Help}"
+                                               Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                        <Border Style="{StaticResource Vx.Divider}"/>
+
+                        <!-- Keeping it up to date -->
+                        <Grid Margin="0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="SecUpdateTitle" Style="{StaticResource Vx.Text.Section}"/>
+                                <TextBlock x:Name="SecUpdateHelp" Style="{StaticResource Vx.Text.Help}"
+                                           Margin="0,3,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <CheckBox x:Name="OverwriteBox" Style="{StaticResource Vx.Switch}" IsChecked="True"
+                                          Margin="0,0,0,14">
+                                    <StackPanel>
+                                        <TextBlock x:Name="OverwriteTitle" Style="{StaticResource Vx.Text.Strong}"/>
+                                        <TextBlock x:Name="OverwriteHelp" Style="{StaticResource Vx.Text.Help}"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="AutoExportBox" Style="{StaticResource Vx.Switch}">
+                                    <StackPanel>
+                                        <TextBlock x:Name="AutoExportTitle" Style="{StaticResource Vx.Text.Strong}"/>
+                                        <TextBlock x:Name="AutoExportHelp" Style="{StaticResource Vx.Text.Help}"
+                                                   Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </CheckBox>
+                            </StackPanel>
+                        </Grid>
+                        <Border Style="{StaticResource Vx.Divider}"/>
+
+                        <!-- Power BI -->
+                        <Grid Margin="0,20">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="SecPowerBiTitle" Style="{StaticResource Vx.Text.Section}"/>
+                                <TextBlock x:Name="SecPowerBiHelp" Style="{StaticResource Vx.Text.Help}"
+                                           Margin="0,3,0,0"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <CheckBox x:Name="RegisterProtocolBox" Style="{StaticResource Vx.Switch}"
+                                          IsChecked="True" Margin="0,0,0,14">
+                                    <StackPanel>
+                                        <TextBlock x:Name="RegisterProtocolTitle"
+                                                   Style="{StaticResource Vx.Text.Strong}"/>
+                                        <TextBlock x:Name="RegisterProtocolHelp"
+                                                   Style="{StaticResource Vx.Text.Help}" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <CheckBox x:Name="TriggerRefreshBox" Style="{StaticResource Vx.Switch}"
+                                          Checked="TriggerRefreshBox_Changed"
+                                          Unchecked="TriggerRefreshBox_Changed">
+                                    <StackPanel>
+                                        <TextBlock x:Name="TriggerRefreshTitle"
+                                                   Style="{StaticResource Vx.Text.Strong}"/>
+                                        <TextBlock x:Name="TriggerRefreshHelp"
+                                                   Style="{StaticResource Vx.Text.Help}" Margin="0,2,0,0"/>
+                                    </StackPanel>
+                                </CheckBox>
+                                <!-- Only while the switch above is on. Lined up with its text. -->
+                                <StackPanel x:Name="RefreshConfigPanel" Margin="52,10,0,0" Visibility="Collapsed">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="10"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Workspace ID" Style="{StaticResource Vx.Text.FieldLabel}"/>
+                                            <TextBox x:Name="RefreshWorkspaceIdBox" Height="34" FontSize="12"
+                                                     Style="{StaticResource Vx.TextBox}"
+                                                     FontFamily="{StaticResource Vx.Mono}"
+                                                     AutomationProperties.Name="Workspace ID"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Dataset ID" Style="{StaticResource Vx.Text.FieldLabel}"/>
+                                            <TextBox x:Name="RefreshDatasetIdBox" Height="34" FontSize="12"
+                                                     Style="{StaticResource Vx.TextBox}"
+                                                     FontFamily="{StaticResource Vx.Mono}"
+                                                     AutomationProperties.Name="Dataset ID"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock x:Name="RefreshIdsHelp" Style="{StaticResource Vx.Text.Help}"
+                                               Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Preview, and the column types under it -->
+                <Grid Grid.Column="2" Margin="0,20">
+                    <Grid.RowDefinitions>
+                        <RowDefinition x:Name="PreviewRow" Height="*"/>
+                        <RowDefinition x:Name="AdvancedRow" Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Border x:Name="PreviewCard" Grid.Row="0" Style="{StaticResource Vx.Card}"
+                            SizeChanged="Card_SizeChanged">
+                        <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Workspace ID:" VerticalAlignment="Center" Margin="0,4" Foreground="#424242"/>
-                            <TextBox x:Name="RefreshWorkspaceIdBox" Grid.Row="0" Grid.Column="1" Padding="6,4" Margin="0,4"
-                                     ToolTip="GUID del workspace Power BI — visibile nell'URL su app.powerbi.com/groups/{guid}"/>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Dataset ID:" VerticalAlignment="Center" Margin="0,4" Foreground="#424242"/>
-                            <TextBox x:Name="RefreshDatasetIdBox" Grid.Row="1" Grid.Column="1" Padding="6,4" Margin="0,4"
-                                     ToolTip="GUID del dataset Import nel workspace. Visibile nell'URL del dataset su app.powerbi.com"/>
-                            <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Margin="0,4,0,0"
-                                       Foreground="#607D8B" FontSize="11" FontStyle="Italic" TextWrapping="Wrap"
-                                       Text="Pubblica il .pbix nel workspace, poi copia i GUID dall'URL del dataset (app.powerbi.com/groups/&lt;workspaceId&gt;/datasets/&lt;datasetId&gt;)."/>
+                            <Grid Grid.Row="0" Margin="16,14,16,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="PreviewTitle" Grid.Column="0"
+                                           Style="{StaticResource Vx.Text.Section}"/>
+                                <TextBlock x:Name="PreviewCaption" Grid.Column="1" Margin="12,0,0,0" FontSize="12.5"
+                                           Foreground="{StaticResource Vx.Muted}" TextAlignment="Right"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Border Grid.Row="1" BorderBrush="{StaticResource Vx.Hairline}"
+                                    BorderThickness="0,1,0,0">
+                                <Grid>
+                                    <ScrollViewer x:Name="PreviewScroll" Focusable="False"
+                                                  HorizontalScrollBarVisibility="Auto"
+                                                  VerticalScrollBarVisibility="Auto">
+                                        <Grid x:Name="PreviewHost" HorizontalAlignment="Left" VerticalAlignment="Top"
+                                              MinWidth="{Binding ViewportWidth, ElementName=PreviewScroll}"/>
+                                    </ScrollViewer>
+                                    <TextBlock x:Name="PreviewEmpty" Style="{StaticResource Vx.Text.Help}"
+                                               Margin="24,48,24,24" TextAlignment="Center"
+                                               VerticalAlignment="Center" Visibility="Collapsed"/>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Row="2" BorderBrush="{StaticResource Vx.Hairline}"
+                                    BorderThickness="0,1,0,0" Padding="16,10">
+                                <StackPanel>
+                                    <TextBlock x:Name="SummaryText" Style="{StaticResource Vx.Text.Help}"
+                                               Foreground="{StaticResource Vx.InkSoft}"/>
+                                    <TextBlock x:Name="SummaryNote" Style="{StaticResource Vx.Text.Help}"
+                                               Margin="0,2,0,0"/>
+                                    <TextBlock x:Name="SummaryWarning" Style="{StaticResource Vx.Text.Help}"
+                                               Foreground="{StaticResource Vx.Caution}" Margin="0,2,0,0"
+                                               Visibility="Collapsed"/>
+                                </StackPanel>
+                            </Border>
                         </Grid>
                     </Border>
 
-                    <!-- Schedule mode: list of files that will be written (one per selected schedule) -->
-                    <Border x:Name="ScheduleFilesPanel" Grid.Row="7" Grid.ColumnSpan="3" Margin="0,4,0,0"
-                            BorderBrush="#E0E0E0" BorderThickness="1" Background="#F5F5F5" Padding="10,8"
-                            Visibility="Collapsed">
-                        <StackPanel>
-                            <TextBlock x:Name="ScheduleFilesHeader" Text="File CSV che verranno scritti (uno per schedule):"
-                                       FontWeight="SemiBold" Foreground="#424242" Margin="0,0,0,6"/>
-                            <ItemsControl x:Name="ScheduleFilesList">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding}" Foreground="#424242" FontFamily="Consolas" FontSize="11" Margin="8,1,0,1"/>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock Text="Nota: i nomi file sono generati automaticamente dal nome della schedule e sovrascritti ad ogni export."
-                                       Foreground="#757575" FontSize="11" FontStyle="Italic" Margin="0,6,0,0" TextWrapping="Wrap"/>
-                        </StackPanel>
+                    <!-- Advanced: column types. Opening it takes the preview's place. -->
+                    <Border x:Name="AdvancedCard" Grid.Row="1" Style="{StaticResource Vx.Card}" Margin="0,12,0,0"
+                            SizeChanged="Card_SizeChanged">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <Button x:Name="AdvancedToggle" Grid.Row="0" Height="46"
+                                    Style="{StaticResource Vx.Button.Row}" Click="AdvancedToggle_Click">
+                                <Grid Margin="16,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Path x:Name="AdvancedChevron" Grid.Column="0" Width="12" Height="12"
+                                          VerticalAlignment="Center"
+                                          Data="{StaticResource Vx.Icon.ChevronRight}"
+                                          Stroke="{StaticResource Vx.Muted}" StrokeThickness="1.5"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          StrokeLineJoin="Round"/>
+                                    <TextBlock x:Name="AdvancedTitle" Grid.Column="1" Margin="10,0,0,0"
+                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="AdvancedModeText" Grid.Column="2" Margin="10,0,0,0"
+                                               FontSize="12.5" Foreground="{StaticResource Vx.Muted}"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+                            </Button>
+                            <Border x:Name="AdvancedBody" Grid.Row="1" Visibility="Collapsed"
+                                    BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0">
+                                <Grid Margin="16,12,16,10">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <TextBlock x:Name="AdvancedHelp" Grid.Row="0"
+                                               Style="{StaticResource Vx.Text.Help}"/>
+                                    <Border Grid.Row="1" Style="{StaticResource Vx.SegmentHost}" Margin="0,12,0,0"
+                                            HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal">
+                                            <RadioButton x:Name="SchemaModeAutoRadio" GroupName="VxPbiSchemaMode"
+                                                         IsChecked="True"
+                                                         Style="{StaticResource Vx.Segment.Small}" Margin="0,0,4,0"
+                                                         Checked="SchemaMode_Changed"/>
+                                            <RadioButton x:Name="SchemaModeSuggestedRadio" GroupName="VxPbiSchemaMode"
+                                                         Style="{StaticResource Vx.Segment.Small}" Margin="0,0,4,0"
+                                                         Checked="SchemaMode_Changed"/>
+                                            <RadioButton x:Name="SchemaModeCustomRadio" GroupName="VxPbiSchemaMode"
+                                                         Style="{StaticResource Vx.Segment.Small}"
+                                                         Checked="SchemaMode_Changed"/>
+                                        </StackPanel>
+                                    </Border>
+                                    <Grid Grid.Row="2" Margin="12,12,18,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="112"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="92"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="ColumnHeaderName" Grid.Column="0"
+                                                   Style="{StaticResource Vx.Text.Caption}"/>
+                                        <TextBlock x:Name="ColumnHeaderType" Grid.Column="1"
+                                                   Style="{StaticResource Vx.Text.Caption}"/>
+                                        <TextBlock x:Name="ColumnHeaderFormat" Grid.Column="3"
+                                                   Style="{StaticResource Vx.Text.Caption}"/>
+                                    </Grid>
+                                    <Border x:Name="ColumnTypesWell" Grid.Row="3" Style="{StaticResource Vx.WellBox}"
+                                            SizeChanged="Well_SizeChanged">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                                            <ItemsControl x:Name="ColumnTypesList" Focusable="False"
+                                                          IsEnabled="False">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BorderBrush="{StaticResource Vx.Hairline}"
+                                                                BorderThickness="0,0,0,1" Padding="12,5,8,5">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="112"/>
+                                                                    <ColumnDefinition Width="8"/>
+                                                                    <ColumnDefinition Width="92"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="{Binding ColumnName}"
+                                                                           ToolTip="{Binding ColumnName}"
+                                                                           Margin="0,0,10,0" FontSize="12.5"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           VerticalAlignment="Center"/>
+                                                                <ComboBox Grid.Column="1"
+                                                                          Style="{StaticResource Vx.ComboBox}"
+                                                                          ItemsSource="{StaticResource PbiColumnTypes}"
+                                                                          SelectedItem="{Binding PbiType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                          AutomationProperties.Name="{Binding ColumnName}"/>
+                                                                <TextBox Grid.Column="3" Height="30" FontSize="12.5"
+                                                                         Style="{StaticResource Vx.TextBox}"
+                                                                         Text="{Binding Format, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         AutomationProperties.Name="{Binding ColumnName}"/>
+                                                            </Grid>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+                                    </Border>
+                                    <Button x:Name="SuggestTypesBtn" Grid.Row="4" Margin="0,6,0,0"
+                                            HorizontalAlignment="Left"
+                                            Style="{StaticResource Vx.Button.Link}" Click="SuggestTypes_Click"/>
+                                </Grid>
+                            </Border>
+                        </Grid>
                     </Border>
-                </Grid>
-                </ScrollViewer>
-
-                <Grid Grid.Row="2">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Anteprima (prime 5 righe)" FontWeight="SemiBold" Foreground="#424242" Margin="0,0,0,6"/>
-                    <Border Grid.Row="1" BorderBrush="#E0E0E0" BorderThickness="1" Background="White">
-                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
-                            <DataGrid x:Name="PreviewGrid" AutoGenerateColumns="True" IsReadOnly="True"
-                                      HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                      AlternatingRowBackground="#F5F5F5"/>
-                        </ScrollViewer>
-                    </Border>
-                    <TextBlock x:Name="SummaryText" Grid.Row="2" Margin="0,8,0,0" Foreground="#616161"/>
-
-                    <!-- Advanced: Schema Mapping (opt-in, collapsed by default; categories mode only) -->
-                    <Expander x:Name="SchemaMappingExpander" Grid.Row="3" Header="Avanzato — Schema Mapping (opzionale, per Power BI)"
-                              Foreground="#00838F" FontWeight="SemiBold" Margin="0,10,0,0" IsExpanded="False">
-                        <Border BorderBrush="#E0E0E0" BorderThickness="1" Background="#FAFAFA" Padding="10,8" Margin="0,4,0,0">
-                            <StackPanel>
-                                <TextBlock Foreground="#616161" FontWeight="Normal" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8">
-                                    <Run Text="Power BI auto-inferisce i tipi colonna, ma l'inferenza dipende da locale, valori vuoti nei primi record e ambiguità sulle date. Attivare il mapping garantisce tipi coerenti tra refresh e genera un file"/>
-                                    <Run Text="  .pq  " FontFamily="Consolas"/>
-                                    <Run Text="con Table.TransformColumnTypes accanto al CSV. Per le colonne numeriche viene aggiunta una colonna"/>
-                                    <Run Text="  _Raw  " FontFamily="Consolas"/>
-                                    <Run Text="in formato invariante (separatore decimale punto)."/>
-                                </TextBlock>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <TextBlock Text="Modalità:" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="Normal" Foreground="#424242"/>
-                                    <RadioButton x:Name="SchemaModeAutoRadio" Content="Auto (default)" IsChecked="True"
-                                                 GroupName="SchemaMode" Margin="0,0,12,0" FontWeight="Normal"
-                                                 Checked="SchemaMode_Changed"/>
-                                    <RadioButton x:Name="SchemaModeSuggestedRadio" Content="Suggested"
-                                                 GroupName="SchemaMode" Margin="0,0,12,0" FontWeight="Normal"
-                                                 Checked="SchemaMode_Changed"/>
-                                    <RadioButton x:Name="SchemaModeCustomRadio" Content="Custom"
-                                                 GroupName="SchemaMode" Margin="0,0,12,0" FontWeight="Normal"
-                                                 Checked="SchemaMode_Changed"/>
-                                    <Button x:Name="SuggestTypesBtn" Content="Suggerisci dai parametri"
-                                            Style="{StaticResource SecondaryButton}" Margin="12,0,0,0" Padding="10,3"
-                                            Click="SuggestTypes_Click"/>
-                                </StackPanel>
-                                <DataGrid x:Name="ColumnTypesGrid" Height="180" MaxHeight="240"
-                                          AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
-                                          HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                                          AlternatingRowBackground="#F5F5F5" RowHeight="26" BorderBrush="#E0E0E0" BorderThickness="1"
-                                          IsEnabled="False" FontWeight="Normal">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Colonna" Width="220" Binding="{Binding ColumnName}" IsReadOnly="True"/>
-                                        <DataGridComboBoxColumn x:Name="ColumnTypeCol" Header="Tipo Power BI" Width="160"
-                                                                SelectedItemBinding="{Binding PbiType, UpdateSourceTrigger=PropertyChanged}">
-                                            <DataGridComboBoxColumn.ItemsSource>
-                                                <x:Array Type="{x:Type sys:String}" xmlns:sys="clr-namespace:System;assembly=mscorlib">
-                                                    <sys:String>auto</sys:String>
-                                                    <sys:String>int</sys:String>
-                                                    <sys:String>number</sys:String>
-                                                    <sys:String>fixed</sys:String>
-                                                    <sys:String>percent</sys:String>
-                                                    <sys:String>bool</sys:String>
-                                                    <sys:String>date</sys:String>
-                                                    <sys:String>datetime</sys:String>
-                                                    <sys:String>text</sys:String>
-                                                    <sys:String>duration</sys:String>
-                                                </x:Array>
-                                            </DataGridComboBoxColumn.ItemsSource>
-                                        </DataGridComboBoxColumn>
-                                        <DataGridTextColumn Header="Formato (opz.)" Width="*" Binding="{Binding Format, UpdateSourceTrigger=PropertyChanged}"/>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </StackPanel>
-                        </Border>
-                    </Expander>
                 </Grid>
             </Grid>
         </Grid>
 
-        <!-- Footer -->
-        <Border Grid.Row="2" Background="White" BorderBrush="#E0E0E0" BorderThickness="0,1,0,0" Padding="20,12">
+        <!-- ── Footer ────────────────────────────────────────────────────── -->
+        <Border Grid.Row="2" BorderBrush="{StaticResource Vx.Hairline}" BorderThickness="0,1,0,0"
+                Padding="32,16">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Button x:Name="SaveProfileBtn" Content="Salva profilo…" Style="{StaticResource SecondaryButton}"
-                            Click="SaveProfile_Click"/>
-                    <Button x:Name="ImportProfileBtn" Content="Importa…" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0"
-                            ToolTip="Importa un profilo da un file .json (cartella di rete/condivisa)" Click="ImportProfile_Click"/>
-                    <Button x:Name="OpenProfilesFolderBtn" Content="Apri profili" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0"
-                            ToolTip="Apri ~/.revitcortex/profiles per copiare/condividere i profili" Click="OpenProfilesFolder_Click"/>
-                </StackPanel>
-                <TextBlock Grid.Column="1" x:Name="StatusText" VerticalAlignment="Center" Margin="16,0" Foreground="#424242"/>
-                <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="BackBtn" Content="◀ Indietro" Style="{StaticResource SecondaryButton}" Click="Back_Click" IsEnabled="False"/>
-                    <Button x:Name="NextBtn" Content="Avanti ▶" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="Next_Click"/>
-                    <Button x:Name="ExportBtn" Content="Esporta" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="Export_Click" Visibility="Collapsed"/>
+                <Button x:Name="SaveProfileBtn" Grid.Column="0" Height="36" Margin="0,0,16,0"
+                        Style="{StaticResource Vx.Button.Ghost}" Click="SaveProfile_Click"
+                        Visibility="Collapsed"/>
+                <!-- What is chosen so far, or what just happened (amber = needs attention) -->
+                <TextBlock x:Name="FooterText" Grid.Column="1" Style="{StaticResource Vx.Text.Help}"
+                           MaxHeight="36" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="16,0,0,0">
+                    <Button x:Name="BackBtn" Height="36" Margin="0,0,8,0" IsEnabled="False"
+                            Style="{StaticResource Vx.Button.Ghost}" Click="Back_Click"/>
+                    <Button x:Name="NextBtn" Height="36"
+                            Style="{StaticResource Vx.Button.Primary}" Click="Next_Click"/>
+                    <Button x:Name="ExportBtn" Height="36" Visibility="Collapsed"
+                            Style="{StaticResource Vx.Button.Primary}" Click="Export_Click"/>
                 </StackPanel>
             </Grid>
         </Border>
