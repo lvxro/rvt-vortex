@@ -591,8 +591,11 @@ function Get-VxVortexMap {
     $eye = 0.14      # radius of the empty center
     $twist = 2.2     # how much the arms curl from the center to the rim
 
-    $angle = New-Object 'double[,]' $h, $w
-    $fall = New-Object 'double[,]' $h, $w
+    # One flat array per value, row after row. (Not a two-dimensional array:
+    # Windows PowerShell 5.1 reads the comma of $a[$y, $x] inside a method
+    # call as the next argument.)
+    $angle = New-Object 'double[]' ($h * $w)
+    $fall = New-Object 'double[]' ($h * $w)
     for ($y = 0; $y -lt $h; $y++) {
         for ($x = 0; $x -lt $w; $x++) {
             # A cell is about twice as tall as wide: 39 x 17 cells is a circle.
@@ -601,10 +604,11 @@ function Get-VxVortexMap {
             $r = [Math]::Sqrt($nx * $nx + $ny * $ny)
             if ($r -gt 1.0 -or $r -lt $eye) { continue }
 
-            $angle[$y, $x] = 3.0 * ([Math]::Atan2($ny, $nx) - $twist * $r)
+            $cell = $y * $w + $x
+            $angle[$cell] = 3.0 * ([Math]::Atan2($ny, $nx) - $twist * $r)
             $rim = [Math]::Min(1.0, (1.0 - $r) / 0.45)
             $core = [Math]::Min(1.0, ($r - $eye) / 0.10 + 0.35)
-            $fall[$y, $x] = $rim * $core
+            $fall[$cell] = $rim * $core
         }
     }
 
@@ -653,10 +657,12 @@ function Get-VxVortexFrame {
         [void] $sb.Clear()
         [void] $sb.Append($script:VxVortexIndent)
         $last = -1
+        $rowStart = $y * $w
         for ($x = 0; $x -lt $w; $x++) {
-            $f = $fall[$y, $x]
+            $cell = $rowStart + $x
+            $f = $fall[$cell]
             if ($f -le 0) { [void] $sb.Append(' '); continue }
-            $v = [Math]::Cos($angle[$y, $x] + $Phase)
+            $v = [Math]::Cos($angle[$cell] + $Phase)
             if ($v -le 0) { [void] $sb.Append(' '); continue }
 
             $level = [int] [Math]::Floor($v * $f * $Intensity * 9.0 + 0.5)

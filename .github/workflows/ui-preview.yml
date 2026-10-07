@@ -67,8 +67,12 @@ jobs:
           New-Item -ItemType Directory -Force $env:PREVIEW_DIR | Out-Null
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           foreach ($scenario in 'install', 'update', 'failure', 'uninstall') {
-            $lines = powershell -NoProfile -ExecutionPolicy Bypass -File distribution/tests/VortexUi.Demo.ps1 -Scenario $scenario -Language es -Fast
-            if ($LASTEXITCODE -ne 0) { throw "The $scenario screen could not be drawn." }
+            $ErrorActionPreference = 'Continue'
+            $lines = powershell -NoProfile -ExecutionPolicy Bypass -File distribution/tests/VortexUi.Demo.ps1 -Scenario $scenario -Language es -Fast 2>&1 | ForEach-Object { "$_" }
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host ("::error title=Installer screen '$scenario'::" + ((($lines | Select-Object -Last 30) -join "`n") -replace '%', '%25' -replace "`r", '' -replace "`n", '%0A'))
+              throw "The $scenario screen could not be drawn."
+            }
             [System.IO.File]::WriteAllLines("$env:PREVIEW_DIR\installer-$scenario.ans", [string[]] $lines, (New-Object System.Text.UTF8Encoding $false))
           }
 
