@@ -81,7 +81,7 @@
                 </Grid>
 
                 <!-- Release notes (available state) -->
-                <Border x:Name="NotesBox" Style="{StaticResource Vx.Well}" Margin="0,14,0,0" Padding="14,12"
+                <Border x:Name="NotesBox" Style="{StaticResource Vx.WellBox}" Margin="0,14,0,0" Padding="14,12"
                         Visibility="Collapsed">
                     <StackPanel>
                         <TextBlock x:Name="NotesHeading" Style="{StaticResource Vx.Text.Caption}"/>

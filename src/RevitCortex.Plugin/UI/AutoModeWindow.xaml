@@ -66,25 +66,25 @@
                     </DockPanel>
 
                     <UniformGrid Columns="4" Margin="12,0,12,12">
-                        <Border Style="{StaticResource Vx.Well}" Margin="4,0" Padding="10,9">
+                        <Border Style="{StaticResource Vx.WellBox}" Margin="4,0" Padding="10,9">
                             <StackPanel>
                                 <TextBlock x:Name="StatApproved" Text="0" FontSize="18" FontWeight="SemiBold"/>
                                 <TextBlock x:Name="StatApprovedLabel" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource Vx.Well}" Margin="4,0" Padding="10,9">
+                        <Border Style="{StaticResource Vx.WellBox}" Margin="4,0" Padding="10,9">
                             <StackPanel>
                                 <TextBlock x:Name="StatDeclined" Text="0" FontSize="18" FontWeight="SemiBold"/>
                                 <TextBlock x:Name="StatDeclinedLabel" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource Vx.Well}" Margin="4,0" Padding="10,9">
+                        <Border Style="{StaticResource Vx.WellBox}" Margin="4,0" Padding="10,9">
                             <StackPanel>
                                 <TextBlock x:Name="StatDialogs" Text="0" FontSize="18" FontWeight="SemiBold"/>
                                 <TextBlock x:Name="StatDialogsLabel" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"/>
                             </StackPanel>
                         </Border>
-                        <Border Style="{StaticResource Vx.Well}" Margin="4,0" Padding="10,9">
+                        <Border Style="{StaticResource Vx.WellBox}" Margin="4,0" Padding="10,9">
                             <StackPanel>
                                 <TextBlock x:Name="StatSaved" Text="–" FontSize="18" FontWeight="SemiBold"/>
                                 <TextBlock x:Name="StatSavedLabel" FontSize="11.5" Foreground="{StaticResource Vx.Muted}"/>
