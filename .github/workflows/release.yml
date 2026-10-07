@@ -3,9 +3,10 @@
 #   git tag v1.1.0
 #   git push origin v1.1.0
 #
-# The job builds every Revit version with build-release.ps1, uploads the ZIP
-# to a GitHub Release, and rewrites latest.json on main. Installed plugins read
-# latest.json (see src/RevitCortex.Plugin/ForkInfo.cs) and offer the update.
+# The job runs the unit tests, builds every Revit version with
+# build-release.ps1 (which fails if any version does not build), uploads the
+# ZIP to a GitHub Release, and rewrites latest.json on main. Installed plugins
+# read latest.json (see src/RevitCortex.Plugin/ForkInfo.cs) and offer the update.
 name: Release
 
 on:
@@ -47,6 +48,12 @@ jobs:
           $s = $s -replace '<AssemblyVersion>[^<]*</AssemblyVersion>', "<AssemblyVersion>$v.0</AssemblyVersion>"
           $s = $s -replace '<FileVersion>[^<]*</FileVersion>', "<FileVersion>$v.0</FileVersion>"
           Set-Content $p $s -NoNewline
+
+      # Target the test project with an explicit configuration: a solution-wide
+      # `dotnet test` cannot restore (see "Tests" in CLAUDE.md).
+      - name: Unit tests
+        shell: pwsh
+        run: dotnet test src/RevitCortex.Tests/RevitCortex.Tests.csproj -c "Debug R25" --nologo
 
       - name: Build release ZIP
         shell: pwsh

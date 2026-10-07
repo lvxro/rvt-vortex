@@ -145,7 +145,9 @@ Publishing from the GitHub web page works too (Releases → Draft a new release 
 
 GitHub then builds every Revit version with `build-release.ps1`, attaches `RVT-Vortex-v1.1.1.zip` to a new GitHub Release (with auto-generated notes), and rewrites `latest.json` on `main` with the version, download URL and SHA-256. Installed copies pick it up the next time Revit starts and offer the update.
 
-Use a version higher than the one installed (the plugin compares versions). Watch the run under the repository's **Actions** tab; if a Revit version fails to build, `build-release.ps1` skips it and the others still ship.
+Use a version higher than the one installed (the plugin compares versions). Watch the run under the repository's **Actions** tab; the run first executes the unit tests, and if they fail or any Revit version fails to build, nothing is published (`build-release.ps1 -AllowSkip` still builds a partial package locally).
+
+Every push to `main` and every pull request also runs `.github/workflows/ci.yml`: the unit tests plus a full package build for all five Revit versions.
 
 ---
 
