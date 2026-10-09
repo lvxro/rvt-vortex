@@ -222,6 +222,7 @@ When multiple tools can achieve the same goal, use the most targeted one.
 - Parameter conditions (ranges, AND/OR, several parameters) -> `filter_by_parameter_value` with the `conditions` array
 - Category / class / family / level / bounding box -> `ai_element_filter` (it does NOT filter on parameter values)
 - Current view elements -> `get_current_view_elements` with `fields` and `limit`
+- What a list of IDs is, how big and where -> `get_element_summary` (one card per ID: category, name, comments, bounding box in mm, solids and volume; up to 500 IDs). For one element's detailed solids use `get_element_solid_geometry`
 - Elements in a room/volume -> `get_elements_in_spatial_volume` with `categoryFilter` and reduced `maxElementsPerVolume`
 - **Elements with empty custom parameter** -> NEVER guess parameter names. First: `get_element_parameters` on 1 sample element to discover exact names. Then: `export_elements_data` with `parameterNames` + `filter_by_parameter_value` with `condition: "is_empty"`. Do NOT use `send_code_to_revit` -- unnecessary and fragile with DLL conflicts (archintelligence, BIM360).
 - **Discover custom parameter names** (WBS_*, Code_*, etc.) -> `get_element_parameters` on 1 sample element ID; never assume name format.
@@ -287,6 +288,7 @@ Use a dedicated session per distinct BIM task. Do not mix QA tasks with authorin
 | `tag_rooms` / `tag_walls` | Operates only on the active Revit view | Activate the correct view before calling |
 | `color_elements` | Requires a model view (not Sheet) | Verify active view with `get_current_view_info` first |
 | `get_view_image` | `region: "visible"` and `elementIds` need the active view; schedules and view templates cannot be exported | Use `region: "full"` (default) for any other view or sheet; `get_schedule_data` for schedules |
+| `save_document` | Saves with no dialog; refuses a read-only or never-saved document; never synchronizes with central | Call it ONLY when the user asks to save |
 | `create_dimensions` | Z must exactly match the level elevation | Use elevation from `get_project_info` levels |
 | `set_element_phase` | Available only on models with phases (`doc.Phases > 0`) | Check `phases` in `get_project_info`, NOT `isWorkshared` -- phases are independent of worksharing |
 | `create_grid` | Label ignored if already exists in model | Use non-conflicting labels; the tool adds a warning in the response |
@@ -392,6 +394,7 @@ Only proceed with `send_code_to_revit` after explicit user consent. Reasons to a
 - The user may prefer full traceability via discrete tool calls
 
 Specific guidance:
+- `transactionMode`: `auto` (default, the tool wraps the script in one transaction), `none` (the script opens its own), `group` (the script's own transactions become one undo step), `preview` (run, return the result, roll every change back). Use `preview` to test a script before running it for real; IDs of elements it created are not valid afterwards, and what it does outside the model (files, selection) is not undone
 - Document variable is `document` (not `doc`, `Doc`, or `uidoc`)
 - For UIDocument: `new UIDocument(document)`
 - ElementId uses `.Value` on R2024+ and `.IntegerValue` on R2023

@@ -80,6 +80,14 @@ public static class CodeDomExecutor
 
             object result;
 
+            if (transactionMode == ScriptPreview.Mode)
+            {
+                // Run for real, return the result, undo every change (see ScriptPreviewRunner).
+                return ScriptPreviewRunner.Run(globals.document, code,
+                    () => method!.Invoke(null, new object[] { globals.document, globals.uiDocument, globals.app }),
+                    value => SerializeResult(value!));
+            }
+
             if (transactionMode == "none")
             {
                 result = method!.Invoke(null, new object[] { globals.document, globals.uiDocument, globals.app });

@@ -317,5 +317,54 @@ namespace RevitCortex.Tests.Server
                 Assert.Null(GetParameter(method, name).DefaultValue);
             }
         }
+
+        [Fact]
+        public void GetElementSummary_TakesIdsAndAnOptionalSolidsSwitch()
+        {
+            var method = GetMethod(typeof(ElementTools), nameof(ElementTools.GetElementSummary));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("elementIds", name),
+                name => Assert.Equal("includeSolids", name),
+                name => Assert.Equal("ct", name));
+
+            Assert.Equal(typeof(long[]), GetParameter(method, "elementIds").ParameterType);
+            Assert.False(GetParameter(method, "elementIds").HasDefaultValue);
+            Assert.Equal(typeof(bool?), GetParameter(method, "includeSolids").ParameterType);
+            Assert.Null(GetParameter(method, "includeSolids").DefaultValue);
+        }
+
+        [Fact]
+        public void SaveDocument_TakesNoInput_AndSaysToWaitForTheUser()
+        {
+            var method = GetMethod(typeof(ProjectTools), nameof(ProjectTools.SaveDocument));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("ct", name));
+
+            // Saving is the user's decision: the description is what keeps the AI from doing it unasked.
+            var description = method.GetCustomAttribute<DescriptionAttribute>()!.Description;
+            Assert.Contains("ONLY when the user asks", description);
+            Assert.Contains("never synchronizes with central", description);
+        }
+
+        [Fact]
+        public void SendCodeToRevit_DescribesTheRealTransactionModes()
+        {
+            var method = GetMethod(typeof(ProjectTools), nameof(ProjectTools.SendCodeToRevit));
+            var description = GetParameter(method, "transactionMode").GetCustomAttribute<DescriptionAttribute>()!.Description;
+
+            foreach (var mode in new[] { "auto", "none", "group", "preview" })
+                Assert.Contains(mode, description);
+
+            // The wrapper used to advertise "manual" and "readonly", which the plugin never had:
+            // both fell through to "auto", so a script sent as "readonly" was committed.
+            Assert.DoesNotContain("manual", description);
+            Assert.DoesNotContain("readonly", description);
+        }
     }
 }

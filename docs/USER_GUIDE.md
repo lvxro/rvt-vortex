@@ -2,7 +2,7 @@
 
 > Guida pratica per usare RevitCortex in modo efficiente con Claude.
 
-> 📖 **Cerchi l'elenco completo dei comandi?** La sezione [Riferimento comandi per disciplina](#riferimento-comandi-per-disciplina) elenca tutti i **289 comandi** con un esempio di prompt in linguaggio naturale per ciascuno.
+> 📖 **Cerchi l'elenco completo dei comandi?** La sezione [Riferimento comandi per disciplina](#riferimento-comandi-per-disciplina) elenca tutti i **291 comandi** con un esempio di prompt in linguaggio naturale per ciascuno.
 
 ---
 
@@ -12,7 +12,7 @@
 2. [Scelta del modello Claude](#scelta-del-modello-claude)
 3. [Efficienza dei token](#efficienza-dei-token)
 4. [Discipline di progetto e categorie Revit](#discipline-di-progetto-e-categorie-revit)
-5. [Riferimento comandi per disciplina](#riferimento-comandi-per-disciplina) — tutti i 289 comandi con esempi di prompt
+5. [Riferimento comandi per disciplina](#riferimento-comandi-per-disciplina) — tutti i 291 comandi con esempi di prompt
    - [Elementi](#elementi--lettura-ricerca-creazione-modifica) · [Progetto](#progetto--modello-materiali-abachi-impostazioni) · [IFC](#ifc--import-export-link-ricostruzione) · [Viste e Tavole](#viste-e-tavole) · [File collegati](#file-collegati-e-coordinamento) · [Power BI](#power-bi-live) · [Parametri/Annotazioni/Workflow](#parametri-annotazioni-e-workflow) · [Armatura](#armatura-rebar--reinforcement) · [Acciaio Strutturale](#acciaio-strutturale-structural-steel)
 6. [Workflow consigliati](#workflow-consigliati)
 7. [Impostazioni di progetto avanzate](#impostazioni-di-progetto-avanzate)
@@ -186,7 +186,7 @@ Default: `compact: false` (payload pieno). Chiedere a Claude esplicitamente "in 
 
 ## Riferimento comandi per disciplina
 
-> Tutti i 289 comandi di RevitCortex, raggruppati per disciplina, con un esempio di prompt in linguaggio naturale per ciascuno. Non serve conoscere il nome tecnico del comando: descrivi a Claude l'obiettivo.
+> Tutti i 291 comandi di RevitCortex, raggruppati per disciplina, con un esempio di prompt in linguaggio naturale per ciascuno. Non serve conoscere il nome tecnico del comando: descrivi a Claude l'obiettivo.
 
 ### Elementi — lettura, ricerca, creazione, modifica
 
@@ -204,6 +204,8 @@ Questa sezione raccoglie i comandi per leggere, cercare, creare e modificare gli
 | `get_selected_elements` | Restituisce gli elementi attualmente selezionati, ciascuno con categoria, famiglia, tipo e livello. | "Cosa ho selezionato adesso?" |
 | `get_element_parameters` | Legge tutti i parametri (istanza ed eventualmente tipo) di uno o più elementi. | "Mostrami i parametri di questo muro" |
 | `get_element_solid_geometry` | Estrae la geometria solida reale di un elemento (non il bounding box). | "Dammi la geometria solida della trave 408122" |
+| `get_element_summary` | Una scheda per ogni ID: categoria, nome, commenti, bounding box in mm, numero di solidi e volume (fino a 500 ID). | "Dimmi cosa sono questi ID e quanto misurano" |
+| `save_document` | Salva il documento attivo senza finestre di dialogo e dice se è rimasto salvato. Solo su richiesta; non sincronizza con il centrale. | "Salva il modello" |
 | `get_elements_by_unique_id` | Recupera gli elementi a partire dai loro UniqueId. | "Trova gli elementi con questi UniqueId" |
 | `get_current_view_elements` | Elenca gli elementi visibili nella vista attiva, filtrabili per categoria e campi. | "Elenca le porte e le finestre della vista corrente" |
 | `get_elements_in_spatial_volume` | Trova gli elementi contenuti in un volume (vano, sezione 3D o box personalizzato). | "Quali elementi strutturali stanno dentro questo vano?" |

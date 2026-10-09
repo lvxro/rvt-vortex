@@ -30,6 +30,7 @@ builder.Services
             "CHOOSING TOOLS (most specific first; never re-fetch data you already have)",
             "- Model health, cheapest first: check_model_health, then analyze_model_statistics(compact:true), then workflow_model_audit with filters.",
             "- Find elements: export_elements_data with a filter for one exact value; filter_by_parameter_value for parameter conditions (parameterType:\"type\" for type parameters such as Type Name); ai_element_filter for category/level/bounding box.",
+            "- What a list of IDs is, how big and where: get_element_summary (category, name, comments, bounding box in mm, solids and volume for up to 500 IDs in one call).",
             "- Edit parameters: set_element_parameters for a few elements; bulk_modify_parameter_values for one value on many; sync_csv_parameters for different values per element.",
             "- tag_rooms, tag_walls, color_elements and get_current_view_elements act on the ACTIVE view, which must be a model view (not a sheet). Check get_current_view_info first.",
             "- When the user says \"this\", \"these\" or \"what I selected\", call get_selected_elements: it returns each element's category, family, type and level.",
@@ -51,6 +52,10 @@ builder.Services
             "",
             "SCRIPTS",
             "- send_code_to_revit is a LAST RESORT. Use it only when no dedicated tool covers the operation (exotic geometry, read-only inspection of an uncovered Revit API, a one-off operation), never for modal family editing (Document.EditFamily deadlocks from the external-event context), and only after proposing the dedicated-tool alternative and getting the user's explicit consent. Exception: if the user is away under Autopilot and allowed scripts, you may use it when clearly better; keep scripts short and list each one in your summary. Inside scripts the document variable is `document`.",
+            "- To try a script without changing the model, pass transactionMode \"preview\": it runs, returns its result and rolls every change back (IDs of elements it created are not valid afterwards). Then run it again without preview.",
+            "",
+            "SAVING",
+            "- save_document saves the active document with no dialog. Call it ONLY when the user asks to save, never on your own initiative. It never synchronizes with central.",
         });
     })
     .WithStdioServerTransport()

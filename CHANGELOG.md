@@ -8,10 +8,18 @@ What changed in RVT Vortex, release by release. Versions start at 1.1.0, above t
 
 - **`get_view_image`**: the AI can see the model. It exports a view or a sheet and gets it back as a picture, to check what it built without a screenshot of your screen. With no arguments it captures the whole active view; `viewId` or `viewName` pick another view or sheet; `elementIds` zooms in on specific elements and puts your zoom back; `region: "visible"` captures what you are looking at. Pictures are kept under 700 kB: a larger one comes back as JPEG or smaller, and says so. Read-only, so it also works under Autopilot.
 
+- **Script preview**: `send_code_to_revit` takes `transactionMode: "preview"`. The script runs, returns its result, and every change is rolled back, so a script can be tried without touching the model. It also undoes transactions the script commits itself.
+- **`save_document`**: saves the active document with no dialog and says whether it ended up saved. The AI is told to use it only when you ask. It never synchronizes with central.
+- **`get_element_summary`**: one card per element ID (category, name, comments, bounding box in mm, number of solids and volume) for up to 500 IDs in one call.
+
 ### Changed
 
 - **`get_selected_elements`** returns family, type and level for each element (before: ID, name and category). `selectedCount` is now the number of elements selected, with `returnedCount` and `truncated` when `limit` cuts the list. `limit` can now be set: the plugin always read it, but the server did not declare it.
 - The instructions every AI client receives now say to look at the model with `get_view_image` instead of a screenshot.
+
+### Fixed
+
+- `send_code_to_revit` described its `transactionMode` as "auto | manual | readonly". Those two modes never existed: both ran as `auto`, so a script sent as "readonly" was committed. The description now lists the real modes.
 
 ## 1.2.0 — 2026-10-07
 

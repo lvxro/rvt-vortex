@@ -32,7 +32,7 @@ public class SendCodeToRevitTool : ICortexTool
     public string Category => "Code";
     public bool RequiresDocument => true;
     public bool IsDynamic => false;
-    public string Description => "LAST RESORT ONLY — execute custom C# code in the Revit context. Prefer dedicated tools always; use ONLY when no dedicated tool covers the operation and after proposing the dedicated-tool alternative and obtaining explicit user consent. Globals: document (Document), uiDocument (UIDocument), app (Application). REQUIRES EnableCodeExecution=true in ~/.revitcortex/settings.json.";
+    public string Description => "LAST RESORT ONLY — execute custom C# code in the Revit context. Prefer dedicated tools always; use ONLY when no dedicated tool covers the operation and after proposing the dedicated-tool alternative and obtaining explicit user consent. Globals: document (Document), uiDocument (UIDocument), app (Application). transactionMode \"preview\" runs the script and rolls every change back, to test it without modifying the model. REQUIRES EnableCodeExecution=true in ~/.revitcortex/settings.json.";
 
     public CortexResult<object> Execute(JObject input, CortexSession session)
     {
@@ -51,7 +51,7 @@ public class SendCodeToRevitTool : ICortexTool
             return CortexResult<object>.Fail(CortexErrorCode.InvalidInput, "No active document in session");
 
         var code = input["code"]?.Value<string>();
-        var transactionMode = input["transactionMode"]?.Value<string>() ?? "auto";
+        var transactionMode = (input["transactionMode"]?.Value<string>() ?? "auto").Trim().ToLowerInvariant();
         var reusable = input["reusable"]?.Value<bool>() ?? false;
         var scriptName = SanitizeName(input["scriptName"]?.Value<string>() ?? "script");
 
@@ -98,6 +98,12 @@ public class SendCodeToRevitTool : ICortexTool
         if (result.Success && result.Data is not null)
         {
             var data = Newtonsoft.Json.Linq.JObject.FromObject(result.Data);
+            if (transactionMode == ScriptPreview.Mode)
+            {
+                data["preview"] = true;
+                data["modelChanged"] = false;
+                data["note"] = ScriptPreview.Note;
+            }
             data["scriptSavedTo"] = scriptPath;
             data["scriptLifetime"] = reusable ? "REUSABLE" : "TEMP (deleted at Revit close)";
             return CortexResult<object>.Ok(data);
