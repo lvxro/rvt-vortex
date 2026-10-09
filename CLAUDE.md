@@ -266,6 +266,7 @@ When multiple tools can achieve the same goal, use the most targeted one.
 - Parameter conditions (ranges, AND/OR, several parameters) -> `filter_by_parameter_value` with the `conditions` array
 - Category / class / family / level / bounding box -> `ai_element_filter` (it does NOT filter on parameter values)
 - Current view elements -> `get_current_view_elements` with `fields` and `limit`
+- What a list of IDs is, how big and where -> `get_element_summary` (one card per ID: category, name, comments, bounding box in mm, solids and volume; up to 500 IDs). For one element's detailed solids use `get_element_solid_geometry`
 - Elements in a room/volume -> `get_elements_in_spatial_volume` with `categoryFilter` and reduced `maxElementsPerVolume`
 - **Elements with empty custom parameter** -> NEVER guess parameter names. First: `get_element_parameters` on 1 sample element to discover exact names. Then: `export_elements_data` with `parameterNames` + `filter_by_parameter_value` with `condition: "is_empty"`. Do NOT use `send_code_to_revit` -- unnecessary and fragile with DLL conflicts (archintelligence, BIM360).
 - **Discover custom parameter names** (WBS_*, Code_*, etc.) -> `get_element_parameters` on 1 sample element ID; never assume name format.
@@ -279,6 +280,13 @@ When multiple tools can achieve the same goal, use the most targeted one.
 **Clash detection**:
 - `clash_detection` -> quick check with count and ID list
 - `workflow_clash_review` -> when a 3D view with automatic section box is needed for visual review
+
+**Seeing the model** (`get_view_image`, returns an MCP image block, not text):
+- Whole active view -> no arguments. Another view or sheet -> `viewId` or `viewName` (it does not need to be open)
+- Specific elements -> `elementIds`: zooms the active view to them, captures, and puts the user's zoom back
+- What the user is looking at right now -> `region: "visible"` (active view only)
+- Use it to check a result visually, never a screenshot. One picture costs roughly a large tool response (about 1,500-3,000 tokens at the default 1568 px): take it when it settles a doubt, not after every step. Read values with the query tools, not from the picture
+- An image over 700 kB is retried as JPEG and then smaller; the `note` field says so
 
 **High-cost discovery tools**:
 - `get_available_family_types` -> default to `compact: true` for browsing
@@ -333,6 +341,8 @@ Use a dedicated session per distinct BIM task. Do not mix QA tasks with authorin
 |------|-----------|-----------------|
 | `tag_rooms` / `tag_walls` | Operates only on the active Revit view | Activate the correct view before calling |
 | `color_elements` | Requires a model view (not Sheet) | Verify active view with `get_current_view_info` first |
+| `get_view_image` | `region: "visible"` and `elementIds` need the active view; schedules and view templates cannot be exported | Use `region: "full"` (default) for any other view or sheet; `get_schedule_data` for schedules |
+| `save_document` | Saves with no dialog; refuses a read-only or never-saved document; never synchronizes with central | Call it ONLY when the user asks to save |
 | `create_dimensions` | Z must exactly match the level elevation | Use elevation from `get_project_info` levels |
 | `set_element_phase` | Available only on models with phases (`doc.Phases > 0`) | Check `phases` in `get_project_info`, NOT `isWorkshared` -- phases are independent of worksharing |
 | `create_grid` | Label ignored if already exists in model | Use non-conflicting labels; the tool adds a warning in the response |
@@ -380,7 +390,7 @@ The ribbon toggle **Autopilot** (`Commands/ToggleAutopilot.cs`, grey when off, o
 - Auto-save: the router marks every successful non-read-only tool in `CortexSession.AutoSave` (`AutoSaveScheduler`, 60 s throttle); `RevitCortexApp.OnIdlingAutoSave` calls `Document.Save()` from Idling (uses `SetRaiseWithoutDelay` while a save is pending). Skips read-only/never-saved docs; never syncs with central.
 - Every automatic decision, dismissed dialog and auto-save is written to `<RootFolder>/autopilot.log`, in the UI language.
 - The router rewrites `Cancelled` results while unattended (`CortexRouter.UnattendedCancelledSuggestion`): **when you see it, do not stop to ask the user — skip the step, continue, and list it as pending in the final summary.**
-- Under Autopilot, use only RevitCortex tools: never screen control or the browser (they trigger permission prompts nobody will answer).
+- Under Autopilot, use only RevitCortex tools: never screen control or the browser (they trigger permission prompts nobody will answer). To look at the model, call `get_view_image`.
 
 ## UI Localization
 
@@ -468,6 +478,7 @@ Only proceed with `send_code_to_revit` after explicit user consent. Reasons to a
 - The user may prefer full traceability via discrete tool calls
 
 Specific guidance:
+- `transactionMode`: `auto` (default, the tool wraps the script in one transaction), `none` (the script opens its own), `group` (the script's own transactions become one undo step), `preview` (run, return the result, roll every change back). Use `preview` to test a script before running it for real; IDs of elements it created are not valid afterwards, and what it does outside the model (files, selection) is not undone
 - Document variable is `document` (not `doc`, `Doc`, or `uidoc`)
 - For UIDocument: `new UIDocument(document)`
 - ElementId uses `.Value` on R2024+ and `.IntegerValue` on R2023
@@ -476,7 +487,7 @@ Specific guidance:
 
 When a tool requires user selection or interaction that cannot be automated:
 1. **Never block** -- if the user needs to select elements, instruct them and wait for the next message
-2. **Use `get_selected_elements`** -- if the user says "selected elements", call this first. If empty, ask them to select
+2. **Use `get_selected_elements`** -- if the user says "selected elements", "this" or "these", call this first. It returns category, family, type and level for each element, so a second call is rarely needed. If empty, ask them to select
 3. **Cancelled operations** -- if a tool returns `Cancelled`, acknowledge it and ask if they want to retry. Exception: if the message mentions unattended mode / Autopilot, the user is away — do not ask; skip the step, continue, and list it as pending in the final summary
 4. **dryRun pattern** -- for destructive operations, run with `dryRun: true` first to preview the results, then with `dryRun: false` to execute. The confirmation dialog will ask the user
 5. **Script escalation** -- if the task would benefit from `send_code_to_revit` (bulk ops, complex logic, 100+ elements), DO NOT switch automatically. Ask the user: propose the script approach AND the native-tool approach, explain the trade-offs, and wait for their choice. The native approach may require more tool calls but is always safer and more traceable.

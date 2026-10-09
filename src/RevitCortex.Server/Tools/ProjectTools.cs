@@ -425,11 +425,11 @@ public static class ProjectTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views, schedules, rebar and steel -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for modal family editing (Document.EditFamily deadlocks from the tool's external-event context) — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed, require an in-Revit confirmation, and frequently fail on add-in DLL conflicts.")]
+    [McpServerTool(Name = "send_code_to_revit"), Description("LAST RESORT ONLY — execute custom C# code in Revit. Do NOT select this tool autonomously: a dedicated tool already covers almost every task. Parameter edits -> set_element_parameters / bulk_modify_parameter_values; queries & filtering -> ai_element_filter / filter_by_parameter_value / export_elements_data; model stats -> analyze_model_statistics / check_model_health; deletion -> delete_element; transforms -> modify_element; views, schedules, rebar and steel -> their dedicated tools. Use this ONLY when no dedicated tool covers the operation (e.g. exotic geometry creation, read-only inspection of an uncovered Revit API, or a one-off operation no dedicated tool covers) — never for modal family editing (Document.EditFamily deadlocks from the tool's external-event context) — and ONLY after proposing the dedicated-tool alternative and obtaining explicit user consent. Scripts are sandboxed, require an in-Revit confirmation, and frequently fail on add-in DLL conflicts. To try a script without modifying the model, pass transactionMode \"preview\": it runs, returns its result and rolls every change back.")]
     public static async Task<string> SendCodeToRevit(
         RevitConnectionManager revit,
         [Description("C# code to execute. Globals available: document (Document), uiDocument (UIDocument), app (Application).")] string code,
-        [Description("Transaction mode: auto | manual | readonly. Default: auto")] string? transactionMode = "auto",
+        [Description("auto (default) = the tool wraps the script in one transaction | none = the script opens its own transactions | group = the script's own transactions become one undo step | preview = run the script, return its result, then roll every model change back")] string? transactionMode = "auto",
         [Description("YOU (the assistant) set this storage flag; do not ask the user about this flag (this does NOT authorize running the script autonomously — see the tool description). true = REUSABLE (kept permanently) if the script is generic and could run again on other models or sessions (e.g. a utility, a report, a recurring audit). false = TEMP (deleted at Revit close) if the script is specific to this one request, these specific element IDs, or this exact model. Default: false.")] bool? reusable = false,
         [Description("Short human-readable name for the script file (no spaces, max 40 chars). Example: 'floor-thickness-audit'")] string? scriptName = null,
         CancellationToken ct = default)
@@ -439,6 +439,15 @@ public static class ProjectTools
         if (reusable != null) p["reusable"] = reusable;
         if (scriptName != null) p["scriptName"] = scriptName;
         var result = await revit.ExecuteAsync("send_code_to_revit", p, ct);
+        return result.ToString();
+    }
+
+    [McpServerTool(Name = "save_document"), Description("Save the active document to its file, with no dialog. Call it ONLY when the user asks to save; never save on your own initiative. It saves the local file and never synchronizes with central. Returns whether the document ended up saved.")]
+    public static async Task<string> SaveDocument(
+        RevitConnectionManager revit,
+        CancellationToken ct = default)
+    {
+        var result = await revit.ExecuteAsync("save_document", new JObject(), ct);
         return result.ToString();
     }
 

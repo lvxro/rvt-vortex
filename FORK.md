@@ -7,6 +7,8 @@
 3. **Interface refresh and localization** — a consistent ribbon with on/off states, and UI text that follows the Windows display language (English, Spanish, Italian).
 4. **AI guidance refresh** — fixes guidance that had drifted from the code and makes the usage rules reach every MCP client.
 5. **No licensing, no telemetry** — no Premium branding, License window or activation, and nothing is sent to anyone.
+6. **The AI can see the model** — a tool that returns a view as a picture, and a selection tool that says what each element is.
+7. **Fewer scripts** — a preview mode for C# scripts, a save tool, and a summary of any list of elements.
 
 License: MIT, same as the original.
 
@@ -139,6 +141,71 @@ The update notification (previously Italian-only) now follows the Windows langua
 
 ---
 
+## 6. The AI can see the model
+
+### The problem
+
+None of the 288 original tools returns a picture. `batch_export` writes image files to a folder, but the AI cannot open them. To check a result visually the AI had to take a screenshot of the screen, which needs screen-control permissions, captures whatever window is on top, and is exactly what Autopilot forbids (nobody is there to approve the prompt).
+
+### What it adds
+
+`get_view_image` exports a view or sheet with Revit's own image export and returns it as an MCP image block.
+
+| Call | What comes back |
+|---|---|
+| no arguments | the whole active view |
+| `viewId` or `viewName` | that view or sheet, whether or not it is open |
+| `elementIds` | the active view zoomed to those elements, with a margin; the user's zoom is put back afterwards |
+| `region: "visible"` | what is on screen now, at the current zoom |
+
+`pixelSize` (256-4096, default 1568) is the longest side; `format` is `png` (default) or `jpeg`.
+
+### Design choices
+
+- **Read-only.** No Transaction is opened. Zooming to elements is a UI state, and it is restored after the capture. The tool works in read-only mode and under Autopilot.
+- **Always small enough to deliver.** MCP clients cap a tool result at about 1 MB. An image over 700 kB is exported again as JPEG, then at 70% of the size, up to five exports; the result's `note` says what was returned. If it still does not fit, the tool fails with what to change instead of returning something the client would drop.
+- **The picture travels as a picture.** The plugin sends base64 over the bridge; the server (`ToolImageResult`) moves it into an image block and leaves the other fields (view, size, type) as text. Left in the text, the model would read a megabyte of letters and see nothing.
+- **For checking, not for reading.** The server instructions tell the AI to take a picture when it settles a doubt and to read values with the query tools.
+
+`get_selected_elements` was also completed: it now returns family, type and level for each element, says how many are selected when the list is cut by `limit`, and the server declares `limit` (the plugin always read it, but no client could send it).
+
+### Files
+
+- `src/RevitCortex.Tools/Views/GetViewImageTool.cs` — the tool; `ViewImageSupport.cs` — its Revit-free half (image header, input checks, the shrink plan), covered by unit tests.
+- `src/RevitCortex.Server/Tools/ToolImageResult.cs` — base64 to MCP image block; `ViewTools.cs` — the tool's definition.
+- `src/RevitCortex.Tools/Elements/GetSelectedElementsTool.cs`, `src/RevitCortex.Server/Tools/ElementTools.cs` — the selection tool.
+
+---
+
+## 7. Fewer scripts
+
+### The problem
+
+In real sessions most of the work went through `send_code_to_revit`: the same few scripts written again and again (what are these IDs, how big, where; try something and see), and no way to try a script without committing it or to save the model.
+
+### What it adds
+
+- **Script preview.** `send_code_to_revit` accepts `transactionMode: "preview"`. The script runs for real, its result is read, and everything is rolled back. Nothing else about the tool changes: it still needs code execution enabled and the confirmation.
+- **`save_document`.** Saves the active document with no dialog and returns whether it ended up saved.
+- **`get_element_summary`.** One card per element ID: category (name and `OST_` code), name, comments, bounding box in mm, number of solids and volume in m3. Up to 500 IDs per call.
+
+### Design choices
+
+- **A preview undoes scripts of both kinds.** A script that leaves transactions to the tool is wrapped in one that is rolled back. A script that opens its own cannot be wrapped (Revit does not nest transactions), so it runs inside a transaction group, and rolling the group back undoes what it committed. The two are told apart by looking for `new Transaction(` / `new TransactionGroup(` in the source; a wrong guess makes the script fail with Revit's own error and the rollback still happens.
+- **The result is read before the rollback.** An element the script created cannot be read once its creation is undone.
+- **A rollback that fails is never reported as a clean preview.** If the script leaves a transaction open the group cannot be rolled back: the tool fails and says the model may have changed.
+- **Saving is the user's call.** The tool's description and the server instructions tell the AI to save only when asked. It follows Autopilot's auto-save rules: a read-only or never-saved document is refused, a document with no changes is not rewritten, and it never synchronizes with central.
+- **The summary agrees with `get_element_solid_geometry`.** Solids are counted the same way, so the two tools give the same number. Reading solids has a 60 s budget; past it the remaining elements come back without them and the result says how many.
+- **A wrong description fixed.** The server described `transactionMode` as "auto | manual | readonly". The plugin never had those two modes: both fell through to `auto`, so a script sent as "readonly" was committed. It now lists `auto`, `none`, `group` and `preview`.
+
+### Files
+
+- `src/RevitCortex.Tools/CodeExecution/ScriptPreviewRunner.cs` — the preview, shared by both executors; `ScriptPreview.cs` — its Revit-free half.
+- `src/RevitCortex.Tools/Project/SaveDocumentTool.cs`, `src/RevitCortex.Tools/Elements/GetElementSummaryTool.cs`.
+- `src/RevitCortex.Server/Tools/ProjectTools.cs`, `ElementTools.cs` — the definitions.
+
+---
+
 ## Releasing a new version
 
 Publishing is automated by `.github/workflows/release.yml`:
@@ -173,6 +240,8 @@ This is the build-from-source installer; the release ZIP has its own (`distribut
 
 - The Revit 2027 fix comes from a real case: the Revit 2027 journal showed the message above and the plugin didn't load.
 - Autopilot's session, auto-save and router logic is covered by unit tests. The Revit-dependent parts (ribbon toggle, pop-up handling, saving on `Idling`) and the new interface need testing inside Revit.
+- `get_view_image` and the extended `get_selected_elements` are covered by unit tests for everything that does not need Revit; the export itself, the zoom to elements and the level lookup need testing inside Revit.
+- The script preview, `save_document` and `get_element_summary` are covered the same way; rolling a real script back, saving a real file and reading real solids need testing inside Revit.
 - Revit 2023–2026 have not been tested with this fork.
 
 If something breaks, the backup made by the installer includes instructions to roll back. Please report problems in this repository's issues.

@@ -41,6 +41,22 @@ public static class ElementTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "get_element_summary"), Description("One compact card per element ID: category, name, comments, bounding box in mm (model coordinates), number of solids and volume in m3. Use it to check what a list of IDs is, or to read sizes and positions of several elements in one call, instead of a script. For one element's detailed solid geometry use get_element_solid_geometry.")]
+    public static async Task<string> GetElementSummary(
+        RevitConnectionManager revit,
+        [Description("Element IDs to describe (up to 500)")] long[] elementIds,
+        [Description("Count solids and add up their volume. Default: true. Pass false for a faster answer when only category, name and bounding box are needed")] bool? includeSolids = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject
+        {
+            ["elementIds"] = new JArray(elementIds.Cast<object>().ToArray()),
+        };
+        if (includeSolids != null) p["includeSolids"] = includeSolids;
+        var result = await revit.ExecuteAsync("get_element_summary", p, ct);
+        return result.ToString();
+    }
+
     [McpServerTool(Name = "ai_element_filter"), Description("Query elements by category, element class, family symbol, bounding box, or level. Filters combine with AND (default) or OR, and the whole set can be inverted (NOT). Supports type and instance filtering. For parameter-VALUE filtering use filter_by_parameter_value.")]
     public static async Task<string> AIElementFilter(
         RevitConnectionManager revit,
@@ -67,12 +83,15 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_selected_elements"), Description("Get currently selected elements in Revit.")]
+    [McpServerTool(Name = "get_selected_elements"), Description("Get the elements currently selected in Revit, each with its category, family, type and level. Call it when the user says \"this\", \"these\" or \"what I selected\".")]
     public static async Task<string> GetSelectedElements(
         RevitConnectionManager revit,
+        [Description("Maximum number of elements to return. Default: 500")] int? limit = null,
         CancellationToken ct = default)
     {
-        var result = await revit.ExecuteAsync("get_selected_elements", new JObject(), ct);
+        var p = new JObject();
+        if (limit != null) p["limit"] = limit;
+        var result = await revit.ExecuteAsync("get_selected_elements", p, ct);
         return result.ToString();
     }
 

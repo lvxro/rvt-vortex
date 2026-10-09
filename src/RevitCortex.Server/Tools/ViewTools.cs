@@ -70,6 +70,28 @@ public static class ViewTools
         return result.ToString();
     }
 
+    [McpServerTool(Name = "get_view_image"), Description("See the model: export a view or sheet and get it back as an image. Use it to check visually what you built or changed, instead of a screenshot. By default it captures the whole active view; pass elementIds to zoom in on specific elements (active view only; the user's zoom is put back). Read data with the query tools, not from the picture.")]
+    public static async Task<IEnumerable<ModelContextProtocol.Protocol.ContentBlock>> GetViewImage(
+        RevitConnectionManager revit,
+        [Description("Element ID of the view or sheet to capture. Default: the active view")] long? viewId = null,
+        [Description("View name (alternative to viewId)")] string? viewName = null,
+        [Description("full = the whole view (default); visible = what is on screen now, at the current zoom (active view only)")] string? region = null,
+        [Description("Zoom the active view to these elements and capture them. Overrides region")] long[]? elementIds = null,
+        [Description("Longest side of the image in pixels, 256-4096. Default: 1568")] int? pixelSize = null,
+        [Description("png (default, sharpest for line drawings) or jpeg (smaller for shaded or realistic views)")] string? format = null,
+        CancellationToken ct = default)
+    {
+        var p = new JObject();
+        if (viewId != null) p["viewId"] = viewId;
+        if (viewName != null) p["viewName"] = viewName;
+        if (region != null) p["region"] = region;
+        if (elementIds != null) p["elementIds"] = new JArray(elementIds.Cast<object>().ToArray());
+        if (pixelSize != null) p["pixelSize"] = pixelSize;
+        if (format != null) p["format"] = format;
+        var result = await revit.ExecuteAsync("get_view_image", p, ct);
+        return ToolImageResult.ToContent(result);
+    }
+
     [McpServerTool(Name = "get_current_view_elements"), Description("List elements visible in the currently active view. Filter with modelCategoryList / annotationCategoryList (preferred over the legacy categoryFilter), pick only the fields you need and keep limit low.")]
     public static async Task<string> GetCurrentViewElements(
         RevitConnectionManager revit,

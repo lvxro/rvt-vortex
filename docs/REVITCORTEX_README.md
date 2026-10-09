@@ -466,7 +466,7 @@ Use the `dryRun: true` parameter (where available) to preview changes without ap
 | `create_color_legend` | Create a color fill legend |
 | `create_structural_framing_system` | Create structural beam systems |
 
-### Views (13 tools)
+### Views (14 tools)
 
 | Tool | Description |
 |------|-------------|
@@ -481,6 +481,7 @@ Use the `dryRun: true` parameter (where available) to preview changes without ap
 | `manage_view_templates` | List, create, or apply view templates |
 | `create_views_from_rooms` | Create a plan view for each room |
 | `get_current_view_info` | Get info about the active view |
+| `get_view_image` | Return a view or sheet to the AI as a picture |
 | `rename_views` | Batch rename views with patterns |
 | `lines_per_view_count` | Count detail lines per view (performance audit) |
 
@@ -710,7 +711,7 @@ RevitCortex/
     Program.cs                   Server entry point (MCP hosting)
     Connection/
       RevitBridge.cs             TCP bridge to Plugin (JSON-RPC)
-    Tools/                       Tool definitions (288 tools across 9 files)
+    Tools/                       Tool definitions (291 tools across 9 files)
       MetaTools.cs               say_hello, get_project_info
       ElementTools.cs            Element CRUD, filtering, selection
       ViewTools.cs               Views, sheets, schedules

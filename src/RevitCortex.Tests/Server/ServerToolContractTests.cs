@@ -266,5 +266,105 @@ namespace RevitCortex.Tests.Server
             AssertDescription(method,
                 "Modify schedule fields, sorting, filters, or rename the schedule. Supported actions: add_field, remove_field, set_sorting, clear_sorting, set_filter, clear_filter, rename.");
         }
+
+        [Fact]
+        public void GetSelectedElements_ExposesLimit()
+        {
+            // The plugin always read `limit`, but the wrapper did not declare it,
+            // so no client could ever send it.
+            var method = GetMethod(typeof(ElementTools), nameof(ElementTools.GetSelectedElements));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("limit", name),
+                name => Assert.Equal("ct", name));
+
+            Assert.Equal(typeof(int?), GetParameter(method, "limit").ParameterType);
+            Assert.True(GetParameter(method, "limit").HasDefaultValue);
+            Assert.Null(GetParameter(method, "limit").DefaultValue);
+        }
+
+        [Fact]
+        public void GetViewImage_ReturnsContentBlocks_AndEveryInputIsOptional()
+        {
+            var method = GetMethod(typeof(ViewTools), nameof(ViewTools.GetViewImage));
+
+            // Not Task<string>: the picture must travel as an MCP image block.
+            Assert.Equal(
+                typeof(System.Threading.Tasks.Task<System.Collections.Generic.IEnumerable<ModelContextProtocol.Protocol.ContentBlock>>),
+                method.ReturnType);
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("viewId", name),
+                name => Assert.Equal("viewName", name),
+                name => Assert.Equal("region", name),
+                name => Assert.Equal("elementIds", name),
+                name => Assert.Equal("pixelSize", name),
+                name => Assert.Equal("format", name),
+                name => Assert.Equal("ct", name));
+
+            Assert.Equal(typeof(long?), GetParameter(method, "viewId").ParameterType);
+            Assert.Equal(typeof(long[]), GetParameter(method, "elementIds").ParameterType);
+            Assert.Equal(typeof(int?), GetParameter(method, "pixelSize").ParameterType);
+
+            // With no arguments the tool captures the active view.
+            foreach (var name in new[] { "viewId", "viewName", "region", "elementIds", "pixelSize", "format" })
+            {
+                Assert.True(GetParameter(method, name).HasDefaultValue, name);
+                Assert.Null(GetParameter(method, name).DefaultValue);
+            }
+        }
+
+        [Fact]
+        public void GetElementSummary_TakesIdsAndAnOptionalSolidsSwitch()
+        {
+            var method = GetMethod(typeof(ElementTools), nameof(ElementTools.GetElementSummary));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("elementIds", name),
+                name => Assert.Equal("includeSolids", name),
+                name => Assert.Equal("ct", name));
+
+            Assert.Equal(typeof(long[]), GetParameter(method, "elementIds").ParameterType);
+            Assert.False(GetParameter(method, "elementIds").HasDefaultValue);
+            Assert.Equal(typeof(bool?), GetParameter(method, "includeSolids").ParameterType);
+            Assert.Null(GetParameter(method, "includeSolids").DefaultValue);
+        }
+
+        [Fact]
+        public void SaveDocument_TakesNoInput_AndSaysToWaitForTheUser()
+        {
+            var method = GetMethod(typeof(ProjectTools), nameof(ProjectTools.SaveDocument));
+
+            Assert.Collection(
+                method.GetParameters().Select(p => p.Name),
+                name => Assert.Equal("revit", name),
+                name => Assert.Equal("ct", name));
+
+            // Saving is the user's decision: the description is what keeps the AI from doing it unasked.
+            var description = method.GetCustomAttribute<DescriptionAttribute>()!.Description;
+            Assert.Contains("ONLY when the user asks", description);
+            Assert.Contains("never synchronizes with central", description);
+        }
+
+        [Fact]
+        public void SendCodeToRevit_DescribesTheRealTransactionModes()
+        {
+            var method = GetMethod(typeof(ProjectTools), nameof(ProjectTools.SendCodeToRevit));
+            var description = GetParameter(method, "transactionMode").GetCustomAttribute<DescriptionAttribute>()!.Description;
+
+            foreach (var mode in new[] { "auto", "none", "group", "preview" })
+                Assert.Contains(mode, description);
+
+            // The wrapper used to advertise "manual" and "readonly", which the plugin never had:
+            // both fell through to "auto", so a script sent as "readonly" was committed.
+            Assert.DoesNotContain("manual", description);
+            Assert.DoesNotContain("readonly", description);
+        }
     }
 }
