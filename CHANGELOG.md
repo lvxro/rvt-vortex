@@ -2,6 +2,17 @@
 
 What changed in RVT Vortex, release by release. Versions start at 1.1.0, above the 1.0.x of [RevitCortex](https://github.com/LuDattilo/revitcortex), the project this fork is built on. The reasoning behind the larger changes is in [FORK.md](FORK.md).
 
+## Unreleased
+
+### Added
+
+- **`get_view_image`**: the AI can see the model. It exports a view or a sheet and gets it back as a picture, to check what it built without a screenshot of your screen. With no arguments it captures the whole active view; `viewId` or `viewName` pick another view or sheet; `elementIds` zooms in on specific elements and puts your zoom back; `region: "visible"` captures what you are looking at. Pictures are kept under 700 kB: a larger one comes back as JPEG or smaller, and says so. Read-only, so it also works under Autopilot.
+
+### Changed
+
+- **`get_selected_elements`** returns family, type and level for each element (before: ID, name and category). `selectedCount` is now the number of elements selected, with `returnedCount` and `truncated` when `limit` cuts the list. `limit` can now be set: the plugin always read it, but the server did not declare it.
+- The instructions every AI client receives now say to look at the model with `get_view_image` instead of a screenshot.
+
 ## 1.2.0 — 2026-10-07
 
 The interface release.

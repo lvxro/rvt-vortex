@@ -111,7 +111,7 @@ This allows every RevitCortex tool without asking. For finer control, list indiv
 
 The first time the AI uses each tool, choose **"Always allow"**. Before leaving, run a short test (have it read the model, create something small and delete it) so the tools it will need are already approved.
 
-**Ask the AI to use only RevitCortex tools.** Screen control (screenshots, clicks) and the browser trigger their own permission prompts and are never needed to work in Revit — RevitCortex talks to the model directly. The prompt below includes that rule.
+**Ask the AI to use only RevitCortex tools.** Screen control (screenshots, clicks) and the browser trigger their own permission prompts and are never needed to work in Revit — RevitCortex talks to the model directly, and when the AI wants to look at the model, `get_view_image` gives it a picture of the view without touching the screen. The prompt below includes that rule.
 
 ---
 
@@ -133,7 +133,7 @@ TASK:
 [Describe what you want in as much detail as possible: model, levels, views, families, quantities, names, criteria. Number the parts if there are several.]
 
 HOW TO WORK:
-0. Use ONLY RevitCortex tools. Do not use screen control (screenshots, clicks, keyboard) or the browser: they are not needed and they ask for permissions I won't be around to give.
+0. Use ONLY RevitCortex tools. Do not use screen control (screenshots, clicks, keyboard) or the browser: they are not needed and they ask for permissions I won't be around to give. To look at the model, use get_view_image.
 1. Understand the model first with ONE full get_project_info call. Make a short plan and follow it.
 2. Before editing many elements, run dryRun: true, read only modifiedCount/skippedCount, then run with dryRun: false.
 3. If a step fails or comes back "cancelled", don't stop: try one alternative with other tools; if that fails too, note it as pending and move on.

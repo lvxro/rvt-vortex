@@ -236,6 +236,13 @@ When multiple tools can achieve the same goal, use the most targeted one.
 - `clash_detection` -> quick check with count and ID list
 - `workflow_clash_review` -> when a 3D view with automatic section box is needed for visual review
 
+**Seeing the model** (`get_view_image`, returns an MCP image block, not text):
+- Whole active view -> no arguments. Another view or sheet -> `viewId` or `viewName` (it does not need to be open)
+- Specific elements -> `elementIds`: zooms the active view to them, captures, and puts the user's zoom back
+- What the user is looking at right now -> `region: "visible"` (active view only)
+- Use it to check a result visually, never a screenshot. One picture costs roughly a large tool response (about 1,500-3,000 tokens at the default 1568 px): take it when it settles a doubt, not after every step. Read values with the query tools, not from the picture
+- An image over 700 kB is retried as JPEG and then smaller; the `note` field says so
+
 On architectural models, columns are `OST_Columns`, not `OST_StructuralColumns`. Always specify the correct category for the model type.
 
 ### Session Patterns
@@ -279,6 +286,7 @@ Use a dedicated session per distinct BIM task. Do not mix QA tasks with authorin
 |------|-----------|-----------------|
 | `tag_rooms` / `tag_walls` | Operates only on the active Revit view | Activate the correct view before calling |
 | `color_elements` | Requires a model view (not Sheet) | Verify active view with `get_current_view_info` first |
+| `get_view_image` | `region: "visible"` and `elementIds` need the active view; schedules and view templates cannot be exported | Use `region: "full"` (default) for any other view or sheet; `get_schedule_data` for schedules |
 | `create_dimensions` | Z must exactly match the level elevation | Use elevation from `get_project_info` levels |
 | `set_element_phase` | Available only on models with phases (`doc.Phases > 0`) | Check `phases` in `get_project_info`, NOT `isWorkshared` -- phases are independent of worksharing |
 | `create_grid` | Label ignored if already exists in model | Use non-conflicting labels; the tool adds a warning in the response |
@@ -392,7 +400,7 @@ Specific guidance:
 
 When a tool requires user selection or interaction that cannot be automated:
 1. **Never block** -- if the user needs to select elements, instruct them and wait for the next message
-2. **Use `get_selected_elements`** -- if the user says "selected elements", call this first. If empty, ask them to select
+2. **Use `get_selected_elements`** -- if the user says "selected elements", "this" or "these", call this first. It returns category, family, type and level for each element, so a second call is rarely needed. If empty, ask them to select
 3. **Cancelled operations** -- if a tool returns `Cancelled`, acknowledge it and ask if they want to retry. Exception: if the message mentions unattended mode / Autopilot, the user is away — do not ask; skip the step, continue, and list it as pending in the final summary
 4. **dryRun pattern** -- for destructive operations, run with `dryRun: true` first to preview the results, then with `dryRun: false` to execute. The confirmation dialog will ask the user
 5. **Script escalation** -- if the task would benefit from `send_code_to_revit` (bulk ops, complex logic, 100+ elements), DO NOT switch automatically. Ask the user: propose the script approach AND the native-tool approach, explain the trade-offs, and wait for their choice. The native approach may require more tool calls but is always safer and more traceable.

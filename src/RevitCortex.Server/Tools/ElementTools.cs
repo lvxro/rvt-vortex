@@ -67,12 +67,15 @@ public static class ElementTools
         return result.ToString();
     }
 
-    [McpServerTool(Name = "get_selected_elements"), Description("Get currently selected elements in Revit.")]
+    [McpServerTool(Name = "get_selected_elements"), Description("Get the elements currently selected in Revit, each with its category, family, type and level. Call it when the user says \"this\", \"these\" or \"what I selected\".")]
     public static async Task<string> GetSelectedElements(
         RevitConnectionManager revit,
+        [Description("Maximum number of elements to return. Default: 500")] int? limit = null,
         CancellationToken ct = default)
     {
-        var result = await revit.ExecuteAsync("get_selected_elements", new JObject(), ct);
+        var p = new JObject();
+        if (limit != null) p["limit"] = limit;
+        var result = await revit.ExecuteAsync("get_selected_elements", p, ct);
         return result.ToString();
     }
 

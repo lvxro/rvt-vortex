@@ -6,7 +6,7 @@
   <a href="https://github.com/lvxro/rvt-vortex/releases/latest"><img src="https://img.shields.io/github/v/release/lvxro/rvt-vortex?style=flat-square&color=D97757&label=release" alt="Latest release"></a>
   <a href="https://github.com/lvxro/rvt-vortex/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/lvxro/rvt-vortex/ci.yml?branch=main&style=flat-square&label=build%20%2B%20tests" alt="Build and tests"></a>
   <img src="https://img.shields.io/badge/Revit-2023%E2%80%932027-3F4A55?style=flat-square" alt="Revit 2023–2027">
-  <img src="https://img.shields.io/badge/MCP-288%20tools-3F4A55?style=flat-square" alt="288 MCP tools">
+  <img src="https://img.shields.io/badge/MCP-289%20tools-3F4A55?style=flat-square" alt="289 MCP tools">
   <img src="https://img.shields.io/badge/interface-EN%20%C2%B7%20ES%20%C2%B7%20IT-3F4A55?style=flat-square" alt="Interface in English, Spanish and Italian">
   <img src="https://img.shields.io/badge/telemetry-none-3F4A55?style=flat-square" alt="No telemetry">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-3F4A55?style=flat-square" alt="MIT license"></a>
@@ -27,7 +27,7 @@
 
 ## What it is
 
-**RVT Vortex** is a Revit add-in plus an [MCP](https://modelcontextprotocol.io) server. You write what you want in Claude (or any AI client that speaks MCP), and the AI does it in your open Revit model through **288 dedicated tools**: it can query, create, edit, audit and export.
+**RVT Vortex** is a Revit add-in plus an [MCP](https://modelcontextprotocol.io) server. You write what you want in Claude (or any AI client that speaks MCP), and the AI does it in your open Revit model through **289 dedicated tools**: it can query, create, edit, audit and export, and it can look at a view as a picture to check its own work.
 
 > *Check this model's health and list the five most common warnings.*
 >
@@ -100,6 +100,7 @@ RevitCortex is the foundation: its author wrote the server, the plugin architect
 | **Leaving the AI alone** | Every edit waits for a click. "Auto" can only be switched on from the first dialog, and covers neither scripts nor Revit's pop-ups | **Autopilot** toggle in the ribbon: no dialog can stall the session |
 | **Revit's own pop-ups** | Wait for a click, freezing every queued call | Closed automatically, choosing Cancel / Close / No when possible |
 | **Saving** | Manual | Auto-save when Revit is idle, at most once a minute, with Revit's backups |
+| **Seeing the model** | The AI works from data alone, or from a screenshot of your screen | `get_view_image` sends the AI a picture of any view or sheet, zoomed on the elements it wants to check |
 | **What happened while you were away** | Technical audit log | Live status pill, activity panel, a summary when it stops, and a readable `autopilot.log` |
 | **Revit 2027** | The installer puts the add-in where Revit 2027 ignores it, and the add-in ID clashes with Autodesk's FormaOpenIn | Installs to the per-user folder Revit 2027 loads, with its own add-in ID |
 | **Windows** | Light windows, each with its own hard-coded colors | One dark theme shared by every window |
@@ -160,7 +161,7 @@ While Autopilot is on, a pill sits at the bottom of the screen. Its mark spins w
     </td>
     <td width="50%" valign="top">
       <img src="docs/assets/settings-tools.png" alt="Settings, Tools tab: script switch, search, and tools grouped by category"><br>
-      <sub><b>Tools.</b> Search the 288 tools, filter by enabled or disabled, and switch a whole category off. Scripts are off until you turn them on.</sub>
+      <sub><b>Tools.</b> Search the 289 tools, filter by enabled or disabled, and switch a whole category off. Scripts are off until you turn them on.</sub>
     </td>
   </tr>
 </table>
@@ -300,7 +301,7 @@ In Revit, click **Vortex Switch** (it turns orange), then ask your AI client:
 | Structural steel | 48 | connections, cuts, fabrication data |
 | Elements & Power BI | 36 | query, filter, select, copy, measure; publish to Power BI |
 | Project & workflows | 35 | health check, warnings, purge, clash detection, tags, levels, rooms, C# scripts (opt-in) |
-| Views & sheets | 24 | views, templates, filters, sheets, viewports, schedules |
+| Views & sheets | 25 | views, templates, filters, sheets, viewports, schedules; a picture of any view |
 | Creation & exchange | 22 | point, line and surface-based elements, floors, grids, dimensions; Excel and CSV import and export |
 | IFC | 20 | export, link, rebuild IFC geometry as native elements |
 | Links | 13 | load, move, pin and inspect linked models |
@@ -363,6 +364,14 @@ The short version is the [comparison table](#rvt-vortex-vs-revitcortex). This is
 - Auto-save when Revit is idle, at most once a minute. It skips read-only and never-saved documents and never syncs with central.
 - When a step is declined, the AI is told the user is away: skip it, keep going, and list it as pending. Before, it was told to ask you and wait.
 - Everything decided without you is written to `autopilot.log`, in your language.
+</details>
+
+<details>
+<summary><b>Tools</b> — the AI can see the model</summary>
+
+- **`get_view_image`** (new, tool 289). Exports a view or a sheet and returns it to the AI as a picture, so it can check what it built without a screenshot of your screen. With no arguments it captures the whole active view; `viewId` or `viewName` capture any other view or sheet, open or not; `elementIds` zooms the active view to those elements, captures them and puts your zoom back; `region: "visible"` captures what you are looking at. Read-only: it works in read-only mode and under Autopilot.
+- Pictures are kept under 700 kB so every client accepts them: a larger one is retried as JPEG, then smaller, and the result says so.
+- **`get_selected_elements`** now returns family, type and level for each element (before: only ID, name and category), reports how many are selected when the list is cut, and its `limit` can finally be set (the server never declared it).
 </details>
 
 <details>

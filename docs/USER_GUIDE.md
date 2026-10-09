@@ -2,7 +2,7 @@
 
 > Guida pratica per usare RevitCortex in modo efficiente con Claude.
 
-> 📖 **Cerchi l'elenco completo dei comandi?** La sezione [Riferimento comandi per disciplina](#riferimento-comandi-per-disciplina) elenca tutti i **288 comandi** con un esempio di prompt in linguaggio naturale per ciascuno.
+> 📖 **Cerchi l'elenco completo dei comandi?** La sezione [Riferimento comandi per disciplina](#riferimento-comandi-per-disciplina) elenca tutti i **289 comandi** con un esempio di prompt in linguaggio naturale per ciascuno.
 
 ---
 
@@ -12,7 +12,7 @@
 2. [Scelta del modello Claude](#scelta-del-modello-claude)
 3. [Efficienza dei token](#efficienza-dei-token)
 4. [Discipline di progetto e categorie Revit](#discipline-di-progetto-e-categorie-revit)
-5. [Riferimento comandi per disciplina](#riferimento-comandi-per-disciplina) — tutti i 288 comandi con esempi di prompt
+5. [Riferimento comandi per disciplina](#riferimento-comandi-per-disciplina) — tutti i 289 comandi con esempi di prompt
    - [Elementi](#elementi--lettura-ricerca-creazione-modifica) · [Progetto](#progetto--modello-materiali-abachi-impostazioni) · [IFC](#ifc--import-export-link-ricostruzione) · [Viste e Tavole](#viste-e-tavole) · [File collegati](#file-collegati-e-coordinamento) · [Power BI](#power-bi-live) · [Parametri/Annotazioni/Workflow](#parametri-annotazioni-e-workflow) · [Armatura](#armatura-rebar--reinforcement) · [Acciaio Strutturale](#acciaio-strutturale-structural-steel)
 6. [Workflow consigliati](#workflow-consigliati)
 7. [Impostazioni di progetto avanzate](#impostazioni-di-progetto-avanzate)
@@ -186,7 +186,7 @@ Default: `compact: false` (payload pieno). Chiedere a Claude esplicitamente "in 
 
 ## Riferimento comandi per disciplina
 
-> Tutti i 288 comandi di RevitCortex, raggruppati per disciplina, con un esempio di prompt in linguaggio naturale per ciascuno. Non serve conoscere il nome tecnico del comando: descrivi a Claude l'obiettivo.
+> Tutti i 289 comandi di RevitCortex, raggruppati per disciplina, con un esempio di prompt in linguaggio naturale per ciascuno. Non serve conoscere il nome tecnico del comando: descrivi a Claude l'obiettivo.
 
 ### Elementi — lettura, ricerca, creazione, modifica
 
@@ -201,7 +201,7 @@ Questa sezione raccoglie i comandi per leggere, cercare, creare e modificare gli
 
 | Comando | Cosa fa | Esempio di prompt naturale |
 |---------|---------|----------------------------|
-| `get_selected_elements` | Restituisce gli elementi attualmente selezionati nella vista. | "Cosa ho selezionato adesso?" |
+| `get_selected_elements` | Restituisce gli elementi attualmente selezionati, ciascuno con categoria, famiglia, tipo e livello. | "Cosa ho selezionato adesso?" |
 | `get_element_parameters` | Legge tutti i parametri (istanza ed eventualmente tipo) di uno o più elementi. | "Mostrami i parametri di questo muro" |
 | `get_element_solid_geometry` | Estrae la geometria solida reale di un elemento (non il bounding box). | "Dammi la geometria solida della trave 408122" |
 | `get_elements_by_unique_id` | Recupera gli elementi a partire dai loro UniqueId. | "Trova gli elementi con questi UniqueId" |
@@ -310,6 +310,7 @@ Comandi di sola lettura per capire com'è fatto il modello e dove sono i problem
 | `get_warnings` | Elenca gli avvisi (warning) di Revit, limitabili in numero. | "Mostrami i primi 10 avvisi del modello" |
 | `get_project_info` | Restituisce le informazioni di progetto e, su richiesta, livelli, fasi, workset e link. | "Dammi le info del progetto con livelli e fasi" |
 | `get_current_view_info` | Restituisce nome, tipo e proprietà della vista attualmente attiva in Revit. | "Su quale vista sono adesso?" |
+| `get_view_image` | Esporta una vista o una tavola e la restituisce a Claude come immagine, per controllare a colpo d'occhio il risultato; con `elementIds` inquadra gli elementi indicati. | "Fammi vedere com'è venuta la pianta del Livello 1" |
 | `lines_per_view_count` | Conta le linee di dettaglio per vista (passaggio singolo, sicuro anche su modelli grandi) più il totale di linee di modello a livello progetto. | "Trova le viste con più di 50 linee" |
 | `get_phases` | Elenca le fasi presenti nel progetto. | "Quali fasi ci sono nel modello?" |
 | `get_worksets` | Elenca i workset del modello condiviso. | "Mostrami i workset del progetto" |
